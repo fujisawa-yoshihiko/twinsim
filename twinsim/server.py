@@ -69,7 +69,8 @@ class App:
             M = np.asarray(c["world_to_camera_rowmajor"])
             top = {**c, "camera_to_world_rowmajor": np.linalg.inv(M).tolist()}
         rows = ["".join("." if v else "#" for v in r) for r in sp.grid[::-1]]
-        return {"name": name, "title": sp.spec.get("title"), "usd": sp.spec.get("usd"), "license": sp.spec.get("license"),
+        return {"name": name, "title": sp.spec.get("title"), "usd": sp.spec.get("usd"), "license": sp.spec.get("license"), "z": sp.z,
+                "bounds": sp.bounds(),
                 "pois": sp.pois, "zones": {k: [list(p) for p in v] for k, v in sp.zones.items()},
                 "cameras": sp.spec.get("cameras", {}), "top_view": top, "has_top": bool(lv.get("top_image")),
                 "grid": {"x0": sp.x0, "y0": sp.y0, "res": sp.res, "rows": rows}}
@@ -135,9 +136,16 @@ class App:
         d = self.run_dir(rid)
         gt = json.loads((d / "ground_truth.json").read_text())
         frames = body.get("frames") or [0, gt["total_frames"] - 1]
+        if body.get("window") == "busy":  # いちばん混む seconds 秒（試し撮り）
+            n_f = int(float(body.get("seconds", 5)) * gt["fps"])
+            spans = [(v["start_frame"], v["start_frame"] + len(gt["tracks"][k]) - 1) for k, v in gt["people"].items()]
+            best = max(range(0, max(gt["total_frames"] - n_f, 1), gt["fps"]),
+                       key=lambda f: sum(a <= f + n_f // 2 <= b for a, b in spans))
+            frames = [best, min(best + n_f - 1, gt["total_frames"] - 1)]
         cams = body.get("cameras") or list(gt["cameras"])
         n = (int(frames[1]) - int(frames[0]) + 1) * len(cams)
-        est = {"frames": n, "estimate_s": round(n / RENDER_FPS_EST + 120), "gpu": "1 枚（isim up のときに選んだもの）",
+        est = {"frames": n, "range": [int(frames[0]), int(frames[1])], "estimate_s": round(n / RENDER_FPS_EST + 120),
+               "gpu": "1 枚（isim up のときに選んだもの）",
                "isaac_ready": isaac_bridge.ready()}
         if not body.get("confirm"):
             return {"estimate": est}

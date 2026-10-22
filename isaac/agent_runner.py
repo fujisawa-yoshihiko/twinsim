@@ -45,7 +45,11 @@ async def loop():
     for d in (INBOX, OUTBOX, DONE):
         d.mkdir(parents=True, exist_ok=True)
     (OUTBOX / "_ready.txt").write_text("ready\n")
+    last = 0.0
     while True:
+        if time.monotonic() - last > 5:  # 生きている印（twinsim の isaac_bridge.ready() が時刻を見る）
+            (OUTBOX / "_alive.txt").write_text(f"{time.time():.0f}\n")
+            last = time.monotonic()
         for p in sorted(INBOX.glob("*.py")):
             await run_one(p)
         for _ in range(15):  # 15 フレームごとに見る

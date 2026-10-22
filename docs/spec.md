@@ -1,4 +1,4 @@
-# twinsim の仕様（v0.1、2026-10-22）
+# twinsim の仕様（v0.2、2026-10-22）
 
 建物・工場の人流のデジタルツインのシミュレータ。研究計画（竹芝 VLM × QUBO、10/4 版）と、デジタルツインの構想の図（Observe → Understand → Predict & simulate → Optimize）を確かめるための環境。
 人の動きは CPU で計算し（数秒〜数十秒）、映像が要るときだけ Isaac Sim で描く（GPU、数分〜数時間）。
@@ -37,7 +37,17 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 空間を新しく作るとき: `python -m twinsim export-space <名前> --usd URL --region ...`（Isaac Sim で、歩ける所の格子・真上の図・
 エレベーターや扉らしい prim の一覧を作り、space.yaml のひな形を置く）→ 真上の図と一覧を見て `pois`・`zones`・`cameras` を書く。
 
-今ある空間: `office`（Isaac Sim 付属のオフィスの 1 階のロビー。入口の廊下 → ゲート → ロビー → 受付・EV 2 基・待ち合わせ・南の出口）。
+今ある空間（どれも Isaac Sim 6.1 付属、CC BY 4.0）:
+
+| 空間 | 中身 | 意味の地図 | 描画 |
+|---|---|---|---|
+| `office` | オフィスの 1 階のロビー（入口の廊下 → ゲート 3 レーン → ロビー → 受付・EV 2 基・待ち合わせ・南の出口） | 済 | 済 |
+| `hospital` | 病院の 1 階（ロビー → 廊下 → 西の広間。EV は階段室の前の見立て）。hospital-sim の sim-gate と同じ点・カメラ | 済 | 済 |
+| `warehouse` | 倉庫（北に棚 8 列の通路、南に作業の床。荷受け・梱包・待つ場所は見立て） | 済 | 済 |
+| `simple_room` | 10 m 四方の小部屋（床 z = -0.77） | 済（動作確認用） | 未対応（中から撮ると真っ暗、原因未調査） |
+| `warehouse_small` | 小さい倉庫（棚・扉・ゲートの部品） | 材料だけ（未） | 未 |
+
+空間の確かめ: `python -m twinsim show-space <名前>` で、真上の図に歩ける所・目盛り・候補・場所・ゾーンを重ねた図（spaces/<名前>/annotate.png）を作る。
 
 ## 2. シナリオ（templates/<名前>.yaml）
 
@@ -120,7 +130,20 @@ $U python -m twinsim render ~/dt-data/twinsim/runs/office_gate_ev --frames 3000 
 
 Python から: `from twinsim import api; api.run("office_gate_ev", out_dir, overrides={...}, elevator_policy=f)`。
 
-## 7. 描画（Isaac Sim、GPU）
+## 7. GUI と REST API
+
+`python -m twinsim serve`（127.0.0.1:8770 だけで待ち受け。手元の PC で `ssh -N -L 8770:localhost:8770 ampb` を実行し、
+`python -m twinsim serve --url` で表示される URL を開く）。他の利用者もいるマシンなので、トークン（~/.config/twinsim/token、本人だけ読める）を確かめる。
+
+- 画面: 左に空間の真上の図（ゾーン・場所・ゲートの線・カメラの位置と見る点と映る範囲。カメラはドラッグで動かせる）、右に設定
+  （長さ・乱数の種・流れごとの到着の率とまとまりと行き先の重み・EV・ゲート・カメラ・置く物、シナリオの全部を書ける JSON の欄）と結果
+  （要約・確認の図・試し撮りと描画（見積もりを見て確かめてから始める）・動画・MOPF の設定・ファイル）。
+- API（プログラムからは `Authorization: Bearer <トークン>`）: `GET /api/spaces`・`/api/spaces/<名前>`・`/api/spaces/<名前>/top`、
+  `GET /api/templates`・`/api/templates/<名前>`、`POST /api/runs {scenario, overrides, name}` → `{id}`、`GET /api/runs`・`/api/runs/<id>`・
+  `/api/runs/<id>/file?path=...`、`POST /api/runs/<id>/mopf {camera, apply}`、`POST /api/runs/<id>/render {frames | window: "busy", seconds, cameras, confirm}`、`GET /api/isaac`。
+- 画面の確かめ: `tools/gui_shot.py`（Playwright の Firefox で設定・結果のタブを撮り、カメラのドラッグとブラウザのエラーを確かめる）。
+
+## 8. 描画（Isaac Sim、GPU）
 
 ```bash
 isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.viewport --kit-arg "--exec /workspace/twinsim/isaac/agent_runner.py"
@@ -128,10 +151,12 @@ isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.vie
 
 （2026-10-22 時点、ホストのドライバーが 615.71.10 で `--vnc` の画面は作れない。上の WebRTC 方式で動く。）
 `render` は、計算の結果の人を人物モデル（10 種類、服の色は人ごとに変える）で置き、カメラごとに描いて mp4 にする。
-描画の速さの目安（hospital-sim の記録）: 1280×720、人が 30〜90 人で、1 秒に 2.5〜3.5 コマ（GPU 1 枚）。5 分 × 2 台で 1.5〜2 時間。
+描画の速さ（2026-10-22 の試し撮り、1280×720、GPU 1 枚）: オフィス 30 人で 1 秒に約 5.7 コマ、倉庫 15 人で約 1.9 コマ、病院 24 人で約 1.1 コマ
+（病院は照明が多く遅い）。5 分（9,000 コマ）× 2 台の目安は、オフィス約 1 時間、倉庫約 2.6 時間、病院約 4.5 時間。
+置く物: ゲートの機械（レーンを仕切る箱、自動）、サイネージ（`render.props`）、照明（空間の `lights`、部屋の中に照明がない USD 用）。
 長い描画は、始める前に所要時間と GPU を示して確認を取る（GPU は他の利用者と共有）。
 
-## 8. 妥当性（今の段階と、合わせ方）
+## 9. 妥当性（今の段階と、合わせ方）
 
 | 項目 | 今の値 | 根拠 | 実データでの合わせ方 |
 |---|---|---|---|
@@ -145,11 +170,12 @@ isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.vie
 `check` で見る目安（office_gate_ev、104 人・5 分）: 壁の中のコマ 0.006%、グループ以外の 2 人の最も近い距離の 1 パーセンタイル 0.12 m、
 0.4 m 未満に近づくコマ 10%（ほとんどが 0.25〜0.4 m のすれ違い）、歩く速さの中央値 1.24 m/秒。
 
-## 9. 既知の限界
+## 10. 既知の限界
 
 - 歩き方は「経路から横へずれてよける」簡単なモデル（hospital-sim と同じ）。すれ違いで 0.25〜0.4 m まで近づく。速さと密度の関係（混むと遅くなる）は入っていない。
   歩行者シミュレータの標準の検証（RiMEA のテストケース、ISO 20414）はまだしていない。
 - 見えている割合（MOT の 9 列目）は近似。正確な値は描画の深度から取る（未実装）。
-- 1 つの階だけ。EV は扉で人が消える・現れるだけで、かごや他の階はない。扉の開閉のアニメーションは使っていない。
+- 1 つの階だけ。EV は扉で人が消える・現れるだけで、かごや他の階はない。扉の開閉のアニメーションは使っていない（オフィスの EV 1 基には開閉のアニメーションがある）。
+- 病院は部屋の扉を閉じたまま歩ける所を作ったので、部屋の中には入れない。小部屋は描画が真っ暗（原因未調査）。
 - 人物モデルは 10 種類（服の色で人を区別できるようにしている）。荷物・車いす・子ども・ロボット・台車はない。
 - カメラの時計のずれ・コマ落ち（`clock_offset_s`・`drop_rate`）は記録するだけで、まだ動画と正解に反映していない。

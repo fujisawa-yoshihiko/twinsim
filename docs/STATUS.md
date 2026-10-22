@@ -1,24 +1,22 @@
 # 作業の状態（再開用）
 
-## 2026-10-22 10:40 一時停止（他の利用者の計算が始まったため）
+## 2026-10-22 夕（v0.2）
 
-動いているもの: なし（Isaac Sim・MOPF のコンテナなし、裏で動くスクリプトなし）。
+動いているもの: なし（Isaac Sim は止めた。GUI のサーバーも止めた）。
 
-### できていること（commit 済み、v0.1）
-- 人の動きの計算（CPU）・空間 office・テンプレート 4 つ・正解／集計／グラフ／MOT／確認の図・`check`・試験（`pytest -q tests`、3 件）
-- Isaac Sim の部品（`isaac/render.py`・`isaac/export_space.py`・`isaac/agent_runner.py`）と `twinsim/isaac_bridge.py`。**まだ一度も Isaac Sim で動かしていない**
+### できたこと
+- Isaac Sim での描画を確かめた（オフィス・病院・倉庫の 5 秒の試し撮り。動画は ~/dt-data/twinsim/runs/<名前>/video/）。ゲートの機械を置く・前回の画像が混ざらない・床の高さと照明を空間ごとに
+- 空間を 5 つに（office・hospital・warehouse は使える、simple_room は計算だけ、warehouse_small は材料だけ）。`export-space`・`show-space`・`probe_bounds`・`probe_view`
+- テンプレート 7 つ（hospital_gate_ev・warehouse_picking・simple_room_smoke を足した）
+- GUI と REST API（`python -m twinsim serve`）。Playwright で画面を確かめた（`tools/gui_shot.py`）
 
-### 途中（この commit で入れたもの）
-- `twinsim/mopf.py`: MOPF の人流モニターの設定を自動で作る（office_gate_ev の CamEV・CamGate で作れた。MOPF に送る `--apply` は未確認）
-- `twinsim/server.py`: GUI と REST API のサーバー（未試験）。**画面（`static/index.html`・`app.js`・`style.css`）はまだない**
+### 残り
+1. 本番の描画（5 分・2 台。オフィス約 1 時間、倉庫約 2.6 時間、病院約 4.5 時間の目安）は、所要時間と GPU を示して確認を取ってから
+2. 小部屋の描画が真っ暗な原因（部屋の中のカメラ）
+3. 小さい倉庫の意味の地図、病院の部屋の扉を開けた歩ける所（export のときに扉を隠す）
+4. EV の扉の開閉、カメラの時計のずれ・コマ落ちを動画と正解に反映、見えている割合を描画の深度から
+5. 歩き方のモデルの改善（速さと密度の関係・RiMEA のテストケース）、MOPF への設定の送信（--apply）の確認、画面からの USD のアップロード
 
 ### 再開の手順
-1. GPU の空きを確かめる: `nvidia-smi`（他の利用者の計算がないこと）
-2. Isaac Sim を twinsim の受け付けで起動（VNC は今のドライバーで作れないので WebRTC 方式）:
-   `isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.viewport --kit-arg "--exec /workspace/twinsim/isaac/agent_runner.py"`
-   （その前に `cd ~/twinsim && uv run --no-project --with numpy --with scipy --with pyyaml --with pillow python -c "from twinsim import isaac_bridge as b; b.sync()"` で部品を作業場所に写す）
-3. 試し撮り（5 秒・2 台、数分）: `python -m twinsim render ~/dt-data/twinsim/runs/office_gate_ev --frames 3000 3149`
-   → `~/dt-data/twinsim/runs/office_gate_ev/video/*.mp4` を見て、人物・服の色・カメラの向きを確かめる
-4. 空間を増やす: `export-space` で Hospital・Simple_Room・倉庫（Isaac Sim 付属）の材料を作り、意味の地図を描く
-5. GUI の画面を書いて、`python -m twinsim serve` で確かめる
-6. 本番の描画（5 分・2 台で 1.5〜2 時間）は、所要時間と GPU を示して確認を取ってから
+- GPU の空きを確かめる（`nvidia-smi`）→ `isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.viewport --kit-arg "--exec /workspace/twinsim/isaac/agent_runner.py"`
+- GUI: `python -m twinsim serve`（URL は `--url`）

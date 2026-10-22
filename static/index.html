@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>twinsim</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>twinsim</h1>
+  <label>テンプレート <select id="template"></select></label>
+  <span id="space-name" class="muted"></span>
+  <span id="isaac" class="pill">Isaac Sim: 確認中</span>
+</header>
+<main>
+  <section id="map-pane">
+    <div class="map-tools">
+      <label><input type="checkbox" id="show-zones" checked> ゾーン</label>
+      <label><input type="checkbox" id="show-pois" checked> 場所</label>
+      <label><input type="checkbox" id="show-frustum" checked> カメラの映る範囲</label>
+      <span class="muted">カメラの● = 位置、■ = 見る点（ドラッグで動かせる）</span>
+    </div>
+    <canvas id="map"></canvas>
+    <div id="cursor" class="muted">x —, y —</div>
+  </section>
+  <section id="side">
+    <nav class="tabs">
+      <button data-tab="settings" class="active">設定</button>
+      <button data-tab="results">結果</button>
+    </nav>
+    <div id="tab-settings" class="tab">
+      <fieldset>
+        <legend>基本</legend>
+        <label>長さ（秒）<input type="number" id="duration" min="10" step="10"></label>
+        <label>乱数の種 <input type="number" id="seed" step="1"></label>
+      </fieldset>
+      <fieldset>
+        <legend>人の流れ</legend>
+        <div id="streams"></div>
+      </fieldset>
+      <fieldset id="ev-box">
+        <legend>エレベーター</legend>
+        <div class="row">
+          <label>着く間隔の最小（秒）<input type="number" id="ev-min" step="1"></label>
+          <label>最大 <input type="number" id="ev-max" step="1"></label>
+        </div>
+        <div class="row">
+          <label>定員 <input type="number" id="ev-cap" step="1" min="1"></label>
+          <label>降りる人（平均）<input type="number" id="ev-alight" step="0.1" min="0"></label>
+        </div>
+      </fieldset>
+      <fieldset id="gate-box">
+        <legend>ゲート</legend>
+        <div id="gates"></div>
+      </fieldset>
+      <fieldset>
+        <legend>カメラ</legend>
+        <div id="cameras"></div>
+      </fieldset>
+      <fieldset id="props-box">
+        <legend>置く物</legend>
+        <div id="props"></div>
+      </fieldset>
+      <details>
+        <summary>詳しい設定（シナリオの全部、JSON）</summary>
+        <textarea id="spec-json" spellcheck="false"></textarea>
+        <button id="apply-json" class="secondary">この JSON を反映</button>
+      </details>
+      <div class="actions">
+        <button id="run" class="primary">計算する（CPU）</button>
+        <button id="download" class="secondary">設定を書き出す</button>
+      </div>
+      <p id="run-msg" class="muted"></p>
+    </div>
+    <div id="tab-results" class="tab hidden">
+      <div class="row"><button id="refresh" class="secondary">一覧を更新</button></div>
+      <ul id="runs"></ul>
+      <div id="run-detail"></div>
+    </div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

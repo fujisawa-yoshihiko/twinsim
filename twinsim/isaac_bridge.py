@@ -26,8 +26,12 @@ def sync():
         shutil.copy(p, WORK / "isaac/vendor" / p.name)
 
 
-def ready():
-    return (WORK / "outbox/_ready.txt").exists()
+def ready(max_age_s=30):
+    """twinsim の受け付けが動いているか（受け付けが 5 秒ごとに書く _alive.txt の時刻で見る。描画の最中は書かれないので、走っているジョブがあれば真）。"""
+    alive = WORK / "outbox/_alive.txt"
+    if alive.exists() and time.time() - alive.stat().st_mtime < max_age_s:
+        return True
+    return any((WORK / "inbox").glob("*.py")) and alive.exists() and time.time() - alive.stat().st_mtime < 6 * 3600
 
 
 def submit(script, job, name, wait_s=4 * 3600, poll=5):
