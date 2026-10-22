@@ -3,7 +3,11 @@
 #   tools/night_b.sh [結果の場所（既定 ~/dt-data/twinsim/runs/office_gate_ev）]
 #   目安（office_gate_ev、5 分 × 2 台）: 描画 約 1 時間、MOPF 数分。終わったら MOPF を止める（Isaac Sim は止めない）。
 #   記録: <結果の場所>/night_b.log。結果: video/・mopf_tracks/・mopf_eval/・mopf_graph/
+#   tools/night_b.sh --resume [結果の場所]  描画が終わったあとに止まったとき、mp4 にするところから
+#   セッションが終わっても止まらないように: setsid nohup tools/night_b.sh > /dev/null 2>&1 &
 set -uo pipefail
+RESUME=0
+[ "${1:-}" = "--resume" ] && { RESUME=1; shift; }  # 描画（Isaac Sim）が終わったあとに止まったとき: 描画を飛ばし、mp4 にするところから
 RUN=$(readlink -f "${1:-$HOME/dt-data/twinsim/runs/office_gate_ev}")
 MOPF_GPU=${MOPF_GPU:-3}
 TS=$HOME/twinsim
@@ -14,12 +18,18 @@ echo "=== night_b $(date '+%F %T') $RUN"
 nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv,noheader
 
 cd "$TS" || exit 1
-if ! uv run --no-project --with numpy --with scipy --with pyyaml --with pillow python -c \
-    "import sys; from twinsim import isaac_bridge as b; sys.exit(0 if b.ready() else 1)"; then
-  echo "Isaac Sim が受け付けていない（./isaac_up.sh <GPU>）。止める"; exit 1
+if [ $RESUME -eq 1 ]; then
+  echo "--- 描画のあとの手順だけ（mp4・描画の記録） $(date '+%T')"
+  uv run --no-project --with numpy --with scipy --with pyyaml --with pillow python -c \
+    "import json; from twinsim import isaac_bridge as b; r = b.finish_render('$RUN'); print(json.dumps(r['videos']))" || { echo "mp4 にできない"; exit 1; }
+else
+  if ! uv run --no-project --with numpy --with scipy --with pyyaml --with pillow python -c \
+      "import sys; from twinsim import isaac_bridge as b; sys.exit(0 if b.ready() else 1)"; then
+    echo "Isaac Sim が受け付けていない（./isaac_up.sh <GPU>）。止める"; exit 1
+  fi
+  echo "--- 描画 $(date '+%T')"
+  ./run.sh render "$RUN" || { echo "描画に失敗"; exit 1; }
 fi
-echo "--- 描画 $(date '+%T')"
-./run.sh render "$RUN" || { echo "描画に失敗"; exit 1; }
 
 echo "--- MOPF をカメラなしで起動 $(date '+%T')（GPU $MOPF_GPU）"
 cd "$MOPF" && ./stop_ampb.sh >/dev/null 2>&1

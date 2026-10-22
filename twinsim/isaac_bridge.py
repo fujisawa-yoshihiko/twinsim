@@ -105,15 +105,33 @@ def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=True):
            "cameras": cameras or [], "props": props, "tint": tint, "preset": preset, "z": sp.z, "lights": sp.spec.get("lights", [])}
     t0 = time.monotonic()
     log = submit("render.py", job, f"render_{name}")
+    r = finish_render(run, log, (f0, f1), cameras)
+    r["seconds"] = round(time.monotonic() - t0, 1)
+    return r
+
+
+def finish_render(run_dir, log=None, frames=None, cameras=None):
+    """描画のあとの手順: コマを mp4 にし、描画の記録を写す。Isaac Sim の描画が終わったあとに止まったときは、これだけやり直せる
+    （描画に使った正解が今の正解と同じことを確かめる）。"""
+    run = Path(run_dir).expanduser()
+    gt = json.loads((run / "ground_truth.json").read_text())
+    dst = WORK / "runs" / run.name
+    if (dst / "ground_truth.json").read_bytes() != (run / "ground_truth.json").read_bytes():
+        raise RuntimeError(f"{dst} の正解が {run} の正解と違う（描き直しが要る）")
+    fix_perms()
+    if log is None:
+        out = WORK / "outbox" / f"render_{run.name}.txt"
+        log = out.read_text() if out.exists() else ""
     (run / "render_stdout.txt").write_text(log)
+    rl = json.loads((dst / "render_log.json").read_text()) if (dst / "render_log.json").exists() else {}
+    f0, f1 = frames or rl.get("frames") or (0, gt["total_frames"] - 1)
     vids = {}
     (run / "video").mkdir(exist_ok=True)
     for cam in (cameras or list(gt["cameras"])):
-        n = encode(dst / "frames" / cam, run / "video" / f"{cam}.mp4", gt["fps"], (f0, f1))
-        vids[cam] = n
+        vids[cam] = encode(dst / "frames" / cam, run / "video" / f"{cam}.mp4", gt["fps"], (f0, f1))
     if (dst / "render_log.json").exists():
         shutil.copy(dst / "render_log.json", run / "render_log.json")
-    return {"log": log, "videos": vids, "seconds": round(time.monotonic() - t0, 1)}
+    return {"log": log, "videos": vids}
 
 
 def export_space(name, usd, region, res=0.25):
