@@ -84,6 +84,37 @@ def process(run_dir, cameras=None, model="yolo11m", base=CV, poll=5, wait_s=3600
     return done
 
 
+def ensure_ids(run, gt):
+    """mot/ids.json（枠の番号 → 人）がない古い結果では、枠の位置から作り直す（番号ごとに最初の枠と、そのコマの人の枠の IoU が最大の人）。"""
+    p = run / "mot/ids.json"
+    if p.exists():
+        return json.loads(p.read_text())
+    ids = {}
+    for txt in sorted((run / "mot").glob("*.txt")):
+        cam = Camera(gt["cameras"][txt.stem])
+        first = {}
+        for line in txt.read_text().splitlines():
+            f, i, x, y, w, h = line.split(",")[:6]
+            first.setdefault(int(i), (int(f) - 1, float(x), float(y), float(x) + float(w), float(y) + float(h)))
+        for i, (f, *box) in first.items():
+            if i in ids.values():
+                continue
+            best, name = 0.0, None
+            for n, pp in gt["people"].items():
+                kk = f - pp["start_frame"]
+                tr = gt["tracks"][n]
+                if 0 <= kk < len(tr):
+                    b = cam.person_box(tr[kk][0], tr[kk][1], pp.get("height_m", 1.7))
+                    if b:
+                        v = float(_iou_matrix([box], [b[:4]])[0, 0])
+                        if v > best:
+                            best, name = v, n
+            if name and best > 0.9:
+                ids[name] = i
+    p.write_text(json.dumps(ids))
+    return ids
+
+
 # ---- 読む ----
 def load_tracks(path):
     """MOPF の tracking.jsonl → {動画のコマ: [(ID, x0, y0, x1, y1), ...]}"""
@@ -121,7 +152,7 @@ def evaluate(run_dir, tracks_dir=None):
     tdir = Path(tracks_dir) if tracks_dir else run / "mopf_tracks"
     info = json.loads((tdir / "info.json").read_text()) if (tdir / "info.json").exists() else {"frame_offset": f0}
     f0 = int(info.get("frame_offset", f0))
-    ids = json.loads((run / "mot/ids.json").read_text())
+    ids = ensure_ids(run, gt)
     name_of = {v: k for k, v in ids.items()}
     res = {"run": str(run), "frame_offset": f0, "iou_min": IOU_MIN, "vis_min": VIS_MIN, "cameras": {}}
     for tp in sorted(tdir.glob("*.jsonl")):
@@ -155,6 +186,8 @@ def evaluate(run_dir, tracks_dir=None):
                         continue
                     b = t[j]
                     q = cam.floor_point((b[1] + b[3]) / 2, b[4])
+                    if gv[i][0] not in name_of:
+                        continue
                     tr = gt["tracks"][name_of[gv[i][0]]]
                     p = gt["people"][name_of[gv[i][0]]]
                     kk = f - p["start_frame"]
@@ -290,7 +323,7 @@ def expect(run_dir, camera, frames=None, vis_min=VIS_MIN):
     cam = Camera(gt["cameras"][camera])
     W, H = cam.w, cam.h
     G = load_mot_gt(run / "mot" / f"{camera}.txt")
-    ids = json.loads((run / "mot/ids.json").read_text())
+    ids = ensure_ids(run, gt)
     name_of = {v: k for k, v in ids.items()}
     side = defaultdict(dict)
     counts = [{"name": ln["name"], "to_pos": 0, "to_neg": 0, "pos_label": ln.get("pos_label"), "neg_label": ln.get("neg_label")} for ln in cfg["lines"]]
@@ -300,6 +333,8 @@ def expect(run_dir, camera, frames=None, vis_min=VIS_MIN):
         vis = [x for x in G.get(f, []) if x[5] >= vis_min]
         peak = max(peak, len(vis))
         for pid, *_ in vis:
+            if pid not in name_of:
+                continue
             n = name_of[pid]
             p = gt["people"][n]
             kk = f - p["start_frame"]
