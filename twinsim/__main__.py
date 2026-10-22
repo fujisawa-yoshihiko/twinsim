@@ -6,6 +6,8 @@
   python -m twinsim check <結果の場所>               結果の確かめ（壁の中・人の近さ・歩く速さ・止まる時間）
   python -m twinsim render <結果の場所> [--frames 始まり 終わり] [--cameras A,B]   Isaac Sim で描画して video/<カメラ>.mp4 を作る（GPU）
   python -m twinsim export-space <名前> --usd URL --region x0 x1 y0 y1 z0 z1 [--res 0.25]   USD から空間の材料を作る（GPU）
+  python -m twinsim mopf <結果の場所> --camera <名前> [--apply]   MOPF の人流モニターの設定（床の図・位置合わせ・線・エリア）を作る
+  python -m twinsim serve [--port 8770] [--url]       GUI と REST API（127.0.0.1 だけ、トークンつき）
 --set の例: --set duration_s=60 --set seed=3 --set streams.0.rate.per_min=20
 """
 
@@ -35,6 +37,10 @@ def parse_set(items):
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["serve"]:
+        from .server import main as serve
+        return serve(argv[1:])
     ap = argparse.ArgumentParser(prog="twinsim")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("spaces")
@@ -52,6 +58,10 @@ def main(argv=None):
     rd.add_argument("--frames", nargs=2, type=int)
     rd.add_argument("--cameras")
     rd.add_argument("--preset", default="RAY_TRACE")
+    mo = sub.add_parser("mopf")
+    mo.add_argument("run_dir")
+    mo.add_argument("--camera", required=True)
+    mo.add_argument("--apply", action="store_true")
     ex = sub.add_parser("export-space")
     ex.add_argument("name")
     ex.add_argument("--usd", required=True)
@@ -79,6 +89,12 @@ def main(argv=None):
             r = ib.export_space(a.name, a.usd, a.region, a.res)
         print(r["log"])
         print(json.dumps({k: v for k, v in r.items() if k != "log"}, ensure_ascii=False))
+    elif a.cmd == "mopf":
+        from . import mopf
+        out, cfg, info = mopf.write(a.run_dir, a.camera)
+        print("out:", out, "lines", len(cfg["lines"]), "zones", [z["name"] for z in cfg["zones"]], json.dumps(info, ensure_ascii=False))
+        if a.apply:
+            print(mopf.apply(out))
     elif a.cmd == "check":
         from .quality import check
         print(json.dumps(check(a.run_dir), ensure_ascii=False, indent=1))
