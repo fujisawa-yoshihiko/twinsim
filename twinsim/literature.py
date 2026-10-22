@@ -21,6 +21,11 @@ REFS = {
         "cite": "Seyfried, A., Steffen, B., Klingsch, W., Boltes, M. (2005). The fundamental diagram of pedestrian movement revisited. "
                 "Journal of Statistical Mechanics: Theory and Experiment, P10002.",
         "use": "1 列で歩くとき、速さ v で歩くのに要る前の人までの距離 d = 0.36 + 1.06 v（m）。エンジンの「前の人についていく」規則"},
+    "seyfried2009": {
+        "cite": "Seyfried, A., Passon, O., Steffen, B., Boltes, M., Rupprecht, T., Klingsch, W. (2009). New insights into pedestrian flow through "
+                "bottlenecks. Transportation Science 43(3): 395–406.",
+        "use": "幅 1.0 m のボトルネック（長さ 2.8 m）を通る流れ: 1.90〜2.19 人/(m·s)（実験の人数 60〜20 人）。基準の式（SFPE・Weidmann）の 1.2〜1.6 より多い",
+        "check": "arXiv:physics/0702004 の表 2"},
     "coleman1961": {
         "cite": "Coleman, J. S., James, J. (1961). The equilibrium size distribution of freely-forming groups. Sociometry 24(1): 36–45.",
         "use": "自然にできる小さな集まりの人数はゼロ切断ポアソン分布に従う（分布の形）"},

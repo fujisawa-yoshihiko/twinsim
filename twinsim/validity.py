@@ -347,6 +347,46 @@ def gate_headways(run):
             **verdict(1.5 <= med <= 4.0)}, hw
 
 
+def gridlock(run):
+    """詰まって動けなくなった人: 終わりの時点でまだいて、歩く途中（pass）なのに、最後の 30 秒で 0.3 m 未満しか動いていない人。"""
+    total = int(run.gt["total_frames"])
+    w = 30 * run.fps
+    stuck = []
+    for n, d in run.P.items():
+        end = d["f0"] + len(d["xy"]) - 1
+        if end < total - 1 or len(d["xy"]) <= w or d["state"][-1] != "pass":
+            continue
+        if float(np.linalg.norm(d["xy"][-1] - d["xy"][-1 - w])) < 0.3:
+            stuck.append(n)
+    return {"n_stuck": len(stuck), "people": stuck[:10], **verdict(len(stuck) == 0, "最後の 30 秒、歩く途中で止まったままの人" if stuck else None)}
+
+
+def bottleneck(run):
+    """出入口（validity.bottleneck: {x, y: [下, 上], width_m}）を通った人数の 1 分ごとの最大 → 幅 1 m・1 秒あたりの流れ。
+    文献: Weidmann の式から出る一方向の流れの最大 1.22 人/(m·s)（密度 1.75 人/m² のとき）。"""
+    b = (run.spec.get("validity") or {}).get("bottleneck")
+    if not b:
+        return None
+    x, (y0, y1), wd = float(b["x"]), b["y"], float(b["width_m"])
+    times = []
+    for n, d in run.P.items():
+        xs = d["xy"][:, 0]
+        k = np.nonzero((xs[:-1] < x) & (xs[1:] >= x))[0]
+        for i in k:
+            if y0 - 0.3 <= d["xy"][i, 1] <= y1 + 0.3:
+                times.append((d["f0"] + i) / run.fps)
+    times.sort()
+    best, j = 0, 0
+    for i in range(len(times)):
+        while times[i] - times[j] > 60:
+            j += 1
+        best = max(best, i - j + 1)
+    js = best / 60.0 / wd
+    return {"passed": len(times), "max_per_min": best, "specific_flow": round(js, 2),
+            "literature": {"experiment_1m": [1.90, 2.19], "source": "seyfried2009", "weidmann_max_specific_flow": 1.22},
+            **verdict(1.90 * 0.85 <= js <= 2.19 * 1.15, "判定は幅 1.0 m の実験値 1.90〜2.19 人/(m·s) の ±15%（Weidmann の式の最大 1.22 は実験より少ない）")}
+
+
 def waiting(run):
     """EV を待った時間・ゲートの列に並んだ時間（比べる文献はなく、参考の値）。"""
     ev = [d["info"]["events"]["board_start"] - d["info"]["events"]["wait_start"] for d in run.P.values()
@@ -488,7 +528,8 @@ def evaluate(run_dir, figure=True):
         "run": str(run.dir), "scenario": run.gt.get("scenario"), "profile": profile,
         "input_reproduction": {"free_walking_speed": fs, "group_size": gsz, "group_speed": gsp, "arrivals": arrivals(run),
                                "lift_mix": lift_mix(run), "elevator_boarding_interval": bi, "gate_headway": gh},
-        "emergent": {"speed_density": sdn, "dyad_distance": dy, "standing_spacing": ss, "waiting": waiting(run)},
+        "emergent": {"speed_density": sdn, "dyad_distance": dy, "standing_spacing": ss, "gridlock": gridlock(run), "waiting": waiting(run),
+                     **({"bottleneck": bn} if (bn := bottleneck(run)) else {})},
         "ledger": ledger(run.spec, run.summary.get("inputs") or {}),
         "refs": {k: REFS[k]["cite"] for k in REFS},
     }
@@ -550,6 +591,12 @@ def to_markdown(res):
     ss = em["standing_spacing"]
     L.append(f"| 待つ人どうしのいちばん近い距離 | 中央 {ss.get('median_m', '-')} m・0.45 m 未満 {ss.get('share_below_0.45m', '-')} | "
              f"密接の距離 0.45 m 未満は少ない（hall1966） | {ss['verdict']} |")
+    gl = em["gridlock"]
+    L.append(f"| 詰まって動けなくなった人 | {gl['n_stuck']} 人 | 0 人 | {gl['verdict']} |")
+    if "bottleneck" in em:
+        bn = em["bottleneck"]
+        L.append(f"| 出入口を通れる量 | 1 分に最大 {bn['max_per_min']} 人 = {bn['specific_flow']} 人/(m·s)（通った {bn['passed']} 人） | "
+                 f"幅 1.0 m の実験 1.90〜2.19 人/(m·s)（seyfried2009）。Weidmann の式の最大は 1.22 | {bn['verdict']} |")
     w = em["waiting"]
     L.append(f"| 待った時間（参考） | EV {_fmt(w.get('ev_wait_s', '-'))} 秒・ゲートの列 {_fmt(w.get('gate_queue_s', '-'))} 秒・終わりに残った {w.get('still_waiting_at_end')} 人 | - | 参考 |")
     notes = [(k, v["note"]) for part in (ir, em) for k, v in part.items() if isinstance(v, dict) and v.get("note")]

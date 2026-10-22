@@ -1,0 +1,17 @@
+# エンジンの確かめ: すれ違い（向かい合う流れ）。廊下（幅 4 m）の両端から 1 分に 35 人ずつ、4 分。
+# 詰まって動けなくなる人がいないか・近づきすぎないか・速さ（validity.md の「動けなくなった人」と密度ごとの速さ（参考））。
+name: verify_counterflow
+title: "確かめ: すれ違い（向かい合う流れ）"
+space: corridor
+seed: 6
+duration_s: 240
+streams:
+  - name: eastbound
+    origin: west
+    rate: {type: constant, per_min: 35, unit: persons}
+    destinations: [{to: east}]
+  - name: westbound
+    origin: east
+    rate: {type: constant, per_min: 35, unit: persons}
+    destinations: [{to: west}]
+outputs: [ground_truth, frames, tasks, preview, validity]

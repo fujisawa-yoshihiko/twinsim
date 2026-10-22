@@ -26,6 +26,9 @@ TURN_DEG_S = 90.0
 WALKING = ("walk", "to_spot", "board", "to_gate", "gate_pass")
 # 前の人についていく速さの上限: 前の人までの距離 d に要る長さ d = a + b v（Seyfried ら 2005、1 列の歩行の測定 a = 0.36 m, b = 1.06 s）
 FOLLOW = {"a": 0.36, "b": 1.06, "lateral": 0.45, "overtake_m_s": 0.5}
+MIN_SEP = 0.35  # グループ以外の 2 人の中心がこれより近づく一歩は取り消す（m。肩幅 0.45 m・胸の厚さ 0.3 m ほど）
+QUEUE_GAP = 0.65  # ゲートの列の前後の間隔（m）。0.6 では混んだ列で 0.45 m 未満に近づく場面が 8.5%、0.65 で 2.6%（verify_gate_capacity）
+QUEUE_LANE_OFF = 0.6  # 列が経路に沿って曲がった先で、隣のレーンの列との横の間隔（m）
 GROUP_GAP = 0.4  # グループの仲間と前後にこれ以上離れたら、前の人は遅く・後ろの人は速く（最大 1.3 倍）歩いて戻る
 
 
@@ -277,7 +280,7 @@ class Sim:
             self.alloc.pop(a.name, None)
 
     def queue_slot(self, a, k):
-        """列の k 番目の場所。レーンの手前 0.7 m からまっすぐ戻り（6 m まで、壁から 0.3 m）、その先は来た方への経路の上に 0.6 m おき。
+        """列の k 番目の場所。レーンの手前 0.7 m からまっすぐ戻り（6 m まで、壁から 0.3 m）、その先は来た方への経路の上に QUEUE_GAP（0.65 m）おき。
         経路の部分はレーンごとに横へずらす（列が壁の向こうへ伸びたり、二つの列が重なったりしないように）。"""
         lane, d = a.lane, a.gate_dir
         key = 1 if float(d @ lane.gate.in_dir) > 0 else -1
@@ -300,9 +303,9 @@ class Sim:
             qp = Path(pts)
             qp.straight = float(np.linalg.norm(q - start))
             lanes = lane.gate.lanes_in if key > 0 else lane.gate.lanes_out
-            qp.off = (lanes.index(lane) - (len(lanes) - 1) / 2) * 0.6 if lane in lanes else 0.0
+            qp.off = (lanes.index(lane) - (len(lanes) - 1) / 2) * QUEUE_LANE_OFF if lane in lanes else 0.0
             lane.qpaths[key] = qp
-        s = 0.6 * k
+        s = QUEUE_GAP * k
         pos, tan = qp.at(s)
         if s > qp.straight and qp.off:
             nrm = np.array([-tan[1], tan[0]])
@@ -441,6 +444,7 @@ class Sim:
             nrm = np.array([-tan[1], tan[0]])
             factor, dl = 1.0, (a.l_pref - a.l) * 0.8 * dt if a.mode == "walk" else -a.l * 2.0 * dt
             front = 0
+            close = []  # 0.8 m 以内の、同じ向きに歩く前の人（追いついて体が重ならないように確かめる）
             R = self.sd["radius"] if self.sd else 0.0
             for b in active:
                 if b is a:
@@ -456,6 +460,8 @@ class Sim:
                 ahead, lat = float(rel @ tan), float(rel @ nrm)
                 bdir = b.dir if b.dir is not None else (P[id(b)][1] if b.mode in WALKING else None)  # 詰まって止まっている人も同じ向きとみる
                 same = bdir is not None and float(bdir @ tan) > 0.5
+                if r < 0.8 and not mate and same and ahead > 0 and b.mode in WALKING:
+                    close.append(P[id(b)][0])  # 同じ向きに歩く前の人だけ（向かい合う人・立って待つ人は、横へよけてすれ違う）
                 queued = (a.mode == "to_gate" and b.lane is a.lane and b.mode in ("to_gate", "gate_wait")
                           and (b.gate_slot or 0) < (a.gate_slot or 0) and abs(lat) < 0.45)  # 同じレーンの列で自分より前の人の 0.6 m 手前で止まる
                 follow = False
@@ -465,6 +471,7 @@ class Sim:
                     cap = max(0.0, (ahead - FOLLOW["a"]) / FOLLOW["b"])
                     factor = min(factor, cap / max(a.speed, 0.1))
                     follow = cap < a.speed and not queued
+                    # 追い越しを強める（0.8 m/s）・遅い人のときだけにする、は廊下の速さを変えず、ゲートの列の近くで詰まりを生んだので入れない（2026-10-22）
                 elif 0 < ahead < 0.6 and abs(lat) < 0.45:
                     factor = min(factor, 0.3)
                 if a.mode == "gate_pass" or (a.mode == "to_gate" and a.path.length - a.s < 2.0):
@@ -490,6 +497,14 @@ class Sim:
             step = a.speed * factor * boost * dt
             a.s += step
             p2, tan2 = self.pos(a)
+            if close and a.mode != "gate_pass":  # 体が重なる一歩は取り消す（ほかの人の MIN_SEP 以内に入り、さらに近づくなら進まない）
+                for q in close:
+                    d_new, d_old = np.hypot(*(p2 - q)), np.hypot(*(p - q))
+                    if d_new < MIN_SEP and d_new < d_old:
+                        a.s -= step
+                        step = 0.0
+                        p2, tan2 = self.pos(a)
+                        break
             moving = step > 0.2 * dt
             d = p2 - p
             a.dir = d / np.hypot(*d) if moving and np.hypot(*d) > 1e-6 else None

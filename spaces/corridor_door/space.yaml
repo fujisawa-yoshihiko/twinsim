@@ -1,0 +1,15 @@
+# 空間: 合成の廊下（幅 4 m・長さ 50 m、USD なし）の x = 30 に、幅 1.0 m の出入口（壁の厚さ 0.5 m）。ボトルネックを通れる量の確かめ用。
+name: corridor_door
+title: 廊下と幅 1 m の出入口（確かめ用）
+license: 自作（制限なし）
+levels:
+  - name: 1F
+    z: 0.0
+    walkable: walkable_1f.txt
+pois:
+  west: {kind: spawn, xy: [0.5, 0.0], line: [[0.5, -1.6], [0.5, 1.6]], note: 西の端}
+  east: {kind: exit, xy: [49.5, 0.0], line: [[49.5, -1.6], [49.5, 1.6]], note: 東の端}
+zones:
+  upstream:   {polygon: [[0.0, -2.0], [29.75, -2.0], [29.75, 2.0], [0.0, 2.0]]}
+  door:       {polygon: [[29.75, -0.5], [30.25, -0.5], [30.25, 0.5], [29.75, 0.5]]}
+  downstream: {polygon: [[30.25, -2.0], [50.0, -2.0], [50.0, 2.0], [30.25, 2.0]]}

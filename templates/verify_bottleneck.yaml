@@ -1,0 +1,15 @@
+# エンジンの確かめ: 幅 1 m の出入口を通れる量（ボトルネック）。出入口で運べる量より多い 180 人/分を 4 分入れ、出入口の手前に列を作る。
+# 通った人数の 1 分ごとの最大を、幅 1 m あたり・1 秒あたりにして、文献の値と比べる（validity.md の「ボトルネック」）。
+name: verify_bottleneck
+title: "確かめ: 幅 1 m の出入口を通れる量"
+space: corridor_door
+seed: 4
+duration_s: 240
+streams:
+  - name: flow
+    origin: west
+    rate: {type: constant, per_min: 180, unit: persons}
+    destinations:
+      - {to: east}
+validity: {bottleneck: {x: 30.0, y: [-0.5, 0.5], width_m: 1.0}}
+outputs: [ground_truth, frames, tasks, preview, validity]
