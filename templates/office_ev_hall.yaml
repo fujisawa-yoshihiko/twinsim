@@ -1,0 +1,31 @@
+# EV 前の紛らわしい状態（研究 1 の RQ1）: EV 待ち・同行者待ち・案内確認・受付・通過が同じ広間に混ざる。カメラは EV 前の 1 台。
+name: office_ev_hall
+title: EV 前の紛らわしい状態（EV 待ち・同行者待ち・案内確認・受付）
+space: office
+seed: 21
+duration_s: 360
+streams:
+  - name: arrivals
+    origin: entrance
+    rate: {type: constant, per_min: 9}
+    group_size: {type: zero_truncated_poisson, lam: 0.5}
+    types: {type: choice, values: {staff: 0.7, visitor: 0.3}}
+    destinations:
+      - {to: elevator, p: 0.55, via: [gate]}
+      - {to: sign, p: 0.15, via: [gate], dwell: {type: uniform, min: 4, max: 10}, then: elevator}
+      - {to: reception, p: 0.6, via: [gate], types: [visitor], dwell: {type: lognormal, median: 20, sigma: 0.4, min: 6, max: 60}, then: elevator}
+      - {to: lounge, p: 0.15, via: [gate], meet: {p: 1.0, delay: {type: uniform, min: 8, max: 25}, from: south_exit}, then: elevator}
+      - {to: south_exit, p: 0.15, via: [gate]}
+elevator:
+  cars: [EV1, EV2]
+  capacity: 8
+  schedule: {type: interval, offset: {type: uniform, min: 10, max: 40}, interval: {type: uniform, min: 40, max: 55}}
+  alight:
+    count: {type: poisson, lam: 1.5}
+    destinations: [{to: entrance, p: 0.6, via: [gate]}, {to: south_exit, p: 0.4}]
+gates:
+  gate: {service_s: 1.6}
+cameras:
+  - {name: CamEV}
+render:
+  props: [sign]

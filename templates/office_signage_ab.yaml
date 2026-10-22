@@ -1,0 +1,29 @@
+# サイネージの比較（UC3）: 同じ人の流れ（同じ乱数の種）で、サイネージを見る人の割合だけを変えて、測る方法が効果を取り戻せるかを確かめる。
+# 注意: シミュレータの中の効果は、ここで入れた値（p）そのもの。サイネージが本当に人を止めるかは、実データでしか分からない。
+# 使い方: python -m twinsim run office_signage_ab --set variant=A と --set variant=B（variant ごとに p を変える。下の variants）
+name: office_signage_ab
+title: サイネージの比較（見る人の割合を A・B で変える）
+space: office
+seed: 7
+duration_s: 300
+variant: A
+variants:
+  A: {sign_p: 0.05}
+  B: {sign_p: 0.20}
+streams:
+  - name: arrivals
+    origin: entrance
+    rate: {type: constant, per_min: 10}
+    destinations:
+      - {to: sign, p: 0.05, via: [gate], dwell: {type: uniform, min: 3, max: 8}, then: elevator, variant_p: sign_p}
+      - {to: elevator, p: 0.75, via: [gate]}
+      - {to: south_exit, p: 0.20, via: [gate]}
+elevator:
+  cars: [EV1, EV2]
+  capacity: 8
+  schedule: {type: interval, offset: {type: uniform, min: 5, max: 30}, interval: {type: uniform, min: 35, max: 55}}
+cameras:
+  - {name: CamEV}
+  - {name: CamLobby}
+render:
+  props: [sign]

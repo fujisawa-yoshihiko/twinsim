@@ -1,0 +1,56 @@
+# 空間: Isaac Sim 6.1 付属のオフィス（1 階のロビー）。形式は docs/spec.md の「空間」。
+# 位置はすべて世界の座標（m、Z が上）。歩ける所は Isaac Sim のナビメッシュから（walkable_1f.txt）。
+# 入口・ゲートは見立て（USD に入館のゲート機はない。北の廊下の先を建物の入口とし、廊下の中にゲートを置く）。
+name: office
+title: オフィスのロビー（入口 → ゲート → 受付 → エレベーター）
+usd: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Office/office.usd
+license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジットを書く）
+navmesh_region: [-30.0, 12.0, -16.0, 32.0, 0.0, 3.0]   # x0 x1 y0 y1 z0 z1（シーンは外の建物まで含み 1 km 四方あるので、焼く範囲を絞る）
+levels:
+  - name: 1F
+    z: 0.0
+    walkable: walkable_1f.txt
+    top_image: top_1f.jpg
+    top_view: {eye: [-9.0, 7.99, 80.0], target: [-9.0, 8.0, 0.0], focal_mm: 30.0, h_aperture_mm: 20.955, width: 1280, height: 720}
+
+# 場所（名前 → 位置）。kind: spawn（人が現れる・消える）、gate（入館のゲート）、elevator（扉）、wait_zone（待つ場所の範囲）、
+# spot（止まる場所。face の方を向く）、exit（出ていく所）、prop（シミュレータが置く物）
+pois:
+  entrance:      {kind: spawn, xy: [-3.4, 23.5], note: 北の廊下の奥（建物の入口の見立て）}
+  gate:          {kind: gate, line: [[-4.4, 15.5], [-1.6, 15.5]], lanes: 3, lanes_in: [0, 1], lanes_out: [2], in_dir: [0.0, -1.0], note: 廊下の中の入館のゲート（3 レーン、西の 2 つが入館、東の 1 つが退館。南向きが入館。ロビーへの出口の扉 y = 12 は幅 1.5 m なので、その北に置く）}
+  EV1:           {kind: elevator, xy: [-14.5, -4.5], face: [-15.5, -4.5], note: 扉の開閉のアニメーションつき（BP_Elevator_162）}
+  EV2:           {kind: elevator, xy: [-14.5, -1.5], face: [-15.5, -1.5], note: BP_Elevator_frame2}
+  ev_wait:       {kind: wait_zone, zone: ev_hall, spacing: 0.6, door_aisle: 0.5}
+  reception_w1:  {kind: spot, xy: [-8.2, -0.6], face: [-4.8, 0.0]}
+  reception_w2:  {kind: spot, xy: [-8.2, 0.6], face: [-4.8, 0.0]}
+  reception_e1:  {kind: spot, xy: [-1.0, 0.0], face: [-4.8, 0.0]}
+  lounge_1:      {kind: spot, xy: [-11.0, 9.6], face: [-11.0, 11.0], note: 北西のソファーの前（待ち合わせ）}
+  lounge_2:      {kind: spot, xy: [-9.4, 9.6], face: [-9.4, 11.0]}
+  lounge_3:      {kind: spot, xy: [-7.9, 9.6], face: [-7.9, 11.0]}
+  sign:          {kind: prop, xy: [-12.8, 6.6], face: [-11.6, 5.6], prop: signage, note: 床置きのデジタルサイネージ（USD にはないのでシミュレータが置く）}
+  sign_view:     {kind: spot, xy: [-11.7, 5.6], face: [-12.8, 6.6]}
+  south_exit:    {kind: exit, xy: [-10.5, -15.0]}
+  west_corridor: {kind: exit, xy: [-15.0, 20.0]}
+  east_room:     {kind: exit, xy: [0.0, 22.5]}
+
+# ゾーン（多角形）。正解の集計（ゾーンごとの人数・滞留）とグラフのノードに使う。上から順に当てはめる（先に書いたものが優先）。
+zones:
+  ev_hall:       {polygon: [[-14.6, -6.5], [-10.0, -6.5], [-10.0, 1.5], [-14.6, 1.5]]}
+  reception:     {polygon: [[-8.8, -4.8], [-0.6, -4.8], [-0.6, 4.8], [-8.8, 4.8]]}
+  lounge:        {polygon: [[-13.0, 8.4], [-6.5, 8.4], [-6.5, 10.6], [-13.0, 10.6]]}
+  gate_area:     {polygon: [[-4.8, 11.0], [-1.4, 11.0], [-1.4, 17.5], [-4.8, 17.5]]}
+  corridor:      {polygon: [[-4.8, 17.5], [-1.4, 17.5], [-1.4, 24.5], [-4.8, 24.5]]}
+  north_hall:    {polygon: [[-23.5, 24.5], [5.5, 24.5], [5.5, 32.5], [-23.5, 32.5]]}
+  west_corridor: {polygon: [[-16.6, 10.6], [-13.5, 10.6], [-13.5, 24.5], [-16.6, 24.5]]}
+  east_room:     {polygon: [[-1.4, 11.5], [5.5, 11.5], [5.5, 24.5], [-1.4, 24.5]]}
+  lobby_north:   {polygon: [[-14.6, 4.8], [5.5, 4.8], [5.5, 11.0], [-14.6, 11.0]]}
+  lobby_center:  {polygon: [[-10.0, -8.5], [5.5, -8.5], [5.5, 4.8], [-10.0, 4.8]]}
+  lobby_west:    {polygon: [[-14.6, 1.5], [-10.0, 1.5], [-10.0, 4.8], [-14.6, 4.8]]}
+  lobby_south:   {polygon: [[-21.5, -12.5], [5.5, -12.5], [5.5, -8.5], [-21.5, -8.5]]}
+  south_exits:   {polygon: [[-12.5, -16.5], [-1.5, -16.5], [-1.5, -12.5], [-12.5, -12.5]]}
+
+# カメラの候補（シナリオで名前を指定して使う。位置・向きはシナリオで上書きできる）
+cameras:
+  CamGate:  {eye: [-0.8, 5.5, 2.7], target: [-3.0, 14.5, 0.8], note: ロビーから北の廊下（扉の向こうのゲート）を見る}
+  CamEV:    {eye: [-8.0, 4.0, 2.7], target: [-14.0, -3.0, 0.8], note: 受付の北から、西のエレベーター前を見る}
+  CamLobby: {eye: [4.5, -7.5, 2.7], target: [-5.0, 2.0, 0.8], note: 南東の角からロビー全体を見る}

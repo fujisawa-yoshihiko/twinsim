@@ -1,0 +1,23 @@
+# 動作確認: オフィスで 30 秒・数人。変更のたびに回す（tests/test_smoke.py）。
+name: office_smoke
+title: 動作確認（30 秒・数人）
+space: office
+seed: 1
+duration_s: 30
+streams:
+  - name: arrivals
+    origin: entrance
+    rate: {type: constant, per_min: 12}
+    destinations:
+      - {to: elevator, p: 0.6, via: [gate]}
+      - {to: south_exit, p: 0.4, via: [gate]}
+elevator:
+  cars: [EV1, EV2]
+  capacity: 8
+  schedule: {type: interval, offset: {type: uniform, min: 15, max: 20}, interval: {type: uniform, min: 30, max: 40}}
+  alight:
+    count: {type: poisson, lam: 1.0}
+    destinations: [{to: south_exit}]
+cameras:
+  - {name: CamEV}
+outputs: [ground_truth, frames, tasks, graph, mot, preview]

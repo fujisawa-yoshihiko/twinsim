@@ -1,0 +1,14 @@
+[project]
+name = "twinsim"
+version = "0.1.0"
+description = "建物・工場の人流のデジタルツインのシミュレータ（人の動きは CPU、描画は Isaac Sim）"
+requires-python = ">=3.10"
+dependencies = ["numpy", "scipy", "pyyaml", "pillow"]
+
+[project.optional-dependencies]
+graph = ["networkx"]
+api = ["fastapi", "uvicorn"]
+dev = ["pytest"]
+
+[tool.uv]
+package = false
