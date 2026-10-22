@@ -5,6 +5,8 @@ name: office_signage_ab
 title: サイネージの比較（見る人の割合を A・B で変える）
 space: office
 seed: 7
+people:
+  profile: office_commute_jp   # 速さ・グループ・速さと密度・ゲート・EV の乗り降りは文献の値（docs/validity.md）
 duration_s: 300
 variant: A
 variants:

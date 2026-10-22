@@ -1,42 +1,59 @@
-# ゲート → エレベーター前（UC1・UC2、研究 2 の 2 地点の流れ）。朝の出勤のように到着が増えてから減る。カメラはゲートと EV 前の 2 台。
-# 分布の値は文献の目安と仮の値（docs/spec.md の「妥当性」）。実データ（ゲートの通過記録・EV の運行記録）で合わせて上書きする。
+# ゲート → エレベーター前（UC1・UC2、研究 2 の 2 地点の流れ）。朝の出勤のいちばん混む 5 分。カメラはゲートと EV 前の 2 台。
+# 人の分布は文献の値: people.profile（速さ・グループ・速さと密度・ゲート・EV の乗り降り）と demand（EV を使う人の量）。
+# 文献のない値には「仮」と書いた（ゲートの通過記録・EV の運行記録で合わせる）。根拠の一覧は docs/validity.md、計算ごとの台帳は validity.md。
 name: office_gate_ev
-title: ゲート → エレベーター（朝の到着の山、カメラ 2 台）
+title: ゲート → エレベーター（朝の混む 5 分、カメラ 2 台）
 space: office
 seed: 31
 duration_s: 300
 people:
-  speed: {type: normal, mean: 1.34, sd: 0.26, min: 0.8, max: 1.9}   # Weidmann 1993 の目安
+  profile: office_commute_jp
+demand:                      # EV を使う人の量（Peters ら 2011）
+  population: 600            # 建物にいる人数（仮: 建物の値を入れる。EV 2 台・8 人乗り・約 48 秒おきで運べるのは 5 分で約 80 人 → 在館 650 人ほどまで）
+  period: morning            # 朝の山: 入る 85%・出る 10%・階の間 5%
+  peak_pct_5min: 12          # いちばん混む 5 分に EV を使う人の割合（観測の最大 12〜13%）
 streams:
-  - name: arrivals
+  - name: commuters          # EV へ（入る流れの 90%。残りは来客と待ち合わせ）
     origin: entrance
-    rate: {type: piecewise, per_min: [[0, 6], [120, 16], [240, 10], [300, 6]]}   # 人/分（時間帯で変わるポアソン過程）
-    group_size: {type: zero_truncated_poisson, lam: 0.4}   # まとまりの人数（Coleman & James 1961 の形、値は仮）
-    types: {type: choice, values: {staff: 0.8, visitor: 0.2}}
+    rate: {type: lift_demand, flow: incoming, share: 0.90}
+    types: staff
     destinations:
-      - {to: elevator, p: 0.65, via: [gate], types: [staff]}
-      - {to: reception, p: 1.0, via: [gate], types: [visitor], dwell: {type: lognormal, median: 25, sigma: 0.4, min: 8, max: 90}, then: elevator}
-      - {to: lounge, p: 0.08, via: [gate], meet: {p: 1.0, delay: {type: uniform, min: 10, max: 30}, from: entrance, via: [gate]}, then: elevator}
-      - {to: south_exit, p: 0.17, via: [gate], types: [staff]}
-      - {to: west_corridor, p: 0.10, via: [gate], types: [staff]}
-  - name: through
+      - {to: elevator, via: [gate]}
+  - name: visitors           # 受付 → EV（入る流れの 7%、仮）
+    origin: entrance
+    rate: {type: lift_demand, flow: incoming, share: 0.07}
+    types: visitor
+    destinations:
+      - {to: reception, via: [gate], dwell: {type: lognormal, median: 25, sigma: 0.4, min: 8, max: 90}, then: elevator}
+  - name: meet               # ラウンジで待ち合わせ → EV（入る流れの 3%、仮）
+    origin: entrance
+    rate: {type: lift_demand, flow: incoming, share: 0.03}
+    types: staff
+    destinations:
+      - {to: lounge, via: [gate], meet: {p: 1.0, delay: {type: uniform, min: 10, max: 30}, from: entrance, via: [gate]}, then: elevator}
+  - name: ground_floor       # 1 階の奥へ（EV を使わない、仮）
+    origin: entrance
+    rate: {type: constant, per_min: 2.5, unit: persons}
+    types: staff
+    destinations:
+      - {to: south_exit, p: 0.6, via: [gate]}
+      - {to: west_corridor, p: 0.4, via: [gate]}
+  - name: through            # ゲートの内側の通り抜け（仮）
     origin: south_exit
-    rate: {type: constant, per_min: 2}
+    rate: {type: constant, per_min: 2, unit: persons}
     destinations:
       - {to: west_corridor, p: 0.5}
       - {to: east_room, p: 0.5}
 elevator:
   cars: [EV1, EV2]
   capacity: 8
-  schedule: {type: interval, offset: {type: uniform, min: 5, max: 40}, interval: {type: uniform, min: 35, max: 60}}
+  schedule: {type: interval, offset: {type: uniform, min: 5, max: 40}, interval: {type: uniform, min: 35, max: 60}}   # 仮（EV の運行記録で合わせる）
   alight:
-    count: {type: poisson, lam: 1.2}
-    types: {type: choice, values: {staff: 0.9, visitor: 0.1}}
-    destinations:
+    count: {type: lift_demand, flow: outgoing}   # 出る流れ（朝は 10%）を EV の着く回数で割る
+    types: staff
+    destinations:            # 仮
       - {to: entrance, p: 0.6, via: [gate]}
       - {to: south_exit, p: 0.4}
-gates:
-  gate: {service_s: 1.6}   # 1 レーンで 1 人あたりの間隔（仮）
 cameras:
   - {name: CamGate}
   - {name: CamEV}

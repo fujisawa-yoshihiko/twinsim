@@ -157,9 +157,17 @@ function rateText(rate) {
   if (rate.type === "piecewise") return rate.per_min.map(([t, r]) => `${t}:${r}`).join(", ");
   return String(rate.per_min);
 }
-function parseRate(text) {
-  if (text.includes(":")) return { type: "piecewise", per_min: text.split(",").map((s) => s.trim().split(":").map(Number)) };
-  return { type: "constant", per_min: num(text, 1) };
+function parseRate(text, old) {
+  const unit = old && old.unit ? { unit: old.unit } : {};
+  if (text.includes(":")) return { type: "piecewise", per_min: text.split(",").map((s) => s.trim().split(":").map(Number)), ...unit };
+  return { type: "constant", per_min: num(text, 1), ...unit };
+}
+const isDemand = (r) => r && typeof r === "object" && r.type === "lift_demand";
+function demandPerMin(r) {  // literature.lift_demand_per_min と同じ式（表示用）
+  const d = { ...(S.spec.demand || {}), ...r };
+  const mix = { morning: { incoming: 0.85, outgoing: 0.10 }, lunch: { incoming: 0.45, outgoing: 0.45 } }[d.period || "morning"];
+  if (!d.population || !mix) return null;
+  return d.population * (d.peak_pct_5min ?? 12) / 100 / 5 * mix[r.flow || "incoming"] * (r.share ?? 1) * (d.level ?? 1);
 }
 
 function renderStreams() {
@@ -167,14 +175,19 @@ function renderStreams() {
   S.spec.streams.forEach((st, i) => {
     const d = document.createElement("div"); d.className = "stream";
     const lam = st.group_size && st.group_size.lam !== undefined ? st.group_size.lam : "";
+    const dflt = S.spec.people?.profile ? "文献の既定" : "なし";
+    const unit = st.rate?.unit === "persons" ? "人/分" : "まとまり/分";
+    const rateField = isDemand(st.rate)
+      ? `<span class="muted">到着: 建物の人数から ${(demandPerMin(st.rate) ?? 0).toFixed(1)} 人/分（${st.rate.flow || "incoming"}・割合 ${st.rate.share ?? 1}、Peters ら 2011）</span>`
+      : `<label>到着（${unit}。時間帯で変えるなら 秒:率, …）<input type="text" data-k="rate" value="${rateText(st.rate)}" style="width:200px"></label>`;
     d.innerHTML = `<h4>${st.name || "流れ " + (i + 1)}（現れる所: ${st.origin}）</h4>
-      <label>到着（人/分。時間帯で変えるなら 秒:人/分, …）<input type="text" data-k="rate" value="${rateText(st.rate)}" style="width:200px"></label>
-      <label>まとまり（平均）<input type="number" step="0.1" min="0" data-k="lam" value="${lam}" placeholder="なし"></label>
+      ${rateField}
+      <label>まとまりの λ（0 を除いたポアソン）<input type="number" step="0.05" min="0" data-k="lam" value="${lam}" placeholder="${dflt}"></label>
       <table class="dest"><tr><th>行き先</th><th>重み</th><th>種類</th></tr>
       ${(st.destinations || []).map((de, j) => `<tr><td>${typeof de === "string" ? de : de.to}${de.then ? " → …" : ""}${(de.via || []).length ? "（ゲート経由）" : ""}</td>
         <td><input type="number" step="0.01" min="0" data-dest="${j}" value="${de.p ?? 1}"></td><td>${(de.types || []).join(",")}</td></tr>`).join("")}
       </table>`;
-    d.querySelector('[data-k="rate"]').addEventListener("change", (e) => { st.rate = parseRate(e.target.value); syncJson(); });
+    d.querySelector('[data-k="rate"]')?.addEventListener("change", (e) => { st.rate = parseRate(e.target.value, st.rate); syncJson(); });
     d.querySelector('[data-k="lam"]').addEventListener("change", (e) => {
       if (e.target.value === "") delete st.group_size; else st.group_size = { type: "zero_truncated_poisson", lam: num(e.target.value) };
       syncJson();
@@ -186,13 +199,39 @@ function renderStreams() {
   });
 }
 
+let PROFILES = null;
+async function renderPeople() {
+  if (!PROFILES) PROFILES = await api("/api/profiles");
+  const cur = S.spec.people?.profile || "";
+  $("profile").innerHTML = `<option value="">なし（既定: 速さ・速さと密度・グループの速さと間隔は文献、人数の分布はシナリオ）</option>` +
+    Object.entries(PROFILES.profiles).map(([k, p]) => `<option value="${k}" ${k === cur ? "selected" : ""}>${p.title}（${k}）</option>`).join("");
+  const p = PROFILES.profiles[cur];
+  $("profile-note").innerHTML = p ? `根拠: ${Object.entries(p.sources).map(([k, v]) => `${k} = ${v}`).join("、")}<br>${p.notes.join("<br>")}` : "";
+  const d = S.spec.demand || {};
+  const uses = S.spec.streams.some((st) => isDemand(st.rate)) || isDemand(S.spec.elevator?.alight?.count);
+  $("demand-row").classList.toggle("hidden", !uses && !S.spec.demand);
+  $("demand-pop").value = d.population ?? ""; $("demand-period").value = d.period || "morning"; $("demand-pct").value = d.peak_pct_5min ?? 12;
+}
+$("profile").addEventListener("change", (e) => {
+  // 前の組から写った値（速さ・グループなど）を残すと新しい組の既定より優先されるので、組と人物モデルだけにする
+  S.spec.people = { models: S.spec.people?.models ?? "all", ...(e.target.value ? { profile: e.target.value } : {}) };
+  syncJson(); renderPeople(); renderStreams(); renderGates();
+});
+["demand-pop", "demand-period", "demand-pct"].forEach((id) => $(id).addEventListener("change", () => {
+  S.spec.demand = { ...(S.spec.demand || {}), population: num($("demand-pop").value, 600), period: $("demand-period").value,
+    peak_pct_5min: num($("demand-pct").value, 12) };
+  syncJson(); renderStreams();
+}));
+
 function renderEv() {
   const ev = S.spec.elevator;
   $("ev-box").classList.toggle("hidden", !ev);
   if (!ev) return;
   const iv = ev.schedule?.interval || { min: 35, max: 60 };
   $("ev-min").value = iv.min; $("ev-max").value = iv.max; $("ev-cap").value = ev.capacity ?? 8;
-  $("ev-alight").value = ev.alight?.count?.lam ?? 0;
+  const c = ev.alight?.count;
+  $("ev-alight").value = isDemand(c) ? "" : (c?.lam ?? 0);
+  $("ev-alight").placeholder = isDemand(c) ? "建物の人数から" : "";
 }
 ["ev-min", "ev-max", "ev-cap", "ev-alight"].forEach((id) => $(id).addEventListener("change", () => {
   const ev = S.spec.elevator; if (!ev) return;
@@ -200,16 +239,23 @@ function renderEv() {
   ev.schedule.type = "interval";
   ev.schedule.interval = { type: "uniform", min: num($("ev-min").value, 35), max: num($("ev-max").value, 60) };
   ev.capacity = num($("ev-cap").value, 8);
-  if (ev.alight) ev.alight.count = { type: "poisson", lam: num($("ev-alight").value) };
+  if (ev.alight && $("ev-alight").value !== "") ev.alight.count = { type: "poisson", lam: num($("ev-alight").value) };
   syncJson();
 }));
 
 function renderGates() {
   const gates = Object.entries(S.space.pois).filter(([, p]) => p.kind === "gate");
   $("gate-box").classList.toggle("hidden", !gates.length);
-  $("gates").innerHTML = gates.map(([k]) => `<label>${k}: 1 人を通す間隔（秒）<input type="number" step="0.1" min="0.3" data-gate="${k}" value="${S.spec.gates?.[k]?.service_s ?? 1.5}"></label>`).join("");
+  const dflt = S.spec.people?.profile ? "文献の既定（中央 2.0）" : "1.5";
+  $("gates").innerHTML = gates.map(([k]) => {
+    const v = S.spec.gates?.[k]?.service_s;
+    return `<label>${k}: 1 人を通す間隔（秒）<input type="number" step="0.1" min="0.3" data-gate="${k}" value="${typeof v === "number" ? v : ""}" placeholder="${dflt}" style="width:150px"></label>`;
+  }).join("");
   $("gates").querySelectorAll("[data-gate]").forEach((inp) => inp.addEventListener("change", (e) => {
-    S.spec.gates = S.spec.gates || {}; S.spec.gates[e.target.dataset.gate] = { service_s: num(e.target.value, 1.5) }; syncJson();
+    S.spec.gates = S.spec.gates || {};
+    if (e.target.value === "") delete S.spec.gates[e.target.dataset.gate];
+    else S.spec.gates[e.target.dataset.gate] = { service_s: num(e.target.value, 1.5) };
+    syncJson();
   }));
 }
 
@@ -253,7 +299,7 @@ function renderProps() {
 
 function renderAll() {
   $("duration").value = S.spec.duration_s; $("seed").value = S.spec.seed;
-  renderStreams(); renderEv(); renderGates(); renderCameras(); renderProps(); syncJson(); draw();
+  renderPeople(); renderStreams(); renderEv(); renderGates(); renderCameras(); renderProps(); syncJson(); draw();
 }
 $("duration").addEventListener("change", (e) => { S.spec.duration_s = num(e.target.value, 60); syncJson(); });
 $("seed").addEventListener("change", (e) => { S.spec.seed = Math.round(num(e.target.value, 0)); syncJson(); });
@@ -331,6 +377,10 @@ async function showRun(id) {
       <span class="chip">ゲート 入館 ${(s.gate_passes || {}).in ?? 0}・退館 ${(s.gate_passes || {}).out ?? 0}</span></div>
     <div class="muted">状態ごとの時間: ${states}</div>
     <img src="${fileUrl(id, "preview.png")}" alt="確認の図">
+    ${r.files.includes("validity.png") ? `<h3>文献との比べ（妥当性）</h3>
+      <div class="muted">入力の再現（文献の分布を入れた量が崩れていないか）と、出てくる量（入れていない量が文献の範囲か）。表と根拠の台帳は
+      <a href="${fileUrl(id, "validity.md")}" target="_blank">validity.md</a></div>
+      <img src="${fileUrl(id, "validity.png")}" alt="文献との比べ">` : ""}
     <h3>描画（GPU）</h3>
     <div class="row"><button class="secondary" id="render-test">いちばん混む 5 秒を試し撮り</button>
       <button class="secondary" id="render-all">全部を描画</button></div>

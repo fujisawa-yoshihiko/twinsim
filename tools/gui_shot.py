@@ -1,5 +1,5 @@
 """GUI の確かめ（画面を撮る）。サーバー（python -m twinsim serve）を起動してから:
-  uv run --no-project --with playwright python tools/gui_shot.py [出力の場所]
+  uv run --no-project --with playwright python tools/gui_shot.py [出力の場所] [ポート（既定 8770）]
 （初回は uv run --no-project --with playwright python -m playwright install firefox）
 設定・結果のタブを撮り、カメラのドラッグが設定に反映されるか・ブラウザのエラーがないかを確かめる。
 """
@@ -12,7 +12,7 @@ from pathlib import Path
 from playwright.async_api import async_playwright
 
 
-async def main(out):
+async def main(out, port=8770):
     out.mkdir(parents=True, exist_ok=True)
     token = (Path.home() / ".config/twinsim/token").read_text().strip()
     async with async_playwright() as p:
@@ -20,7 +20,7 @@ async def main(out):
         pg = await b.new_page(viewport={"width": 1600, "height": 1000})
         errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)))
-        await pg.goto(f"http://localhost:8770/?token={token}")
+        await pg.goto(f"http://localhost:{port}/?token={token}")
         await pg.wait_for_function("document.querySelector('#template').options.length > 0", timeout=20000)
         await pg.wait_for_timeout(2000)
         await pg.screenshot(path=str(out / "gui_settings.png"))
@@ -45,4 +45,4 @@ async def main(out):
 
 
 if __name__ == "__main__":
-    asyncio.run(main(Path(sys.argv[1] if len(sys.argv) > 1 else Path.home() / "dt-data/twinsim/screens")))
+    asyncio.run(main(Path(sys.argv[1] if len(sys.argv) > 1 else Path.home() / "dt-data/twinsim/screens"), int(sys.argv[2]) if len(sys.argv) > 2 else 8770))

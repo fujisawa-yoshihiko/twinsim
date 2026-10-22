@@ -55,13 +55,15 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 |---|---|
 | `space` | 空間の名前 |
 | `seed`・`fps`・`duration_s` | 乱数の種（0）、1 秒のコマ数（30）、長さ（120 秒） |
-| `people` | `speed`（歩く速さの分布、既定は平均 1.34 m/秒・標準偏差 0.26）、`models`（人物モデル。`all`）、`group_lateral_m`（グループの横の間隔 0.45） |
-| `streams[]` | 人の流れ: `origin`（現れる場所）、`rate`（到着の率）、`group_size`、`types`、`destinations[]`、`start_s` |
-| `elevator` | `cars`（扉の名前）、`capacity`、`schedule`、`alight`（降りる人: `count`・`types`・`destinations`） |
-| `gates` | ゲートごとの `service_s`（1 レーンで 1 人を通す間隔、既定 1.5 秒） |
+| `people` | `profile`（文献の値の組。`office_commute_jp`・`leisure_low_density`。docs/validity.md）、`speed`（歩く速さの分布、既定は 1.34 ± 0.26 m/s、Weidmann 1993）、`models`（人物モデル。`all`）、`group_size`（流れに書かないときのまとまりの人数）、`group_speed`（既定 `{model: moussaid2010, slope_m_s: 0.04}`。`{model: min}` で遅い人に合わせる）、`group_lateral_m`（2 人連れの横の間隔、既定 0.66、Zanlungo ら 2017）、`speed_density`（速さと密度の関係、既定 Weidmann 1993。`null` で切る）、`lateral_max_m`（経路から横へよけられる幅、1.0） |
+| `demand` | EV を使う人の量: `population`（建物にいる人数）、`period`（`morning`・`lunch`）、`peak_pct_5min`（混む 5 分の割合、12）。`rate: {type: lift_demand}` と `alight.count: {type: lift_demand}` が使う（Peters ら 2011） |
+| `streams[]` | 人の流れ: `origin`（現れる場所。`line` のある場所なら線の上のどこか）、`rate`（到着の率）、`group_size`、`types`、`destinations[]`、`start_s` |
+| `elevator` | `cars`（扉の名前）、`capacity`、`schedule`、`alight`（降りる人: `count`・`types`・`destinations`）、`transfer_s`（1 人の乗り降り、1.0 秒）、`door_open_s`（着いてから最初の人が動くまで、1.0 秒、仮） |
+| `gates` | ゲートごとの `service_s`（1 レーンで 1 人を通す間隔。秒か分布。既定 1.5 秒、`office_commute_jp` では対数正規 中央 2.0 秒） |
+| `validity` | `{speed_density: judge}` で密度ごとの速さを Weidmann の式で判定する（一方向の廊下の確かめだけ） |
 | `cameras[]` | `name`（空間の候補の名前）と、上書きする `eye`・`target`・`focal_mm`・`width`・`height`・`clock_offset_s`・`drop_rate` |
 | `render` | `width`・`height`（1280×720）、`tint`（人ごとに服の色を変える）、`props`（置く物の場所の名前） |
-| `outputs` | 書き出すもの（`ground_truth`・`frames`・`tasks`・`graph`・`mot`・`preview`） |
+| `outputs` | 書き出すもの（`ground_truth`・`frames`・`tasks`・`graph`・`mot`・`preview`・`validity`） |
 | `variants`・`variant` | A/B の比較: `variants: {A: {名前: 値}}` と、行き先の `variant_p: 名前` で `p` を差し替える |
 | `graph` | `cell_m`（格子のグラフの大きさ、2 m） |
 
@@ -88,7 +90,9 @@ EV の運行（`elevator.schedule`）:
 
 `1.34`（定数）、`{type: normal, mean, sd, min, max}`、`{type: uniform, min, max}`、`{type: lognormal, median, sigma, min, max}`、
 `{type: poisson, lam}`、`{type: zero_truncated_poisson, lam}`（0 を除いたポアソン。まとまりの人数）、`{type: choice, values: {名前: 重み}}`。
-到着の率: `{type: constant, per_min: 8}`、`{type: piecewise, per_min: [[秒, 人/分], ...]}`（時間帯で変わるポアソン過程。間引き法で引く）。
+到着の率（`per_min` はまとまりの数/分。`unit: persons` なら人/分で、まとまりの平均の人数で割って使う）: `{type: constant, per_min: 8}`、
+`{type: piecewise, per_min: [[秒, 率], ...]}`（時間帯で変わるポアソン過程。間引き法で引く）、`{type: lift_demand, flow: incoming, share: 0.9}`（`demand` から人/分）、
+`{type: times, times: [秒, ...]}`（決めた時刻。確かめ用）。どの分布にも `source: <文献の名前>` を書くと、妥当性の台帳で文献として数える。
 
 ## 4. 状態（1 コマごとの正解）
 
@@ -114,7 +118,8 @@ EV の運行（`elevator.schedule`）:
 | `graph/` | GNN 向け: `graph.json`（ゾーンのグラフ・2 m の格子のグラフ・カメラから見えるノード）、`zone_counts.csv`（秒ごとのゾーンの人数）、`zone_flows.csv`（1 分ごとのゾーン間の移動）、`grid_counts.npz`（counts[秒, 格子]）、`zone_graph.graphml` |
 | `mot/<カメラ>.txt` | MOTChallenge の形式の枠（frame, id, x, y, w, h, 1, 1, 見えている割合）。見えている割合は近似（壁は床の上の線で、人は手前の枠との重なりで数える） |
 | `preview.png` | 真上の図に、人の軌跡（流れごとの色）・ゾーン・カメラの向きを重ねた確認の図 |
-| `summary.json` | 人数・状態ごとの時間・EV の待ち時間・ゲートの通過の向き・かかった時間 |
+| `summary.json` | 人数・状態ごとの時間・EV の待ち時間・ゲートの通過の向き・かかった時間・`inputs`（文献から決めた到着の率・EV の乗り降り・ゲートの時間） |
+| `validity.json`・`validity.md`・`validity.png` | 文献の値との比べ（入力の再現・出てくる量）と、シナリオの値ごとの根拠の台帳（docs/validity.md） |
 | `video/<カメラ>.mp4` | 描画した動画（`render` のあと） |
 
 ## 6. 使い方（API）
@@ -156,24 +161,18 @@ isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.vie
 置く物: ゲートの機械（レーンを仕切る箱、自動）、サイネージ（`render.props`）、照明（空間の `lights`、部屋の中に照明がない USD 用）。
 長い描画は、始める前に所要時間と GPU を示して確認を取る（GPU は他の利用者と共有）。
 
-## 9. 妥当性（今の段階と、合わせ方）
+## 9. 妥当性
 
-| 項目 | 今の値 | 根拠 | 実データでの合わせ方 |
-|---|---|---|---|
-| 歩く速さ | 平均 1.34 m/秒・標準偏差 0.26（0.8〜1.9 で切る）。グループは遅い人に合わせる | 文献の目安（Weidmann 1993） | MOPF の床の上の軌跡 |
-| 到着 | 時間帯で率が変わるポアソン過程。値はテンプレートの仮の値 | 形は一般的な仮定、値は仮 | ゲートの通過記録（時刻の集計） |
-| まとまり | 0 を除いたポアソン | 形は Coleman & James 1961、値は仮 | 実映像で一緒に歩く人数を数える |
-| 行き先・止まる時間 | テンプレートの仮の値 | 仮 | 実映像の短い区間に手でラベル、研究 2 の流れの推定 |
-| EV | 号機ごとの到着の間隔・定員 8 | 仮 | 運行記録（東急不動産に依頼） |
-| ゲート | 1 レーンで 1.5〜1.6 秒に 1 人 | 仮 | ゲートの通過記録 |
-
-`check` で見る目安（office_gate_ev、104 人・5 分）: 壁の中のコマ 0.006%、グループ以外の 2 人の最も近い距離の 1 パーセンタイル 0.12 m、
-0.4 m 未満に近づくコマ 10%（ほとんどが 0.25〜0.4 m のすれ違い）、歩く速さの中央値 1.24 m/秒。
+人の分布は文献の値で作り、計算ごとに文献の値と比べる（`validity.*`）。値と出典の一覧・確かめの基準・エンジンの確かめの結果・
+文献のない値（仮）と実データでの合わせ方は [validity.md](validity.md)。確かめ用のテンプレート: `verify_corridor_speed`（RiMEA の試験 1 に相当）、
+`verify_fundamental_diagram`（速さと密度）、`verify_groups`（グループ）、`verify_gate_capacity`（混んだゲート）。
 
 ## 10. 既知の限界
 
-- 歩き方は「経路から横へずれてよける」簡単なモデル（hospital-sim と同じ）。すれ違いで 0.25〜0.4 m まで近づく。速さと密度の関係（混むと遅くなる）は入っていない。
-  歩行者シミュレータの標準の検証（RiMEA のテストケース、ISO 20414）はまだしていない。
+- 歩き方は「経路から横へずれてよける」簡単なモデル（hospital-sim を広げたもの）に、前の人についていく速さ（Seyfried ら 2005）・
+  速さと密度の関係（Weidmann 1993）・追い越し・グループのまとまりを足したもの。すれ違いで 0.25〜0.4 m まで近づく。
+  0.25〜1 人/m² では文献より 0.1 m/s ほど遅い。RiMEA のテストケースは 1 番に当たるものだけ。双方向の流れ・階段・避難は確かめていない。
+- 入口（現れる場所）がふさがっていると、空くまで外で待つ（`events.spawn_wait_s`）。列が建物の外まで伸びる場面は、外で待つ人として数える。
 - 見えている割合（MOT の 9 列目）は近似。正確な値は描画の深度から取る（未実装）。
 - 1 つの階だけ。EV は扉で人が消える・現れるだけで、かごや他の階はない。扉の開閉のアニメーションは使っていない（オフィスの EV 1 基には開閉のアニメーションがある）。
 - 病院は部屋の扉を閉じたまま歩ける所を作ったので、部屋の中には入れない。小部屋は描画が真っ暗（原因未調査）。

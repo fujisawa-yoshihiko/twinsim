@@ -4,4 +4,4 @@
 #   ./run.sh templates        テンプレートの一覧         ./run.sh run <テンプレート>   計算（CPU）
 #   ./run.sh render <結果の場所> [--frames a b]   描画（GPU。先に ./isaac_up.sh）
 cd "$(dirname "$0")" || exit 1
-exec uv run --no-project --with numpy --with scipy --with pyyaml --with pillow --with networkx python -m twinsim "$@"
+exec uv run --no-project --with numpy --with scipy --with pyyaml --with pillow --with networkx --with matplotlib python -m twinsim "$@"

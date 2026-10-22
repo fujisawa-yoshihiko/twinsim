@@ -1,0 +1,19 @@
+# エンジンの確かめ: ゲートが混んだときの通過の間隔（Fruin のカードを読む改札 1.5〜4.0 秒・25〜40 人/分）。
+# 入館の 2 レーンで運べる量（約 60 人/分）より多い 75 人/分を 3 分入れて、列ができた状態の間隔を測る。EV は使わない。
+name: verify_gate_capacity
+title: "確かめ: ゲートが混んだときの通過の間隔"
+space: office
+seed: 9
+duration_s: 180
+people:
+  profile: office_commute_jp
+streams:
+  - name: rush
+    origin: entrance
+    rate: {type: constant, per_min: 75, unit: persons}
+    destinations:
+      - {to: south_exit, p: 0.5, via: [gate]}
+      - {to: west_corridor, p: 0.5, via: [gate]}
+cameras:
+  - {name: CamGate}
+outputs: [ground_truth, frames, tasks, preview, validity]

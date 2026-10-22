@@ -132,7 +132,7 @@ def write_all(sim, builder, spec, out_dir):
                             "wait_mean_s": round(float(np.mean(waits)), 1) if waits else None,
                             "wait_max_s": round(float(np.max(waits)), 1) if waits else None},
                "gate_passes": Counter(e["dir"] for e in sim.gate_events),
-               "still_waiting_at_end": len(sim.queue), "files": files + ["summary.json"]}
+               "still_waiting_at_end": len(sim.queue), "inputs": builder.meta, "files": files + ["summary.json"]}
     (out / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1))
     return summary
 

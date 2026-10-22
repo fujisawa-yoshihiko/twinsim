@@ -1,0 +1,17 @@
+# エンジンの確かめ: グループ（人数の分布・人数ごとの速さ・2 人連れの間隔）。廊下（幅 4 m）を西から東へ、低密度で 5 分。
+# 余暇のプロファイル（トゥールーズの商店街の割合、大阪 ATC の友人の 2 人連れの間隔）。validity.md の 3・4 番と 2 人連れの距離で比べる。
+name: verify_groups
+title: "確かめ: グループ（低密度の廊下）"
+space: corridor
+seed: 5
+duration_s: 300
+people:
+  profile: leisure_low_density
+streams:
+  - name: flow
+    origin: west
+    rate: {type: constant, per_min: 14}
+    destinations:
+      - {to: east}
+validity: {speed_density: judge}   # 密度ごとの速さを Weidmann の式で判定する（一方向の廊下）
+outputs: [ground_truth, frames, tasks, preview, validity]

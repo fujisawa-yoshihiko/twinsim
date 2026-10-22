@@ -1,0 +1,19 @@
+# 空間: 合成の廊下（幅 4 m・長さ 50 m、USD なし）。エンジンの確かめ用（RiMEA の試験 1 に相当する「まっすぐ歩けるか」と、速さと密度の関係）。
+# 描画はしない（USD がない）。入口・出口は幅のある線（line）で、人はその線の上のどこかから出て、どこかへ向かう。
+name: corridor
+title: 廊下（確かめ用、4 m × 50 m）
+license: 自作（制限なし）
+levels:
+  - name: 1F
+    z: 0.0
+    walkable: walkable_1f.txt
+pois:
+  west:    {kind: spawn, xy: [0.5, 0.0], line: [[0.5, -1.6], [0.5, 1.6]], note: 西の端（幅 3.2 m の入口）}
+  east:    {kind: exit, xy: [49.5, 0.0], line: [[49.5, -1.6], [49.5, 1.6]], note: 東の端}
+  start:   {kind: spawn, xy: [5.0, 0.0], note: 試験 1 の出発（40 m の始まり）}
+  finish:  {kind: exit, xy: [45.0, 0.0], note: 試験 1 の到着}
+  east_narrow: {kind: exit, xy: [49.5, 0.0], line: [[49.5, -0.4], [49.5, 0.4]], note: 東の端の狭い出口（幅 0.8 m、混ませるため）}
+zones:
+  upstream: {polygon: [[0.0, -2.0], [20.0, -2.0], [20.0, 2.0], [0.0, 2.0]]}
+  measure:  {polygon: [[20.0, -2.0], [40.0, -2.0], [40.0, 2.0], [20.0, 2.0]]}
+  downstream: {polygon: [[40.0, -2.0], [50.0, -2.0], [50.0, 2.0], [40.0, 2.0]]}

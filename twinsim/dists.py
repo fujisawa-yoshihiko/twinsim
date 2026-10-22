@@ -8,12 +8,15 @@
   {type: poisson, lam: 1.5}
   {type: zero_truncated_poisson, lam: 0.6}     0 を除いたポアソン（まとまりの人数。Coleman & James 1961）
   {type: choice, values: {staff: 0.7, visitor: 0.3}}
-人の量（到着の率）は rate として別に書く（arrival_times）:
+人の量（到着の率）は rate として別に書く（arrival_times）。per_min はグループ（まとまり）の数/分:
   {type: constant, per_min: 8}
-  {type: piecewise, per_min: [[0, 4], [120, 12], [300, 6]]}   時刻（秒）と率（人/分）の折れ線（時間帯で変わるポアソン過程）
+  {type: piecewise, per_min: [[0, 4], [120, 12], [300, 6]]}   時刻（秒）と率の折れ線（時間帯で変わるポアソン過程）
+  {type: constant, per_min: 8, unit: persons}                 人/分（グループの平均の人数で割って使う。scenario.resolve_rate）
+  {type: lift_demand, flow: incoming}                          建物の人数から（Peters ら 2011。scenario.resolve_rate）
 """
 
 import math
+import random
 
 
 def sample(spec, rng):
@@ -46,6 +49,25 @@ def sample(spec, rng):
         if "max" in spec and t not in ("uniform",):
             v = min(v, spec["max"])
     return v
+
+
+def mean(spec):
+    """分布の平均（人/分をグループ/分に直す・EV の間隔の平均などに使う）。式で出せない形は乱数で 4000 回引いて平均する。"""
+    if isinstance(spec, (int, float)):
+        return float(spec)
+    t = spec.get("type", "constant")
+    clipped = "min" in spec or "max" in spec
+    if t == "constant":
+        return float(spec["value"])
+    if t == "uniform":
+        return (spec["min"] + spec["max"]) / 2.0
+    if t == "zero_truncated_poisson":
+        lam = spec["lam"]
+        return lam / (1.0 - math.exp(-lam)) if lam > 0 else 1.0
+    if t == "poisson" and not clipped:
+        return float(spec["lam"])
+    rng = random.Random(0)
+    return sum(float(sample(spec, rng)) for _ in range(4000)) / 4000.0
 
 
 def poisson(lam, rng):
@@ -98,7 +120,9 @@ def rate_at(spec, t):
 
 
 def arrival_times(spec, t_end, rng, t_start=0.0):
-    """率が時刻で変わるポアソン過程の到着の時刻（間引き法）。"""
+    """率が時刻で変わるポアソン過程の到着の時刻（間引き法）。{type: times, times: [秒, ...]} なら決めた時刻（確かめ用）。"""
+    if isinstance(spec, dict) and spec.get("type") == "times":
+        return [float(t) for t in spec["times"] if t_start <= float(t) < t_end]
     if isinstance(spec, dict) and spec.get("type") == "piecewise":
         rmax = max(r for _, r in spec["per_min"]) / 60.0
     else:

@@ -1,0 +1,16 @@
+# エンジンの確かめ: 速さと密度の関係（Weidmann 1993）。廊下（幅 4 m）に一方向の流れを、少ない量から多い量へ 6 分かけて増やし、
+# 東の端の狭い出口（0.8 m）の手前で混ませる。0.5 秒ごとの密度と速さを validity.png の 2 番の図で Kladek の式と比べる。
+# グループは入れない（1 人ずつ）。速さは Weidmann 1993 の分布（既定）。
+name: verify_fundamental_diagram
+title: "確かめ: 密度ごとの速さ（一方向の流れ、出口で混む）"
+space: corridor
+seed: 3
+duration_s: 360
+streams:
+  - name: flow
+    origin: west
+    rate: {type: piecewise, per_min: [[0, 20], [300, 150], [360, 150]]}
+    destinations:
+      - {to: east_narrow}
+validity: {speed_density: judge}   # 密度ごとの速さを Weidmann の式で判定する（一方向の廊下）
+outputs: [ground_truth, frames, tasks, preview, validity]

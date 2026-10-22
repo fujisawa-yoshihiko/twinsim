@@ -35,6 +35,17 @@
         <label>長さ（秒）<input type="number" id="duration" min="10" step="10"></label>
         <label>乱数の種 <input type="number" id="seed" step="1"></label>
       </fieldset>
+      <fieldset id="people-box">
+        <legend>人の分布（文献）</legend>
+        <label class="block">文献の値の組<select id="profile"></select></label>
+        <div class="muted" id="profile-note"></div>
+        <div class="row" id="demand-row">
+          <label>建物にいる人数 <input type="number" id="demand-pop" min="1" step="10"></label>
+          <label>時間帯 <select id="demand-period"><option value="morning">朝（入る 85%・出る 10%）</option><option value="lunch">昼（入る 45%・出る 45%）</option></select></label>
+          <label>混む 5 分の割合（%）<input type="number" id="demand-pct" min="1" max="30" step="0.5"></label>
+        </div>
+        <div class="muted">EV を使う人の量 = 人数 × 割合 ÷ 5 分（Peters ら 2011。観測の最大 12〜13%）。到着が「建物の人数から」の流れに効く。</div>
+      </fieldset>
       <fieldset>
         <legend>人の流れ</legend>
         <div id="streams"></div>

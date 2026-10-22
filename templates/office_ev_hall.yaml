@@ -3,12 +3,14 @@ name: office_ev_hall
 title: EV 前の紛らわしい状態（EV 待ち・同行者待ち・案内確認・受付）
 space: office
 seed: 21
+people:
+  profile: office_commute_jp   # 速さ・グループ・速さと密度・ゲート・EV の乗り降りは文献の値（docs/validity.md）
 duration_s: 360
 streams:
   - name: arrivals
     origin: entrance
     rate: {type: constant, per_min: 9}
-    group_size: {type: zero_truncated_poisson, lam: 0.5}
+    group_size: {type: zero_truncated_poisson, lam: 0.5}   # RQ1 のためにグループを多め（仮。通勤の文献の値は 0.2）
     types: {type: choice, values: {staff: 0.7, visitor: 0.3}}
     destinations:
       - {to: elevator, p: 0.55, via: [gate]}
@@ -23,8 +25,6 @@ elevator:
   alight:
     count: {type: poisson, lam: 1.5}
     destinations: [{to: entrance, p: 0.6, via: [gate]}, {to: south_exit, p: 0.4}]
-gates:
-  gate: {service_s: 1.6}
 cameras:
   - {name: CamEV}
 render:

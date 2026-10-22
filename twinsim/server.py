@@ -9,6 +9,7 @@
 API（JSON。詳しくは docs/spec.md の「API」）:
   GET  /api/spaces、/api/spaces/<名前>、/api/spaces/<名前>/top     空間の一覧・中身・真上の図
   GET  /api/templates、/api/templates/<名前>                        テンプレートの一覧・中身（既定を足したもの）
+  GET  /api/profiles                                                 文献に基づく人の分布の組（people.profile）と文献の一覧
   POST /api/runs {scenario: 名前か dict, overrides, name}            計算を始める（CPU）→ {id}
   GET  /api/runs、/api/runs/<id>、/api/runs/<id>/file?path=...       結果の一覧・状態と要約・ファイル
   POST /api/runs/<id>/mopf {camera, apply}                           MOPF の人流モニターの設定を作る（apply で送る）
@@ -37,6 +38,7 @@ import yaml
 
 from . import api, isaac_bridge, mopf
 from .camera import camera_dict
+from .literature import LIFT_MIX, PROFILES, REFS
 from .scenario import TEMPLATES, load_scenario
 from .space import ROOT, list_spaces, load_space
 
@@ -297,6 +299,9 @@ def make_handler(app, token):
         def _api(self, method, path, q):
             parts = path.strip("/").split("/")[1:]
             if method in ("GET", "HEAD"):
+                if parts == ["profiles"]:
+                    return self._json({"profiles": {k: {"title": v["title"], "sources": v["sources"], "notes": v.get("notes", [])} for k, v in PROFILES.items()},
+                                       "periods": list(LIFT_MIX), "refs": {k: r["cite"] for k, r in REFS.items()}})
                 if parts == ["spaces"]:
                     return self._json([{"name": n, "title": load_space(n).spec.get("title")} for n in list_spaces()])
                 if len(parts) == 2 and parts[0] == "spaces":

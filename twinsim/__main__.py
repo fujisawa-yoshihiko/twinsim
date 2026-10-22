@@ -3,7 +3,7 @@
   python -m twinsim templates                      テンプレートの一覧
   python -m twinsim validate <シナリオ>             シナリオの確かめ（行き先・カメラの名前など）
   python -m twinsim run <シナリオ> [--out 場所] [--set key=value ...]   人の動きを計算して書き出す（描画はしない）
-  python -m twinsim check <結果の場所>               結果の確かめ（壁の中・人の近さ・歩く速さ・止まる時間）
+  python -m twinsim check <結果の場所>               結果の確かめ（壁の中・人の近さ・歩く速さ・止まる時間）と文献との比べ（validity.*）
   python -m twinsim render <結果の場所> [--frames 始まり 終わり] [--cameras A,B]   Isaac Sim で描画して video/<カメラ>.mp4 を作る（GPU）
   python -m twinsim export-space <名前> --usd URL --region x0 x1 y0 y1 z0 z1 [--res 0.25]   USD から空間の材料を作る（GPU）
   python -m twinsim mopf <結果の場所> --camera <名前> [--apply]   MOPF の人流モニターの設定（床の図・位置合わせ・線・エリア）を作る
@@ -103,7 +103,15 @@ def main(argv=None):
             print(mopf.apply(out))
     elif a.cmd == "check":
         from .quality import check
+        from .validity import evaluate
         print(json.dumps(check(a.run_dir), ensure_ascii=False, indent=1))
+        v = evaluate(a.run_dir)
+        for part in ("input_reproduction", "emergent"):
+            for k, x in v[part].items():
+                items = x.items() if k == "arrivals" else [(k, x)]
+                for name, y in items:
+                    print(f"{part:18s} {name:28s} {y.get('verdict', '-'):4s} {y.get('note', '')}")
+        print("validity:", Path(a.run_dir).expanduser() / "validity.md")
     elif a.cmd == "run":
         over = parse_set(a.set)
         # streams.0.x のような番号つきの指定は、読んだシナリオに直接当てる
