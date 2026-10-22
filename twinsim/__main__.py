@@ -4,6 +4,8 @@
   python -m twinsim validate <シナリオ>             シナリオの確かめ（行き先・カメラの名前など）
   python -m twinsim run <シナリオ> [--out 場所] [--set key=value ...]   人の動きを計算して書き出す（描画はしない）
   python -m twinsim check <結果の場所>               結果の確かめ（壁の中・人の近さ・歩く速さ・止まる時間）と文献との比べ（validity.*）
+  python -m twinsim export-logs <結果の場所>         ゲートの通過記録・EV の運行記録の形で書き出す（実データの形の見本・往復の確かめ）
+  python -m twinsim calibrate <元のシナリオ> --gate-log a.csv --ev-log b.csv [--ev-mode replay]   記録で値を合わせたシナリオを作る
   python -m twinsim render <結果の場所> [--frames 始まり 終わり] [--cameras A,B]   Isaac Sim で描画して video/<カメラ>.mp4 を作る（GPU）
   python -m twinsim export-space <名前> --usd URL --region x0 x1 y0 y1 z0 z1 [--res 0.25]   USD から空間の材料を作る（GPU）
   python -m twinsim mopf <結果の場所> --camera <名前> [--apply]   MOPF の人流モニターの設定（床の図・位置合わせ・線・エリア）を作る
@@ -65,6 +67,16 @@ def main(argv=None):
     mo.add_argument("run_dir")
     mo.add_argument("--camera", required=True)
     mo.add_argument("--apply", action="store_true")
+    el = sub.add_parser("export-logs")
+    el.add_argument("run_dir")
+    el.add_argument("--out")
+    ca = sub.add_parser("calibrate")
+    ca.add_argument("base", help="元のシナリオ（テンプレートの名前かファイル）")
+    ca.add_argument("--gate-log")
+    ca.add_argument("--ev-log")
+    ca.add_argument("--ev-mode", choices=["fit", "replay"], default="fit")
+    ca.add_argument("--out", help="書く場所（既定 ~/dt-data/twinsim/calibration/<id>/）")
+    ca.add_argument("--id")
     ex = sub.add_parser("export-space")
     ex.add_argument("name")
     ex.add_argument("--usd", required=True)
@@ -101,6 +113,17 @@ def main(argv=None):
         print("out:", out, "lines", len(cfg["lines"]), "zones", [z["name"] for z in cfg["zones"]], json.dumps(info, ensure_ascii=False))
         if a.apply:
             print(mopf.apply(out))
+    elif a.cmd == "export-logs":
+        from .calibrate import export_logs
+        print("logs:", export_logs(a.run_dir, a.out))
+    elif a.cmd == "calibrate":
+        from .calibrate import calibrate
+        path, rep = calibrate(a.base, a.gate_log, a.ev_log, a.out, a.ev_mode, cid=a.id)
+        for c in rep["changes"]:
+            print("合わせた:", json.dumps(c, ensure_ascii=False)[:200])
+        for c in rep["kept"]:
+            print("元のまま:", json.dumps(c, ensure_ascii=False))
+        print("scenario:", path)
     elif a.cmd == "check":
         from .quality import check
         from .validity import evaluate

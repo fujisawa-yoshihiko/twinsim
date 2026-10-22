@@ -435,6 +435,9 @@ def ledger(spec, inputs):
     psrc = prof.get("sources", {})
 
     def add(item, value, src, status):
+        s = src_of(value) if isinstance(value, dict) else None
+        if isinstance(s, str) and s.startswith("data:"):  # 実データで合わせた値（twinsim calibrate）
+            src, status = s, f"実データ（{s[5:]}）"
         rows.append({"item": item, "value": value, "source": src, "status": status})
 
     def src_of(d):

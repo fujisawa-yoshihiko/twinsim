@@ -155,9 +155,13 @@ def resolve_rate(spec, rate, size_spec):
         r = copy.deepcopy(rate)
         if r.get("type", "constant") == "constant":
             r["per_min"] = r["per_min"] / mean_size
+            persons = rate["per_min"]
         else:
             r["per_min"] = [[t, v / mean_size] for t, v in r["per_min"]]
-        return r, {"unit": "persons", "mean_group_size": round(mean_size, 3)}
+            T = float(spec.get("duration_s", 60))
+            persons = float(np.mean([dists.rate_at(rate, t) * 60 for t in np.linspace(0, T, 200)]))  # 時間の平均
+        return r, {"unit": "persons", "persons_per_min": round(persons, 3), "mean_group_size": round(mean_size, 3),
+                   **({"source": rate["source"]} if rate.get("source") else {})}
     return rate, {"unit": "groups", "mean_group_size": round(mean_size, 3)}
 
 

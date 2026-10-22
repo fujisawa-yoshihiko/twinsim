@@ -59,3 +59,17 @@ def test_validity_outputs(tmp_path):
     assert items["歩く速さ"]["source"] == "weidmann1993"
     assert items["EV の着く間隔"]["status"].startswith("仮")
     assert (tmp_path / "o/validity.md").exists()
+
+
+def test_calibrate_roundtrip(tmp_path):
+    # シミュレータの記録（ゲート・EV）で元のシナリオを合わせると、到着の量・EV の間隔がおおむね元に戻る
+    from twinsim.calibrate import calibrate, export_logs
+    api.run("office_gate_ev", tmp_path / "r", overrides={"duration_s": 180, "outputs": ["ground_truth"]})
+    logs = export_logs(tmp_path / "r")
+    path, rep = calibrate("office_gate_ev", logs / "gate_log.csv", logs / "ev_log.csv", tmp_path / "cal", cid="t")
+    ch = {c["item"]: c for c in rep["changes"]}
+    assert ch["commuters: 到着の量"]["mean_per_min"] == pytest.approx(11.0, rel=0.35)
+    assert 30 < ch["EV の着く間隔"]["fit"]["median"] < 65
+    assert all(f["sha256"] for f in rep["files"])
+    spec = load_scenario(str(path))
+    assert spec["streams"][0]["rate"]["source"] == "data:t"
