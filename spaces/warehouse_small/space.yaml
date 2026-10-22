@@ -1,0 +1,33 @@
+# export-space が作ったひな形。candidates.json と top_1f.jpg を見て、pois・zones・cameras を書く
+name: warehouse_small
+title: warehouse_small
+usd: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Digital_Twin_Warehouse/small_warehouse_digital_twin.usd
+license: （確かめて書く）
+navmesh_region:
+- -6.0
+- 5.0
+- -7.0
+- 7.5
+- 0.0
+- 3.0
+levels:
+- name: 1F
+  z: 0.0
+  walkable: walkable_1f.npz
+  top_image: top_1f.jpg
+  top_view:
+    eye:
+    - -0.5
+    - 0.24
+    - 80.0
+    target:
+    - -0.5
+    - 0.25
+    - 0.0
+    focal_mm: 61.936
+    h_aperture_mm: 20.955
+    width: 1280
+    height: 720
+pois: {}
+zones: {}
+cameras: {}

@@ -1,0 +1,15 @@
+# 動作確認（小部屋、20 秒・数人）。床が z = -0.77 の空間の確かめも兼ねる。
+name: simple_room_smoke
+title: 動作確認（小部屋、20 秒）
+space: simple_room
+seed: 2
+duration_s: 20
+streams:
+  - name: visitors
+    origin: door_w
+    rate: {type: constant, per_min: 15}
+    destinations:
+      - {to: table, p: 0.5, dwell: {type: uniform, min: 3, max: 6}, then: door_e}
+      - {to: door_e, p: 0.5}
+cameras:
+  - {name: CamRoom}

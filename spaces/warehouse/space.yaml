@@ -1,0 +1,47 @@
+# 空間: Isaac Sim 6.1 付属の倉庫（Simple_Warehouse/full_warehouse.usd）。工場・物流の図（作業・待ち・移動、部品の追跡、経路の最適化）向け。
+# 北（y 9〜25）に棚が 8 列、その間が通路。南は広い作業の床。入口・荷受け・梱包・休憩の場所は見立て（USD にその意味はない）。
+name: warehouse
+title: 倉庫（棚の通路でピッキング → 梱包 → 待ち）
+usd: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Simple_Warehouse/full_warehouse.usd
+license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジットを書く）
+navmesh_region: [-28.0, 8.0, -41.5, 33.5, 0.0, 3.0]
+levels:
+  - name: 1F
+    z: 0.0
+    walkable: walkable_1f.npz
+    top_image: top_1f.jpg
+    top_view: {eye: [-10.0, -4.01, 80.0], target: [-10.0, -4.0, 0.0], focal_mm: 11.974, h_aperture_mm: 20.955, width: 1280, height: 720}
+
+pois:
+  dock:      {kind: spawn, xy: [-10.0, -21.0], note: 南の荷受け（作業者が来る・帰る）}
+  pick_1:    {kind: spot, xy: [-23.3, 12.0], face: [-25.5, 12.0]}
+  pick_2:    {kind: spot, xy: [-23.3, 21.0], face: [-21.0, 21.0]}
+  pick_3:    {kind: spot, xy: [-19.0, 15.0], face: [-21.0, 15.0]}
+  pick_4:    {kind: spot, xy: [-19.0, 23.0], face: [-17.0, 23.0]}
+  pick_5:    {kind: spot, xy: [-14.75, 11.0], face: [-17.0, 11.0]}
+  pick_6:    {kind: spot, xy: [-14.75, 19.0], face: [-13.0, 19.0]}
+  pick_7:    {kind: spot, xy: [-11.25, 13.0], face: [-13.0, 13.0]}
+  pick_8:    {kind: spot, xy: [-11.25, 22.0], face: [-9.0, 22.0]}
+  pick_9:    {kind: spot, xy: [-7.0, 16.0], face: [-9.0, 16.0]}
+  pick_10:   {kind: spot, xy: [-3.0, 20.0], face: [-1.0, 20.0]}
+  pick_11:   {kind: spot, xy: [1.0, 17.0], face: [3.2, 17.0]}
+  pick_12:   {kind: spot, xy: [1.0, 23.0], face: [-1.0, 23.0]}
+  pack_1:    {kind: spot, xy: [-20.0, 0.0], face: [-20.0, -1.5], note: 梱包の台（USD にはないので見立て）}
+  pack_2:    {kind: spot, xy: [-15.0, 0.0], face: [-15.0, -1.5]}
+  pack_3:    {kind: spot, xy: [-10.0, 0.0], face: [-10.0, -1.5]}
+  pack_4:    {kind: spot, xy: [-5.0, 0.0], face: [-5.0, -1.5]}
+  staging_1: {kind: spot, xy: [-14.0, -8.0], face: [-14.0, -6.0], note: 次の指示を待つ場所}
+  staging_2: {kind: spot, xy: [-12.0, -8.0], face: [-12.0, -6.0]}
+  break_1:   {kind: spot, xy: [-24.0, -16.0], face: [-26.0, -16.0], note: 休憩}
+
+zones:
+  aisles:   {polygon: [[-27.5, 8.5], [5.0, 8.5], [5.0, 25.5], [-27.5, 25.5]]}
+  north:    {polygon: [[-27.5, 25.5], [5.0, 25.5], [5.0, 30.5], [-27.5, 30.5]]}
+  packing:  {polygon: [[-24.0, -3.0], [0.0, -3.0], [0.0, 3.0], [-24.0, 3.0]]}
+  staging:  {polygon: [[-18.0, -11.0], [-8.0, -11.0], [-8.0, -5.0], [-18.0, -5.0]]}
+  dock:     {polygon: [[-27.5, -23.0], [5.0, -23.0], [5.0, -17.0], [-27.5, -17.0]]}
+  floor:    {polygon: [[-27.5, -17.0], [5.0, -17.0], [5.0, 8.5], [-27.5, 8.5]]}
+
+cameras:
+  CamAisles: {eye: [-13.0, 4.0, 5.0], target: [-13.0, 18.0, 0.5], note: 通路を南から見下ろす}
+  CamPack:   {eye: [2.0, -9.0, 5.0], target: [-12.0, 1.0, 0.5], note: 梱包の台と待つ場所}

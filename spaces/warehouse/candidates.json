@@ -1,0 +1,4580 @@
+[
+ {
+  "path": "/Root/SM_SignB_7",
+  "name": "SM_SignB_7",
+  "min": [
+   -26.32,
+   0.41,
+   1.73
+  ],
+  "max": [
+   -26.32,
+   0.75,
+   1.84
+  ]
+ },
+ {
+  "path": "/Root/SM_SignB_7/SM_SignB_05",
+  "name": "SM_SignB_05",
+  "min": [
+   -26.32,
+   0.41,
+   1.73
+  ],
+  "max": [
+   -26.32,
+   0.75,
+   1.84
+  ]
+ },
+ {
+  "path": "/Root/SM_SignA_22",
+  "name": "SM_SignA_22",
+  "min": [
+   -26.33,
+   0.46,
+   1.35
+  ],
+  "max": [
+   -26.33,
+   0.69,
+   1.68
+  ]
+ },
+ {
+  "path": "/Root/SM_SignA_22/SM_SignA_03",
+  "name": "SM_SignA_03",
+  "min": [
+   -26.33,
+   0.46,
+   1.35
+  ],
+  "max": [
+   -26.33,
+   0.69,
+   1.68
+  ]
+ },
+ {
+  "path": "/Root/SM_SignA_24",
+  "name": "SM_SignA_24",
+  "min": [
+   -26.32,
+   1.02,
+   2.51
+  ],
+  "max": [
+   -26.32,
+   1.22,
+   2.81
+  ]
+ },
+ {
+  "path": "/Root/SM_SignA_24/SM_SignA_13",
+  "name": "SM_SignA_13",
+  "min": [
+   -26.32,
+   1.02,
+   2.51
+  ],
+  "max": [
+   -26.32,
+   1.22,
+   2.81
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_155",
+  "name": "SM_SignCVer_155",
+  "min": [
+   -14.91,
+   24.91,
+   1.42
+  ],
+  "max": [
+   -14.81,
+   24.92,
+   1.74
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_155/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -14.91,
+   24.91,
+   1.42
+  ],
+  "max": [
+   -14.81,
+   24.92,
+   1.74
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_162",
+  "name": "SM_SignCVer_162",
+  "min": [
+   -14.91,
+   24.91,
+   2.78
+  ],
+  "max": [
+   -14.81,
+   24.92,
+   3.11
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_162/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -14.91,
+   24.91,
+   2.78
+  ],
+  "max": [
+   -14.81,
+   24.92,
+   3.11
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_171",
+  "name": "SM_SignCVer_171",
+  "min": [
+   -14.91,
+   20.9,
+   1.48
+  ],
+  "max": [
+   -14.81,
+   20.9,
+   1.8
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_171/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -14.91,
+   20.9,
+   1.48
+  ],
+  "max": [
+   -14.81,
+   20.9,
+   1.8
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_173",
+  "name": "SM_SignCVer_173",
+  "min": [
+   -14.91,
+   20.9,
+   2.84
+  ],
+  "max": [
+   -14.81,
+   20.9,
+   3.17
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_173/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -14.91,
+   20.9,
+   2.84
+  ],
+  "max": [
+   -14.81,
+   20.9,
+   3.17
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_175",
+  "name": "SM_SignCVer_175",
+  "min": [
+   -14.91,
+   16.9,
+   1.42
+  ],
+  "max": [
+   -14.81,
+   16.91,
+   1.74
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_175/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -14.91,
+   16.9,
+   1.42
+  ],
+  "max": [
+   -14.81,
+   16.91,
+   1.74
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_177",
+  "name": "SM_SignCVer_177",
+  "min": [
+   -14.91,
+   16.9,
+   2.78
+  ],
+  "max": [
+   -14.81,
+   16.91,
+   3.11
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_177/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -14.91,
+   16.9,
+   2.78
+  ],
+  "max": [
+   -14.81,
+   16.91,
+   3.11
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_179",
+  "name": "SM_SignCVer_179",
+  "min": [
+   -14.91,
+   12.89,
+   1.48
+  ],
+  "max": [
+   -14.81,
+   12.89,
+   1.8
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_179/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -14.91,
+   12.89,
+   1.48
+  ],
+  "max": [
+   -14.81,
+   12.89,
+   1.8
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_180",
+  "name": "SM_SignCVer_180",
+  "min": [
+   -14.91,
+   12.89,
+   2.84
+  ],
+  "max": [
+   -14.81,
+   12.89,
+   3.17
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_180/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -14.91,
+   12.89,
+   2.84
+  ],
+  "max": [
+   -14.81,
+   12.89,
+   3.17
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_182",
+  "name": "SM_SignCVer_182",
+  "min": [
+   -14.91,
+   8.89,
+   1.48
+  ],
+  "max": [
+   -14.81,
+   8.9,
+   1.8
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_182/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -14.91,
+   8.89,
+   1.48
+  ],
+  "max": [
+   -14.81,
+   8.9,
+   1.8
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_183",
+  "name": "SM_SignCVer_183",
+  "min": [
+   -14.91,
+   8.89,
+   2.84
+  ],
+  "max": [
+   -14.81,
+   8.9,
+   3.17
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_183/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -14.91,
+   8.89,
+   2.84
+  ],
+  "max": [
+   -14.81,
+   8.9,
+   3.17
+  ]
+ },
+ {
+  "path": "/Root/SM_SignB_23",
+  "name": "SM_SignB_23",
+  "min": [
+   1.86,
+   30.6,
+   1.21
+  ],
+  "max": [
+   2.19,
+   30.6,
+   1.7
+  ]
+ },
+ {
+  "path": "/Root/SM_SignB_23/SM_SignB_11",
+  "name": "SM_SignB_11",
+  "min": [
+   1.86,
+   30.6,
+   1.21
+  ],
+  "max": [
+   2.19,
+   30.6,
+   1.7
+  ]
+ },
+ {
+  "path": "/Root/SM_SignA_27",
+  "name": "SM_SignA_27",
+  "min": [
+   1.3,
+   30.6,
+   1.79
+  ],
+  "max": [
+   1.64,
+   30.6,
+   2.03
+  ]
+ },
+ {
+  "path": "/Root/SM_SignA_27/SM_SignA_02",
+  "name": "SM_SignA_02",
+  "min": [
+   1.3,
+   30.6,
+   1.79
+  ],
+  "max": [
+   1.64,
+   30.6,
+   2.03
+  ]
+ },
+ {
+  "path": "/Root/SM_SignB_3",
+  "name": "SM_SignB_3",
+  "min": [
+   -0.79,
+   30.6,
+   1.53
+  ],
+  "max": [
+   -0.46,
+   30.6,
+   1.74
+  ]
+ },
+ {
+  "path": "/Root/SM_SignB_3/SM_SignB_02",
+  "name": "SM_SignB_02",
+  "min": [
+   -0.79,
+   30.6,
+   1.53
+  ],
+  "max": [
+   -0.46,
+   30.6,
+   1.74
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_139",
+  "name": "SM_SignCVer_139",
+  "min": [
+   -25.93,
+   8.92,
+   2.07
+  ],
+  "max": [
+   -25.83,
+   8.92,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_139/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -25.93,
+   8.92,
+   2.07
+  ],
+  "max": [
+   -25.83,
+   8.92,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_140",
+  "name": "SM_SignCVer_140",
+  "min": [
+   -25.92,
+   24.9,
+   1.81
+  ],
+  "max": [
+   -25.82,
+   24.91,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_140/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -25.92,
+   24.9,
+   1.81
+  ],
+  "max": [
+   -25.82,
+   24.91,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_141",
+  "name": "SM_SignCVer_141",
+  "min": [
+   -25.92,
+   24.9,
+   3.31
+  ],
+  "max": [
+   -25.82,
+   24.91,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_141/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -25.92,
+   24.9,
+   3.31
+  ],
+  "max": [
+   -25.82,
+   24.91,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_143",
+  "name": "SM_SignCVer_143",
+  "min": [
+   -25.92,
+   20.9,
+   3.14
+  ],
+  "max": [
+   -25.83,
+   20.9,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_143/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   -25.92,
+   20.9,
+   3.14
+  ],
+  "max": [
+   -25.83,
+   20.9,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_144",
+  "name": "SM_SignCVer_144",
+  "min": [
+   -25.92,
+   16.91,
+   3.14
+  ],
+  "max": [
+   -25.83,
+   16.91,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_144/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   -25.92,
+   16.91,
+   3.14
+  ],
+  "max": [
+   -25.83,
+   16.91,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_150",
+  "name": "SM_SignCVer_150",
+  "min": [
+   -25.92,
+   20.9,
+   1.81
+  ],
+  "max": [
+   -25.82,
+   20.9,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_150/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   -25.92,
+   20.9,
+   1.81
+  ],
+  "max": [
+   -25.82,
+   20.9,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_185",
+  "name": "SM_SignCVer_185",
+  "min": [
+   -25.93,
+   12.89,
+   3.29
+  ],
+  "max": [
+   -25.83,
+   12.9,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_185/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -25.93,
+   12.89,
+   3.29
+  ],
+  "max": [
+   -25.83,
+   12.9,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_186",
+  "name": "SM_SignCVer_186",
+  "min": [
+   -25.93,
+   8.92,
+   3.28
+  ],
+  "max": [
+   -25.83,
+   8.92,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_186/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   -25.93,
+   8.92,
+   3.28
+  ],
+  "max": [
+   -25.83,
+   8.92,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_187",
+  "name": "SM_SignCVer_187",
+  "min": [
+   -25.93,
+   12.89,
+   1.92
+  ],
+  "max": [
+   -25.83,
+   12.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_187/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -25.93,
+   12.89,
+   1.92
+  ],
+  "max": [
+   -25.83,
+   12.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_188",
+  "name": "SM_SignCVer_188",
+  "min": [
+   -25.93,
+   16.89,
+   1.92
+  ],
+  "max": [
+   -25.83,
+   16.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_188/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -25.93,
+   16.89,
+   1.92
+  ],
+  "max": [
+   -25.83,
+   16.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_189",
+  "name": "SM_SignCVer_189",
+  "min": [
+   -24.83,
+   24.88,
+   2.03
+  ],
+  "max": [
+   -24.73,
+   24.89,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_189/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -24.83,
+   24.88,
+   2.03
+  ],
+  "max": [
+   -24.73,
+   24.89,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_190",
+  "name": "SM_SignCVer_190",
+  "min": [
+   -24.83,
+   8.9,
+   1.77
+  ],
+  "max": [
+   -24.73,
+   8.9,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_190/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -24.83,
+   8.9,
+   1.77
+  ],
+  "max": [
+   -24.73,
+   8.9,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_191",
+  "name": "SM_SignCVer_191",
+  "min": [
+   -24.83,
+   8.9,
+   3.27
+  ],
+  "max": [
+   -24.73,
+   8.9,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_191/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -24.83,
+   8.9,
+   3.27
+  ],
+  "max": [
+   -24.73,
+   8.9,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_193",
+  "name": "SM_SignCVer_193",
+  "min": [
+   -24.83,
+   12.91,
+   3.1
+  ],
+  "max": [
+   -24.73,
+   12.91,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_193/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   -24.83,
+   12.91,
+   3.1
+  ],
+  "max": [
+   -24.73,
+   12.91,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_194",
+  "name": "SM_SignCVer_194",
+  "min": [
+   -24.83,
+   16.9,
+   3.1
+  ],
+  "max": [
+   -24.73,
+   16.9,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_194/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   -24.83,
+   16.9,
+   3.1
+  ],
+  "max": [
+   -24.73,
+   16.9,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_197",
+  "name": "SM_SignCVer_197",
+  "min": [
+   -24.83,
+   12.91,
+   1.77
+  ],
+  "max": [
+   -24.73,
+   12.91,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_197/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   -24.83,
+   12.91,
+   1.77
+  ],
+  "max": [
+   -24.73,
+   12.91,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_200",
+  "name": "SM_SignCVer_200",
+  "min": [
+   -24.83,
+   20.91,
+   3.25
+  ],
+  "max": [
+   -24.73,
+   20.91,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_200/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -24.83,
+   20.91,
+   3.25
+  ],
+  "max": [
+   -24.73,
+   20.91,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_201",
+  "name": "SM_SignCVer_201",
+  "min": [
+   -24.83,
+   24.88,
+   3.24
+  ],
+  "max": [
+   -24.73,
+   24.89,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_201/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   -24.83,
+   24.88,
+   3.24
+  ],
+  "max": [
+   -24.73,
+   24.89,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_202",
+  "name": "SM_SignCVer_202",
+  "min": [
+   -24.83,
+   20.91,
+   1.88
+  ],
+  "max": [
+   -24.73,
+   20.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_202/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -24.83,
+   20.91,
+   1.88
+  ],
+  "max": [
+   -24.73,
+   20.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_203",
+  "name": "SM_SignCVer_203",
+  "min": [
+   -24.83,
+   16.91,
+   1.88
+  ],
+  "max": [
+   -24.73,
+   16.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_203/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -24.83,
+   16.91,
+   1.88
+  ],
+  "max": [
+   -24.73,
+   16.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign_47",
+  "name": "S_AisleSign_47",
+  "min": [
+   -25.22,
+   8.83,
+   2.41
+  ],
+  "max": [
+   -24.82,
+   8.83,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign_47/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -25.22,
+   8.83,
+   2.41
+  ],
+  "max": [
+   -24.82,
+   8.83,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign2",
+  "name": "S_AisleSign2",
+  "min": [
+   -20.86,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -20.46,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign2/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -20.86,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -20.46,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign3",
+  "name": "S_AisleSign3",
+  "min": [
+   -20.26,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -19.86,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign3/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -20.26,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -19.86,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign4",
+  "name": "S_AisleSign4",
+  "min": [
+   -15.91,
+   8.83,
+   2.41
+  ],
+  "max": [
+   -15.51,
+   8.83,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign4/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -15.91,
+   8.83,
+   2.41
+  ],
+  "max": [
+   -15.51,
+   8.83,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign5",
+  "name": "S_AisleSign5",
+  "min": [
+   -15.32,
+   8.83,
+   2.41
+  ],
+  "max": [
+   -14.92,
+   8.83,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign5/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -15.32,
+   8.83,
+   2.41
+  ],
+  "max": [
+   -14.92,
+   8.83,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign6",
+  "name": "S_AisleSign6",
+  "min": [
+   -10.96,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -10.56,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign6/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -10.96,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -10.56,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign7",
+  "name": "S_AisleSign7",
+  "min": [
+   -10.36,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -9.96,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign7/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -10.36,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -9.96,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign8",
+  "name": "S_AisleSign8",
+  "min": [
+   -6.0,
+   8.73,
+   2.41
+  ],
+  "max": [
+   -5.6,
+   8.73,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign8/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -6.0,
+   8.73,
+   2.41
+  ],
+  "max": [
+   -5.6,
+   8.73,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign9",
+  "name": "S_AisleSign9",
+  "min": [
+   -5.4,
+   8.73,
+   2.41
+  ],
+  "max": [
+   -5.0,
+   8.73,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign9/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -5.4,
+   8.73,
+   2.41
+  ],
+  "max": [
+   -5.0,
+   8.73,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign10",
+  "name": "S_AisleSign10",
+  "min": [
+   -1.04,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -0.64,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign10/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -1.04,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -0.64,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign11",
+  "name": "S_AisleSign11",
+  "min": [
+   -0.44,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -0.04,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign11/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -0.44,
+   8.84,
+   2.41
+  ],
+  "max": [
+   -0.04,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign12",
+  "name": "S_AisleSign12",
+  "min": [
+   -25.22,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -24.82,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign12/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -25.22,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -24.82,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign13",
+  "name": "S_AisleSign13",
+  "min": [
+   -20.86,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -20.46,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign13/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -20.86,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -20.46,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign14",
+  "name": "S_AisleSign14",
+  "min": [
+   -20.26,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -19.86,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign14/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -20.26,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -19.86,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign15",
+  "name": "S_AisleSign15",
+  "min": [
+   -15.91,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -15.51,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign15/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -15.91,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -15.51,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign16",
+  "name": "S_AisleSign16",
+  "min": [
+   -15.32,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -14.92,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign16/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -15.32,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -14.92,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign17",
+  "name": "S_AisleSign17",
+  "min": [
+   -10.96,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -10.56,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign17/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -10.96,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -10.56,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign18",
+  "name": "S_AisleSign18",
+  "min": [
+   -10.36,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -9.96,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign18/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -10.36,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -9.96,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign19",
+  "name": "S_AisleSign19",
+  "min": [
+   -6.0,
+   24.87,
+   2.41
+  ],
+  "max": [
+   -5.6,
+   24.87,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign19/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -6.0,
+   24.87,
+   2.41
+  ],
+  "max": [
+   -5.6,
+   24.87,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign20",
+  "name": "S_AisleSign20",
+  "min": [
+   -5.4,
+   24.87,
+   2.41
+  ],
+  "max": [
+   -5.0,
+   24.87,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign20/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -5.4,
+   24.87,
+   2.41
+  ],
+  "max": [
+   -5.0,
+   24.87,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign21",
+  "name": "S_AisleSign21",
+  "min": [
+   -1.04,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -0.64,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign21/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -1.04,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -0.64,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign22",
+  "name": "S_AisleSign22",
+  "min": [
+   -0.44,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -0.04,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign22/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   -0.44,
+   24.97,
+   2.41
+  ],
+  "max": [
+   -0.04,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_WetFloorSign_2",
+  "name": "S_WetFloorSign_2",
+  "min": [
+   -3.67,
+   8.63,
+   0.0
+  ],
+  "max": [
+   -3.37,
+   8.91,
+   0.64
+  ]
+ },
+ {
+  "path": "/Root/S_WetFloorSign_2/S_WetFloorSign",
+  "name": "S_WetFloorSign",
+  "min": [
+   -3.67,
+   8.63,
+   0.0
+  ],
+  "max": [
+   -3.37,
+   8.91,
+   0.64
+  ]
+ },
+ {
+  "path": "/Root/S_WetFloorSign2",
+  "name": "S_WetFloorSign2",
+  "min": [
+   -1.79,
+   8.56,
+   0.0
+  ],
+  "max": [
+   -1.45,
+   8.86,
+   0.64
+  ]
+ },
+ {
+  "path": "/Root/S_WetFloorSign2/S_WetFloorSign",
+  "name": "S_WetFloorSign",
+  "min": [
+   -1.79,
+   8.56,
+   0.0
+  ],
+  "max": [
+   -1.45,
+   8.86,
+   0.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1126",
+  "name": "SM_SignCVer_1126",
+  "min": [
+   -19.86,
+   24.88,
+   2.07
+  ],
+  "max": [
+   -19.76,
+   24.89,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1126/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -19.86,
+   24.88,
+   2.07
+  ],
+  "max": [
+   -19.76,
+   24.89,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1127",
+  "name": "SM_SignCVer_1127",
+  "min": [
+   -19.86,
+   8.9,
+   1.81
+  ],
+  "max": [
+   -19.76,
+   8.9,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1127/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -19.86,
+   8.9,
+   1.81
+  ],
+  "max": [
+   -19.76,
+   8.9,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1128",
+  "name": "SM_SignCVer_1128",
+  "min": [
+   -19.86,
+   8.9,
+   3.31
+  ],
+  "max": [
+   -19.76,
+   8.9,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1128/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -19.86,
+   8.9,
+   3.31
+  ],
+  "max": [
+   -19.76,
+   8.9,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1130",
+  "name": "SM_SignCVer_1130",
+  "min": [
+   -19.86,
+   12.9,
+   3.14
+  ],
+  "max": [
+   -19.76,
+   12.91,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1130/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   -19.86,
+   12.9,
+   3.14
+  ],
+  "max": [
+   -19.76,
+   12.91,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1131",
+  "name": "SM_SignCVer_1131",
+  "min": [
+   -19.86,
+   16.89,
+   3.14
+  ],
+  "max": [
+   -19.76,
+   16.9,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1131/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   -19.86,
+   16.89,
+   3.14
+  ],
+  "max": [
+   -19.76,
+   16.9,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1134",
+  "name": "SM_SignCVer_1134",
+  "min": [
+   -19.86,
+   12.9,
+   1.81
+  ],
+  "max": [
+   -19.76,
+   12.91,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1134/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   -19.86,
+   12.9,
+   1.81
+  ],
+  "max": [
+   -19.76,
+   12.91,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1137",
+  "name": "SM_SignCVer_1137",
+  "min": [
+   -19.86,
+   20.9,
+   3.29
+  ],
+  "max": [
+   -19.76,
+   20.91,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1137/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -19.86,
+   20.9,
+   3.29
+  ],
+  "max": [
+   -19.76,
+   20.91,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1138",
+  "name": "SM_SignCVer_1138",
+  "min": [
+   -19.86,
+   24.88,
+   3.28
+  ],
+  "max": [
+   -19.76,
+   24.89,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1138/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   -19.86,
+   24.88,
+   3.28
+  ],
+  "max": [
+   -19.76,
+   24.89,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1139",
+  "name": "SM_SignCVer_1139",
+  "min": [
+   -19.86,
+   20.9,
+   1.92
+  ],
+  "max": [
+   -19.76,
+   20.91,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1139/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -19.86,
+   20.9,
+   1.92
+  ],
+  "max": [
+   -19.76,
+   20.91,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1140",
+  "name": "SM_SignCVer_1140",
+  "min": [
+   -19.86,
+   16.9,
+   1.92
+  ],
+  "max": [
+   -19.76,
+   16.91,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1140/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -19.86,
+   16.9,
+   1.92
+  ],
+  "max": [
+   -19.76,
+   16.91,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1141",
+  "name": "SM_SignCVer_1141",
+  "min": [
+   -20.96,
+   8.92,
+   2.03
+  ],
+  "max": [
+   -20.86,
+   8.92,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1141/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -20.96,
+   8.92,
+   2.03
+  ],
+  "max": [
+   -20.86,
+   8.92,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1142",
+  "name": "SM_SignCVer_1142",
+  "min": [
+   -20.96,
+   24.9,
+   1.77
+  ],
+  "max": [
+   -20.86,
+   24.91,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1142/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -20.96,
+   24.9,
+   1.77
+  ],
+  "max": [
+   -20.86,
+   24.91,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1143",
+  "name": "SM_SignCVer_1143",
+  "min": [
+   -20.96,
+   24.9,
+   3.27
+  ],
+  "max": [
+   -20.86,
+   24.91,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1143/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -20.96,
+   24.9,
+   3.27
+  ],
+  "max": [
+   -20.86,
+   24.91,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1145",
+  "name": "SM_SignCVer_1145",
+  "min": [
+   -20.96,
+   20.89,
+   3.1
+  ],
+  "max": [
+   -20.86,
+   20.9,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_1145/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   -20.96,
+   20.89,
+   3.1
+  ],
+  "max": [
+   -20.86,
+   20.9,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_224",
+  "name": "SM_SignCVer_224",
+  "min": [
+   -20.96,
+   16.9,
+   3.1
+  ],
+  "max": [
+   -20.86,
+   16.91,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_224/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   -20.96,
+   16.9,
+   3.1
+  ],
+  "max": [
+   -20.86,
+   16.91,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_227",
+  "name": "SM_SignCVer_227",
+  "min": [
+   -20.96,
+   20.89,
+   1.77
+  ],
+  "max": [
+   -20.86,
+   20.9,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_227/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   -20.96,
+   20.89,
+   1.77
+  ],
+  "max": [
+   -20.86,
+   20.9,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_230",
+  "name": "SM_SignCVer_230",
+  "min": [
+   -20.96,
+   12.89,
+   3.25
+  ],
+  "max": [
+   -20.86,
+   12.9,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_230/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -20.96,
+   12.89,
+   3.25
+  ],
+  "max": [
+   -20.86,
+   12.9,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_231",
+  "name": "SM_SignCVer_231",
+  "min": [
+   -20.96,
+   8.92,
+   3.24
+  ],
+  "max": [
+   -20.86,
+   8.92,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_231/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   -20.96,
+   8.92,
+   3.24
+  ],
+  "max": [
+   -20.86,
+   8.92,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_232",
+  "name": "SM_SignCVer_232",
+  "min": [
+   -20.96,
+   12.89,
+   1.88
+  ],
+  "max": [
+   -20.86,
+   12.9,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_232/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -20.96,
+   12.89,
+   1.88
+  ],
+  "max": [
+   -20.86,
+   12.9,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_233",
+  "name": "SM_SignCVer_233",
+  "min": [
+   -20.96,
+   16.89,
+   1.88
+  ],
+  "max": [
+   -20.86,
+   16.9,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_233/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -20.96,
+   16.89,
+   1.88
+  ],
+  "max": [
+   -20.86,
+   16.9,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_147",
+  "name": "SM_SignCVer_147",
+  "min": [
+   -11.07,
+   8.92,
+   2.07
+  ],
+  "max": [
+   -10.97,
+   8.92,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_147/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -11.07,
+   8.92,
+   2.07
+  ],
+  "max": [
+   -10.97,
+   8.92,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_148",
+  "name": "SM_SignCVer_148",
+  "min": [
+   -11.06,
+   24.9,
+   1.81
+  ],
+  "max": [
+   -10.96,
+   24.91,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_148/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -11.06,
+   24.9,
+   1.81
+  ],
+  "max": [
+   -10.96,
+   24.91,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_149",
+  "name": "SM_SignCVer_149",
+  "min": [
+   -11.06,
+   24.9,
+   3.31
+  ],
+  "max": [
+   -10.96,
+   24.91,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_149/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -11.06,
+   24.9,
+   3.31
+  ],
+  "max": [
+   -10.96,
+   24.91,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_154",
+  "name": "SM_SignCVer_154",
+  "min": [
+   -11.06,
+   20.9,
+   3.14
+  ],
+  "max": [
+   -10.97,
+   20.9,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_154/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   -11.06,
+   20.9,
+   3.14
+  ],
+  "max": [
+   -10.97,
+   20.9,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_156",
+  "name": "SM_SignCVer_156",
+  "min": [
+   -11.06,
+   16.91,
+   3.14
+  ],
+  "max": [
+   -10.97,
+   16.91,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_156/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   -11.06,
+   16.91,
+   3.14
+  ],
+  "max": [
+   -10.97,
+   16.91,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_159",
+  "name": "SM_SignCVer_159",
+  "min": [
+   -11.06,
+   20.9,
+   1.81
+  ],
+  "max": [
+   -10.96,
+   20.9,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_159/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   -11.06,
+   20.9,
+   1.81
+  ],
+  "max": [
+   -10.96,
+   20.9,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3186",
+  "name": "SM_SignCVer_3186",
+  "min": [
+   -11.07,
+   12.89,
+   3.29
+  ],
+  "max": [
+   -10.97,
+   12.9,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3186/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -11.07,
+   12.89,
+   3.29
+  ],
+  "max": [
+   -10.97,
+   12.9,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3187",
+  "name": "SM_SignCVer_3187",
+  "min": [
+   -11.07,
+   8.92,
+   3.28
+  ],
+  "max": [
+   -10.97,
+   8.92,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3187/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   -11.07,
+   8.92,
+   3.28
+  ],
+  "max": [
+   -10.97,
+   8.92,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3188",
+  "name": "SM_SignCVer_3188",
+  "min": [
+   -11.07,
+   12.89,
+   1.92
+  ],
+  "max": [
+   -10.97,
+   12.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3188/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -11.07,
+   12.89,
+   1.92
+  ],
+  "max": [
+   -10.97,
+   12.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3189",
+  "name": "SM_SignCVer_3189",
+  "min": [
+   -11.07,
+   16.89,
+   1.92
+  ],
+  "max": [
+   -10.97,
+   16.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3189/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -11.07,
+   16.89,
+   1.92
+  ],
+  "max": [
+   -10.97,
+   16.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3190",
+  "name": "SM_SignCVer_3190",
+  "min": [
+   -9.97,
+   24.88,
+   2.03
+  ],
+  "max": [
+   -9.87,
+   24.89,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3190/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -9.97,
+   24.88,
+   2.03
+  ],
+  "max": [
+   -9.87,
+   24.89,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3191",
+  "name": "SM_SignCVer_3191",
+  "min": [
+   -9.97,
+   8.9,
+   1.77
+  ],
+  "max": [
+   -9.87,
+   8.9,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3191/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -9.97,
+   8.9,
+   1.77
+  ],
+  "max": [
+   -9.87,
+   8.9,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3192",
+  "name": "SM_SignCVer_3192",
+  "min": [
+   -9.97,
+   8.9,
+   3.27
+  ],
+  "max": [
+   -9.87,
+   8.9,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3192/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -9.97,
+   8.9,
+   3.27
+  ],
+  "max": [
+   -9.87,
+   8.9,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3194",
+  "name": "SM_SignCVer_3194",
+  "min": [
+   -9.97,
+   12.91,
+   3.1
+  ],
+  "max": [
+   -9.87,
+   12.91,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3194/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   -9.97,
+   12.91,
+   3.1
+  ],
+  "max": [
+   -9.87,
+   12.91,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3195",
+  "name": "SM_SignCVer_3195",
+  "min": [
+   -9.97,
+   16.9,
+   3.1
+  ],
+  "max": [
+   -9.87,
+   16.9,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3195/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   -9.97,
+   16.9,
+   3.1
+  ],
+  "max": [
+   -9.87,
+   16.9,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3198",
+  "name": "SM_SignCVer_3198",
+  "min": [
+   -9.97,
+   12.91,
+   1.77
+  ],
+  "max": [
+   -9.87,
+   12.91,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3198/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   -9.97,
+   12.91,
+   1.77
+  ],
+  "max": [
+   -9.87,
+   12.91,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3201",
+  "name": "SM_SignCVer_3201",
+  "min": [
+   -9.97,
+   20.91,
+   3.25
+  ],
+  "max": [
+   -9.87,
+   20.91,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3201/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -9.97,
+   20.91,
+   3.25
+  ],
+  "max": [
+   -9.87,
+   20.91,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3202",
+  "name": "SM_SignCVer_3202",
+  "min": [
+   -9.97,
+   24.88,
+   3.24
+  ],
+  "max": [
+   -9.87,
+   24.89,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3202/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   -9.97,
+   24.88,
+   3.24
+  ],
+  "max": [
+   -9.87,
+   24.89,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3203",
+  "name": "SM_SignCVer_3203",
+  "min": [
+   -9.97,
+   20.91,
+   1.88
+  ],
+  "max": [
+   -9.87,
+   20.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3203/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -9.97,
+   20.91,
+   1.88
+  ],
+  "max": [
+   -9.87,
+   20.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3204",
+  "name": "SM_SignCVer_3204",
+  "min": [
+   -9.97,
+   16.91,
+   1.88
+  ],
+  "max": [
+   -9.87,
+   16.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3204/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -9.97,
+   16.91,
+   1.88
+  ],
+  "max": [
+   -9.87,
+   16.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_163",
+  "name": "SM_SignCVer_163",
+  "min": [
+   -1.16,
+   8.92,
+   2.07
+  ],
+  "max": [
+   -1.06,
+   8.92,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_163/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -1.16,
+   8.92,
+   2.07
+  ],
+  "max": [
+   -1.06,
+   8.92,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_164",
+  "name": "SM_SignCVer_164",
+  "min": [
+   -1.15,
+   24.9,
+   1.81
+  ],
+  "max": [
+   -1.05,
+   24.91,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_164/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -1.15,
+   24.9,
+   1.81
+  ],
+  "max": [
+   -1.05,
+   24.91,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_165",
+  "name": "SM_SignCVer_165",
+  "min": [
+   -1.15,
+   24.9,
+   3.31
+  ],
+  "max": [
+   -1.05,
+   24.91,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_165/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -1.15,
+   24.9,
+   3.31
+  ],
+  "max": [
+   -1.05,
+   24.91,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_167",
+  "name": "SM_SignCVer_167",
+  "min": [
+   -1.15,
+   20.9,
+   3.14
+  ],
+  "max": [
+   -1.06,
+   20.9,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_167/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   -1.15,
+   20.9,
+   3.14
+  ],
+  "max": [
+   -1.06,
+   20.9,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_168",
+  "name": "SM_SignCVer_168",
+  "min": [
+   -1.15,
+   16.91,
+   3.14
+  ],
+  "max": [
+   -1.06,
+   16.91,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_168/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   -1.15,
+   16.91,
+   3.14
+  ],
+  "max": [
+   -1.06,
+   16.91,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_176",
+  "name": "SM_SignCVer_176",
+  "min": [
+   -1.15,
+   20.9,
+   1.81
+  ],
+  "max": [
+   -1.05,
+   20.9,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_176/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   -1.15,
+   20.9,
+   1.81
+  ],
+  "max": [
+   -1.05,
+   20.9,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3941",
+  "name": "SM_SignCVer_3941",
+  "min": [
+   -1.16,
+   12.89,
+   3.29
+  ],
+  "max": [
+   -1.06,
+   12.9,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3941/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -1.16,
+   12.89,
+   3.29
+  ],
+  "max": [
+   -1.06,
+   12.9,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3942",
+  "name": "SM_SignCVer_3942",
+  "min": [
+   -1.16,
+   8.92,
+   3.28
+  ],
+  "max": [
+   -1.06,
+   8.92,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3942/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   -1.16,
+   8.92,
+   3.28
+  ],
+  "max": [
+   -1.06,
+   8.92,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3943",
+  "name": "SM_SignCVer_3943",
+  "min": [
+   -1.16,
+   12.89,
+   1.92
+  ],
+  "max": [
+   -1.06,
+   12.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3943/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -1.16,
+   12.89,
+   1.92
+  ],
+  "max": [
+   -1.06,
+   12.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3944",
+  "name": "SM_SignCVer_3944",
+  "min": [
+   -1.16,
+   16.89,
+   1.92
+  ],
+  "max": [
+   -1.06,
+   16.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3944/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -1.16,
+   16.89,
+   1.92
+  ],
+  "max": [
+   -1.06,
+   16.9,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3945",
+  "name": "SM_SignCVer_3945",
+  "min": [
+   -0.06,
+   24.88,
+   2.03
+  ],
+  "max": [
+   0.04,
+   24.89,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3945/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -0.06,
+   24.88,
+   2.03
+  ],
+  "max": [
+   0.04,
+   24.89,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3946",
+  "name": "SM_SignCVer_3946",
+  "min": [
+   -0.06,
+   8.9,
+   1.77
+  ],
+  "max": [
+   0.04,
+   8.9,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3946/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -0.06,
+   8.9,
+   1.77
+  ],
+  "max": [
+   0.04,
+   8.9,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3947",
+  "name": "SM_SignCVer_3947",
+  "min": [
+   -0.06,
+   8.9,
+   3.27
+  ],
+  "max": [
+   0.04,
+   8.9,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3947/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -0.06,
+   8.9,
+   3.27
+  ],
+  "max": [
+   0.04,
+   8.9,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3949",
+  "name": "SM_SignCVer_3949",
+  "min": [
+   -0.06,
+   12.91,
+   3.1
+  ],
+  "max": [
+   0.04,
+   12.91,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3949/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   -0.06,
+   12.91,
+   3.1
+  ],
+  "max": [
+   0.04,
+   12.91,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3950",
+  "name": "SM_SignCVer_3950",
+  "min": [
+   -0.06,
+   16.9,
+   3.1
+  ],
+  "max": [
+   0.04,
+   16.9,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3950/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   -0.06,
+   16.9,
+   3.1
+  ],
+  "max": [
+   0.04,
+   16.9,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3953",
+  "name": "SM_SignCVer_3953",
+  "min": [
+   -0.06,
+   12.91,
+   1.77
+  ],
+  "max": [
+   0.04,
+   12.91,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3953/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   -0.06,
+   12.91,
+   1.77
+  ],
+  "max": [
+   0.04,
+   12.91,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3956",
+  "name": "SM_SignCVer_3956",
+  "min": [
+   -0.06,
+   20.91,
+   3.25
+  ],
+  "max": [
+   0.04,
+   20.91,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3956/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -0.06,
+   20.91,
+   3.25
+  ],
+  "max": [
+   0.04,
+   20.91,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3957",
+  "name": "SM_SignCVer_3957",
+  "min": [
+   -0.06,
+   24.88,
+   3.24
+  ],
+  "max": [
+   0.04,
+   24.89,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3957/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   -0.06,
+   24.88,
+   3.24
+  ],
+  "max": [
+   0.04,
+   24.89,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3958",
+  "name": "SM_SignCVer_3958",
+  "min": [
+   -0.06,
+   20.91,
+   1.88
+  ],
+  "max": [
+   0.04,
+   20.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3958/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -0.06,
+   20.91,
+   1.88
+  ],
+  "max": [
+   0.04,
+   20.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3959",
+  "name": "SM_SignCVer_3959",
+  "min": [
+   -0.06,
+   16.91,
+   1.88
+  ],
+  "max": [
+   0.04,
+   16.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_3959/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -0.06,
+   16.91,
+   1.88
+  ],
+  "max": [
+   0.04,
+   16.91,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_4588",
+  "name": "SM_SignCVer_4588",
+  "min": [
+   -5.0,
+   24.78,
+   2.07
+  ],
+  "max": [
+   -4.9,
+   24.78,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_4588/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -5.0,
+   24.78,
+   2.07
+  ],
+  "max": [
+   -4.9,
+   24.78,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_275",
+  "name": "SM_SignCVer_275",
+  "min": [
+   -5.0,
+   8.79,
+   1.81
+  ],
+  "max": [
+   -4.9,
+   8.8,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_275/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -5.0,
+   8.79,
+   1.81
+  ],
+  "max": [
+   -4.9,
+   8.8,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_276",
+  "name": "SM_SignCVer_276",
+  "min": [
+   -5.0,
+   8.79,
+   3.31
+  ],
+  "max": [
+   -4.9,
+   8.8,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_276/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -5.0,
+   8.79,
+   3.31
+  ],
+  "max": [
+   -4.9,
+   8.8,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_278",
+  "name": "SM_SignCVer_278",
+  "min": [
+   -5.0,
+   12.8,
+   3.14
+  ],
+  "max": [
+   -4.9,
+   12.8,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_278/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   -5.0,
+   12.8,
+   3.14
+  ],
+  "max": [
+   -4.9,
+   12.8,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_279",
+  "name": "SM_SignCVer_279",
+  "min": [
+   -5.0,
+   16.79,
+   3.14
+  ],
+  "max": [
+   -4.9,
+   16.79,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_279/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   -5.0,
+   16.79,
+   3.14
+  ],
+  "max": [
+   -4.9,
+   16.79,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_282",
+  "name": "SM_SignCVer_282",
+  "min": [
+   -5.0,
+   12.8,
+   1.81
+  ],
+  "max": [
+   -4.9,
+   12.8,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_282/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   -5.0,
+   12.8,
+   1.81
+  ],
+  "max": [
+   -4.9,
+   12.8,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_285",
+  "name": "SM_SignCVer_285",
+  "min": [
+   -5.0,
+   20.8,
+   3.29
+  ],
+  "max": [
+   -4.9,
+   20.8,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_285/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -5.0,
+   20.8,
+   3.29
+  ],
+  "max": [
+   -4.9,
+   20.8,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_286",
+  "name": "SM_SignCVer_286",
+  "min": [
+   -5.0,
+   24.78,
+   3.28
+  ],
+  "max": [
+   -4.9,
+   24.78,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_286/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   -5.0,
+   24.78,
+   3.28
+  ],
+  "max": [
+   -4.9,
+   24.78,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_287",
+  "name": "SM_SignCVer_287",
+  "min": [
+   -5.0,
+   20.8,
+   1.92
+  ],
+  "max": [
+   -4.9,
+   20.8,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_287/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -5.0,
+   20.8,
+   1.92
+  ],
+  "max": [
+   -4.9,
+   20.8,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_288",
+  "name": "SM_SignCVer_288",
+  "min": [
+   -4.99,
+   16.8,
+   1.92
+  ],
+  "max": [
+   -4.9,
+   16.8,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_288/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -4.99,
+   16.8,
+   1.92
+  ],
+  "max": [
+   -4.9,
+   16.8,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_289",
+  "name": "SM_SignCVer_289",
+  "min": [
+   -6.09,
+   8.81,
+   2.03
+  ],
+  "max": [
+   -5.99,
+   8.82,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_289/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -6.09,
+   8.81,
+   2.03
+  ],
+  "max": [
+   -5.99,
+   8.82,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_290",
+  "name": "SM_SignCVer_290",
+  "min": [
+   -6.09,
+   24.8,
+   1.77
+  ],
+  "max": [
+   -5.99,
+   24.8,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_290/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   -6.09,
+   24.8,
+   1.77
+  ],
+  "max": [
+   -5.99,
+   24.8,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_291",
+  "name": "SM_SignCVer_291",
+  "min": [
+   -6.09,
+   24.8,
+   3.27
+  ],
+  "max": [
+   -5.99,
+   24.8,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_291/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   -6.09,
+   24.8,
+   3.27
+  ],
+  "max": [
+   -5.99,
+   24.8,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_293",
+  "name": "SM_SignCVer_293",
+  "min": [
+   -6.09,
+   20.79,
+   3.1
+  ],
+  "max": [
+   -5.99,
+   20.79,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_293/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   -6.09,
+   20.79,
+   3.1
+  ],
+  "max": [
+   -5.99,
+   20.79,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_294",
+  "name": "SM_SignCVer_294",
+  "min": [
+   -6.09,
+   16.8,
+   3.1
+  ],
+  "max": [
+   -5.99,
+   16.8,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_294/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   -6.09,
+   16.8,
+   3.1
+  ],
+  "max": [
+   -5.99,
+   16.8,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_297",
+  "name": "SM_SignCVer_297",
+  "min": [
+   -6.09,
+   20.79,
+   1.77
+  ],
+  "max": [
+   -5.99,
+   20.79,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_297/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   -6.09,
+   20.79,
+   1.77
+  ],
+  "max": [
+   -5.99,
+   20.79,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_300",
+  "name": "SM_SignCVer_300",
+  "min": [
+   -6.09,
+   12.79,
+   3.25
+  ],
+  "max": [
+   -5.99,
+   12.79,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_300/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -6.09,
+   12.79,
+   3.25
+  ],
+  "max": [
+   -5.99,
+   12.79,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_301",
+  "name": "SM_SignCVer_301",
+  "min": [
+   -6.09,
+   8.81,
+   3.24
+  ],
+  "max": [
+   -5.99,
+   8.82,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_301/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   -6.09,
+   8.81,
+   3.24
+  ],
+  "max": [
+   -5.99,
+   8.82,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_302",
+  "name": "SM_SignCVer_302",
+  "min": [
+   -6.09,
+   12.79,
+   1.88
+  ],
+  "max": [
+   -5.99,
+   12.79,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_302/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   -6.09,
+   12.79,
+   1.88
+  ],
+  "max": [
+   -5.99,
+   12.79,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_303",
+  "name": "SM_SignCVer_303",
+  "min": [
+   -6.09,
+   16.79,
+   1.88
+  ],
+  "max": [
+   -5.99,
+   16.79,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_303/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   -6.09,
+   16.79,
+   1.88
+  ],
+  "max": [
+   -5.99,
+   16.79,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign23",
+  "name": "S_AisleSign23",
+  "min": [
+   3.92,
+   8.84,
+   2.41
+  ],
+  "max": [
+   4.32,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign23/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   3.92,
+   8.84,
+   2.41
+  ],
+  "max": [
+   4.32,
+   8.84,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign25",
+  "name": "S_AisleSign25",
+  "min": [
+   3.92,
+   24.97,
+   2.41
+  ],
+  "max": [
+   4.32,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/S_AisleSign25/S_AisleSign",
+  "name": "S_AisleSign",
+  "min": [
+   3.92,
+   24.97,
+   2.41
+  ],
+  "max": [
+   4.32,
+   24.97,
+   3.19
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_304",
+  "name": "SM_SignCVer_304",
+  "min": [
+   4.92,
+   24.88,
+   2.07
+  ],
+  "max": [
+   5.02,
+   24.89,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_304/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   4.92,
+   24.88,
+   2.07
+  ],
+  "max": [
+   5.02,
+   24.89,
+   2.4
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_305",
+  "name": "SM_SignCVer_305",
+  "min": [
+   4.92,
+   8.9,
+   1.81
+  ],
+  "max": [
+   5.02,
+   8.9,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_305/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   4.92,
+   8.9,
+   1.81
+  ],
+  "max": [
+   5.02,
+   8.9,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_306",
+  "name": "SM_SignCVer_306",
+  "min": [
+   4.92,
+   8.9,
+   3.31
+  ],
+  "max": [
+   5.02,
+   8.9,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_306/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   4.92,
+   8.9,
+   3.31
+  ],
+  "max": [
+   5.02,
+   8.9,
+   3.64
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_308",
+  "name": "SM_SignCVer_308",
+  "min": [
+   4.92,
+   12.9,
+   3.14
+  ],
+  "max": [
+   5.02,
+   12.91,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_308/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   4.92,
+   12.9,
+   3.14
+  ],
+  "max": [
+   5.02,
+   12.91,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_309",
+  "name": "SM_SignCVer_309",
+  "min": [
+   4.92,
+   16.89,
+   3.14
+  ],
+  "max": [
+   5.02,
+   16.9,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_309/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   4.92,
+   16.89,
+   3.14
+  ],
+  "max": [
+   5.02,
+   16.9,
+   3.46
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_312",
+  "name": "SM_SignCVer_312",
+  "min": [
+   4.92,
+   12.9,
+   1.81
+  ],
+  "max": [
+   5.02,
+   12.91,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_312/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   4.92,
+   12.9,
+   1.81
+  ],
+  "max": [
+   5.02,
+   12.91,
+   2.14
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_315",
+  "name": "SM_SignCVer_315",
+  "min": [
+   4.92,
+   20.9,
+   3.29
+  ],
+  "max": [
+   5.02,
+   20.91,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_315/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   4.92,
+   20.9,
+   3.29
+  ],
+  "max": [
+   5.02,
+   20.91,
+   3.62
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_316",
+  "name": "SM_SignCVer_316",
+  "min": [
+   4.92,
+   24.88,
+   3.28
+  ],
+  "max": [
+   5.02,
+   24.89,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_316/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   4.92,
+   24.88,
+   3.28
+  ],
+  "max": [
+   5.02,
+   24.89,
+   3.61
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_317",
+  "name": "SM_SignCVer_317",
+  "min": [
+   4.92,
+   20.9,
+   1.92
+  ],
+  "max": [
+   5.02,
+   20.91,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_317/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   4.92,
+   20.9,
+   1.92
+  ],
+  "max": [
+   5.02,
+   20.91,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_318",
+  "name": "SM_SignCVer_318",
+  "min": [
+   4.92,
+   16.9,
+   1.92
+  ],
+  "max": [
+   5.02,
+   16.91,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_318/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   4.92,
+   16.9,
+   1.92
+  ],
+  "max": [
+   5.02,
+   16.91,
+   2.24
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_319",
+  "name": "SM_SignCVer_319",
+  "min": [
+   3.82,
+   8.92,
+   2.03
+  ],
+  "max": [
+   3.92,
+   8.92,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_319/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   3.82,
+   8.92,
+   2.03
+  ],
+  "max": [
+   3.92,
+   8.92,
+   2.36
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_320",
+  "name": "SM_SignCVer_320",
+  "min": [
+   3.82,
+   24.9,
+   1.77
+  ],
+  "max": [
+   3.92,
+   24.91,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_320/SM_SignCVer_10",
+  "name": "SM_SignCVer_10",
+  "min": [
+   3.82,
+   24.9,
+   1.77
+  ],
+  "max": [
+   3.92,
+   24.91,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_321",
+  "name": "SM_SignCVer_321",
+  "min": [
+   3.82,
+   24.9,
+   3.27
+  ],
+  "max": [
+   3.92,
+   24.91,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_321/SM_SignCVer_11",
+  "name": "SM_SignCVer_11",
+  "min": [
+   3.82,
+   24.9,
+   3.27
+  ],
+  "max": [
+   3.92,
+   24.91,
+   3.6
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_323",
+  "name": "SM_SignCVer_323",
+  "min": [
+   3.82,
+   20.89,
+   3.1
+  ],
+  "max": [
+   3.92,
+   20.9,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_323/SM_SignCVer_13",
+  "name": "SM_SignCVer_13",
+  "min": [
+   3.82,
+   20.89,
+   3.1
+  ],
+  "max": [
+   3.92,
+   20.9,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_324",
+  "name": "SM_SignCVer_324",
+  "min": [
+   3.82,
+   16.9,
+   3.1
+  ],
+  "max": [
+   3.92,
+   16.91,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_324/SM_SignCVer_01",
+  "name": "SM_SignCVer_01",
+  "min": [
+   3.82,
+   16.9,
+   3.1
+  ],
+  "max": [
+   3.92,
+   16.91,
+   3.42
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_327",
+  "name": "SM_SignCVer_327",
+  "min": [
+   3.82,
+   20.89,
+   1.77
+  ],
+  "max": [
+   3.92,
+   20.9,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_327/SM_SignCVer_04",
+  "name": "SM_SignCVer_04",
+  "min": [
+   3.82,
+   20.89,
+   1.77
+  ],
+  "max": [
+   3.92,
+   20.9,
+   2.1
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_330",
+  "name": "SM_SignCVer_330",
+  "min": [
+   3.82,
+   12.89,
+   3.25
+  ],
+  "max": [
+   3.92,
+   12.9,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_330/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   3.82,
+   12.89,
+   3.25
+  ],
+  "max": [
+   3.92,
+   12.9,
+   3.58
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_331",
+  "name": "SM_SignCVer_331",
+  "min": [
+   3.82,
+   8.92,
+   3.24
+  ],
+  "max": [
+   3.92,
+   8.92,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_331/SM_SignCVer_08",
+  "name": "SM_SignCVer_08",
+  "min": [
+   3.82,
+   8.92,
+   3.24
+  ],
+  "max": [
+   3.92,
+   8.92,
+   3.57
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_332",
+  "name": "SM_SignCVer_332",
+  "min": [
+   3.82,
+   12.89,
+   1.88
+  ],
+  "max": [
+   3.92,
+   12.9,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_332/SM_SignCVer_07",
+  "name": "SM_SignCVer_07",
+  "min": [
+   3.82,
+   12.89,
+   1.88
+  ],
+  "max": [
+   3.92,
+   12.9,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_333",
+  "name": "SM_SignCVer_333",
+  "min": [
+   3.82,
+   16.89,
+   1.88
+  ],
+  "max": [
+   3.92,
+   16.9,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/SM_SignCVer_333/SM_SignCVer_09",
+  "name": "SM_SignCVer_09",
+  "min": [
+   3.82,
+   16.89,
+   1.88
+  ],
+  "max": [
+   3.92,
+   16.9,
+   2.2
+  ]
+ },
+ {
+  "path": "/Root/forklift",
+  "name": "forklift",
+  "min": [
+   1.43,
+   10.19,
+   -0.0
+  ],
+  "max": [
+   4.93,
+   11.41,
+   2.15
+  ]
+ },
+ {
+  "path": "/Root/forklift/S_ForkliftBody",
+  "name": "S_ForkliftBody",
+  "min": [
+   1.43,
+   10.19,
+   -0.0
+  ],
+  "max": [
+   3.75,
+   11.41,
+   2.15
+  ]
+ },
+ {
+  "path": "/Root/forklift/S_ForkliftFork",
+  "name": "S_ForkliftFork",
+  "min": [
+   3.66,
+   10.23,
+   0.06
+  ],
+  "max": [
+   4.93,
+   11.37,
+   1.05
+  ]
+ }
+]

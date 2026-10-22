@@ -1,0 +1,25 @@
+# 空間: Isaac Sim 6.1 付属の小部屋（Simple_Room/simple_room.usd）。10 m 四方の部屋の中央にテーブル。床は z = -0.77。計算の動作確認用。
+# 描画は未対応: 部屋の中にカメラを置くと、照明を足しても真っ暗に写る（外からは赤い壁の箱に見える。原因は未調査、2026-10-22）。
+name: simple_room
+title: 小部屋（動作確認用）
+usd: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Simple_Room/simple_room.usd
+license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジットを書く）
+navmesh_region: [-5.0, 5.0, -5.0, 5.2, -0.8, 2.2]
+levels:
+  - name: 1F
+    z: -0.77
+    walkable: walkable_1f.npz
+    top_image: top_1f.jpg
+    top_view: {eye: [0.0, 0.09, 79.2], target: [0.0, 0.1, -0.8], focal_mm: 88.046, h_aperture_mm: 20.955, width: 1280, height: 720}
+lights:  # この USD は部屋の中に照明がない（中から撮ると真っ暗）ので、描画のときに置く
+  - {xy: [-2.0, -2.0], z: 2.0, intensity: 40000}
+  - {xy: [2.0, 2.0], z: 2.0, intensity: 40000}
+pois:
+  door_w:  {kind: spawn, xy: [-3.8, -3.0], note: 南西の角（入口の見立て）}
+  door_e:  {kind: exit, xy: [3.8, 3.0], note: 北東の角}
+  table_1: {kind: spot, xy: [0.0, -1.6], face: [0.0, 0.0]}
+  table_2: {kind: spot, xy: [0.0, 1.6], face: [0.0, 0.0]}
+zones:
+  room: {polygon: [[-4.6, -4.6], [4.6, -4.6], [4.6, 4.8], [-4.6, 4.8]]}
+cameras:
+  CamRoom: {eye: [-4.0, -4.0, 1.9], target: [1.0, 1.0, -0.77], note: 南西の角の上から部屋を見る}

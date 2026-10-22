@@ -8,6 +8,7 @@
   python -m twinsim export-space <名前> --usd URL --region x0 x1 y0 y1 z0 z1 [--res 0.25]   USD から空間の材料を作る（GPU）
   python -m twinsim mopf <結果の場所> --camera <名前> [--apply]   MOPF の人流モニターの設定（床の図・位置合わせ・線・エリア）を作る
   python -m twinsim serve [--port 8770] [--url]       GUI と REST API（127.0.0.1 だけ、トークンつき）
+  python -m twinsim show-space <名前>                 真上の図に歩ける所・目盛り・候補・場所・ゾーンを重ねた図（spaces/<名前>/annotate.png）
 --set の例: --set duration_s=60 --set seed=3 --set streams.0.rate.per_min=20
 """
 
@@ -58,6 +59,8 @@ def main(argv=None):
     rd.add_argument("--frames", nargs=2, type=int)
     rd.add_argument("--cameras")
     rd.add_argument("--preset", default="RAY_TRACE")
+    ss = sub.add_parser("show-space")
+    ss.add_argument("name")
     mo = sub.add_parser("mopf")
     mo.add_argument("run_dir")
     mo.add_argument("--camera", required=True)
@@ -89,6 +92,9 @@ def main(argv=None):
             r = ib.export_space(a.name, a.usd, a.region, a.res)
         print(r["log"])
         print(json.dumps({k: v for k, v in r.items() if k != "log"}, ensure_ascii=False))
+    elif a.cmd == "show-space":
+        from .spaceview import draw
+        print(draw(a.name))
     elif a.cmd == "mopf":
         from . import mopf
         out, cfg, info = mopf.write(a.run_dir, a.camera)

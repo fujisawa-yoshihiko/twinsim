@@ -1,4 +1,5 @@
 # twinsim へ写したもの（元: ~/digitaltwin/hospital-sim/scripts/crowd_lib.py、commit d99d640）。直すときは元と合わせる。
+# twinsim での変更: add_track に床の高さ z を渡せるようにした（小部屋の床は z = -0.77）。
 """人を多く歩かせるための補助（人流の実験用）。demo_lib の医療スタッフの方法を、人物モデル 10 種類と「歩いている間だけ表示」に広げたもの。
 
 - 人物モデル（Isaac/People/Characters の 10 種類）は、どれも Z が上・メートル・骨格 101 本（RL_BoneRoot から始まる同じ骨格）。
@@ -120,7 +121,7 @@ STAND_T = 61.0  # 立っている姿勢に使う歩行のコマ（s79_stand_pose
 STRIDE_M = ANIM_SPEED * 80 / 30  # 歩行のアニメーション 1 周（80 コマ）で進む距離（約 3.2 m）
 
 
-def add_track(walker, name, model, frames, stand_t=STAND_T):
+def add_track(walker, name, model, frames, stand_t=STAND_T, z=0.0):
     """1 コマずつの位置（flow_scene_lib の Agent.frames: (コマ, x, y, 向き, 歩いているか)）で人を置く。
     歩いている間は進んだ距離に合わせて歩行を再生し、止まっている間は立っている姿勢にする。見えるのは frames の間だけ。"""
     stage = walker.stage
@@ -152,7 +153,7 @@ def add_track(walker, name, model, frames, stand_t=STAND_T):
                 while yaw - unwrap < -180:
                     yaw += 360
             unwrap = yaw
-            t_op.Set(Gf.Vec3d(x, y, 0.0), f)
+            t_op.Set(Gf.Vec3d(x, y, z), f)
             r_op.Set(yaw + 90.0, f)  # 人物の正面は -Y
             if mv and prev is not None:
                 phase += ((x - prev[0]) ** 2 + (y - prev[1]) ** 2) ** 0.5 / STRIDE_M

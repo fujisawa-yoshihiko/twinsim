@@ -1,0 +1,31 @@
+# 病院のロビー → 西の広間の EV（見立て）。hospital-sim の sim-gate と同じ配置・カメラ（前の評価のデータと比べられる）。
+name: hospital_gate_ev
+title: 病院のロビー → 西の広間の EV（sim-gate と同じ配置）
+space: hospital
+seed: 11
+duration_s: 300
+streams:
+  - name: arrivals
+    origin: lobby_entrance
+    rate: {type: piecewise, per_min: [[0, 6], [150, 12], [300, 6]]}
+    group_size: {type: zero_truncated_poisson, lam: 0.6}
+    types: {type: choice, values: {staff: 0.6, visitor: 0.4}}
+    destinations:
+      - {to: elevator, p: 0.6}
+      - {to: reception, p: 0.5, types: [visitor], dwell: {type: lognormal, median: 20, sigma: 0.4, min: 6, max: 60}, then: elevator}
+      - {to: west_room, p: 0.25}
+      - {to: hall_side, p: 0.15}
+  - name: west
+    origin: west
+    rate: {type: constant, per_min: 2}
+    destinations: [{to: elevator, p: 1.0}]
+elevator:
+  cars: [EV]
+  capacity: 8
+  schedule: {type: interval, offset: {type: uniform, min: 20, max: 40}, interval: {type: uniform, min: 35, max: 60}}
+  alight:
+    count: {type: poisson, lam: 1.5}
+    destinations: [{to: lobby_entrance, p: 0.7}, {to: hall_side, p: 0.3}]
+cameras:
+  - {name: CamGate}
+  - {name: CamHall}

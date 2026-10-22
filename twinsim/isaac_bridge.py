@@ -54,8 +54,18 @@ def fix_perms():
     subprocess.run(["isim", "fix-perms"], capture_output=True)
 
 
-def encode(frames_dir, mp4, fps):
-    pngs = sorted(Path(frames_dir).rglob("*.png"))
+def frame_no(p):
+    try:
+        return int(p.stem.split(".")[-1])
+    except ValueError:
+        return -1
+
+
+def encode(frames_dir, mp4, fps, frames=None):
+    """連番の画像（f.<コマ>.png）を mp4 に。frames=(始まり, 終わり) ならその範囲だけ。"""
+    pngs = sorted(Path(frames_dir).rglob("*.png"), key=frame_no)
+    if frames:
+        pngs = [p for p in pngs if frames[0] <= frame_no(p) <= frames[1]]
     if not pngs:
         return None
     lst = Path(mp4).with_suffix(".txt")
@@ -75,6 +85,8 @@ def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=True):
     name = run.name
     dst = WORK / "runs" / name
     dst.mkdir(parents=True, exist_ok=True)
+    fix_perms()
+    shutil.rmtree(dst / "frames", ignore_errors=True)  # 前回の画像が混ざらないように
     shutil.copy(run / "ground_truth.json", dst / "ground_truth.json")
     f0, f1 = frames or (0, gt["total_frames"] - 1)
     props = []
@@ -82,15 +94,18 @@ def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=True):
         p = sp.poi(pr)
         if p.get("prop") == "signage":
             props.append({"kind": "signage", "xy": p["xy"], "face": p["face"]})
+    for k, g in gt.get("gates", {}).items():  # ゲートの機械（USD にないので置く）
+        if spec.get("render", {}).get("gate_props", True):
+            props.append({"kind": "gate", "line": sp.poi(k)["line"], "lanes": len(g["lanes"]), "in_dir": g["in_dir"]})
     job = {"run_dir": f"{CONTAINER}/runs/{name}", "usd": sp.spec["usd"], "frames": [int(f0), int(f1)],
-           "cameras": cameras or [], "props": props, "tint": tint, "preset": preset}
+           "cameras": cameras or [], "props": props, "tint": tint, "preset": preset, "z": sp.z, "lights": sp.spec.get("lights", [])}
     t0 = time.monotonic()
     log = submit("render.py", job, f"render_{name}")
     (run / "render_stdout.txt").write_text(log)
     vids = {}
     (run / "video").mkdir(exist_ok=True)
     for cam in (cameras or list(gt["cameras"])):
-        n = encode(dst / "frames" / cam, run / "video" / f"{cam}.mp4", gt["fps"])
+        n = encode(dst / "frames" / cam, run / "video" / f"{cam}.mp4", gt["fps"], (f0, f1))
         vids[cam] = n
     if (dst / "render_log.json").exists():
         shutil.copy(dst / "render_log.json", run / "render_log.json")

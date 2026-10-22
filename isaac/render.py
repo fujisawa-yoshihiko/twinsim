@@ -17,6 +17,7 @@ import math
 import time
 import types
 
+import numpy as np
 import omni.usd
 from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
@@ -88,6 +89,44 @@ def add_signage(stage, k, xy, face):
         box(f"Line{i}", (0.6 - 0.08 * (i % 2), 0.022, 0.035), (-0.05 + 0.04 * (i % 2), 0.035, 1.64 - i * 0.1), "text")
 
 
+def add_gate(stage, k, line, lanes, in_dir):
+    """入館のゲートの機械（レーンを仕切る箱。高さ 1.0 m・通る向きに 1.4 m・幅 0.18 m、上面は黒いガラスの見立て）。"""
+    (x0, y0), (x1, y1) = line
+    d = np.array(in_dir, float)
+    d /= np.linalg.norm(d)
+    base = f"/Root/TS_Gate{k}"
+    m = UsdShade.Material.Define(stage, f"{base}_Look")
+    sh = UsdShade.Shader.Define(stage, f"{base}_Look/Shader")
+    sh.CreateIdAttr("UsdPreviewSurface")
+    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.72, 0.73, 0.75))
+    sh.CreateInput("metallic", Sdf.ValueTypeNames.Float).Set(0.6)
+    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.35)
+    m.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
+    yaw = math.degrees(math.atan2(d[1], d[0]))
+    for i in range(lanes + 1):  # レーンの境目ごとに 1 台
+        f = i / lanes
+        cx, cy = x0 + (x1 - x0) * f, y0 + (y1 - y0) * f
+        c = UsdGeom.Cube.Define(stage, f"{base}/Cab{i}")
+        c.CreateSizeAttr(1.0)
+        xf = UsdGeom.Xformable(c)
+        xf.AddTranslateOp().Set(Gf.Vec3d(cx, cy, 0.5))
+        xf.AddRotateZOp().Set(yaw)
+        xf.AddScaleOp().Set(Gf.Vec3f(1.4, 0.18, 1.0))
+        UsdShade.MaterialBindingAPI.Apply(c.GetPrim()).Bind(m)
+
+
+
+def add_lights(stage, lights):
+    """空間の space.yaml の lights（部屋の中に照明がない USD のため）: [{xy, z, radius, intensity}] の球の照明を置く。"""
+    from pxr import UsdLux
+    for k, L in enumerate(lights or []):
+        sl = UsdLux.SphereLight.Define(stage, f"/Root/TS_Light{k}")
+        sl.CreateRadiusAttr(float(L.get("radius", 0.3)))
+        sl.CreateIntensityAttr(float(L.get("intensity", 30000.0)))
+        xf = UsdGeom.Xformable(sl)
+        xf.ClearXformOpOrder()
+        xf.AddTranslateOp().Set(Gf.Vec3d(float(L["xy"][0]), float(L["xy"][1]), float(L.get("z", 2.5))))
+
 async def capture(app, cam, folder, start, end, fps, w, h, preset):
     from omni.kit.capture.viewport import CaptureExtension, CaptureOptions, CaptureRangeType, CaptureRenderPreset
     from omni.kit.viewport.utility import get_active_viewport
@@ -144,7 +183,7 @@ async def main():
         if a > b:
             continue
         frames = [(f, tr[f - s0][0], tr[f - s0][1], tr[f - s0][2], bool(mv[f - s0])) for f in range(a, b + 1)]
-        cl.add_track(walker, name, p["model"], frames)
+        cl.add_track(walker, name, p["model"], frames, z=float(job.get("z", 0.0)))
         placed += 1
         if job.get("tint", True):
             part = 0
@@ -155,9 +194,12 @@ async def main():
                     part += 1
                     tinted += 1
     log("placed", placed, "people in", round(time.monotonic() - t0, 1), "s; tinted shaders", tinted)
+    add_lights(stage, job.get("lights"))
     for k, pr in enumerate(job.get("props", [])):
         if pr.get("kind") == "signage":
             add_signage(stage, k, pr["xy"], pr["face"])
+        elif pr.get("kind") == "gate":
+            add_gate(stage, k, pr["line"], pr["lanes"], pr["in_dir"])
     stage.SetStartTimeCode(0)
     stage.SetEndTimeCode(max(f1, 1))
     cams = job.get("cameras") or list(gt["cameras"])
