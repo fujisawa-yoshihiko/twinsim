@@ -63,7 +63,7 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 | `validity` | `{speed_density: judge}` で密度ごとの速さを Weidmann の式で判定する（一方向の廊下の確かめだけ） |
 | `cameras[]` | `name`（空間の候補の名前）と、上書きする `eye`・`target`・`focal_mm`・`width`・`height`・`clock_offset_s`・`drop_rate` |
 | `render` | `width`・`height`（1280×720）、`tint`（人ごとに服の色を変える）、`props`（置く物の場所の名前） |
-| `outputs` | 書き出すもの（`ground_truth`・`frames`・`tasks`・`graph`・`mot`・`preview`・`validity`） |
+| `outputs` | 書き出すもの（`ground_truth`・`frames`・`tasks`・`graph`・`mot`・`aicity`・`preview`・`validity`） |
 | `variants`・`variant` | A/B の比較: `variants: {A: {名前: 値}}` と、行き先の `variant_p: 名前` で `p` を差し替える |
 | `graph` | `cell_m`（格子のグラフの大きさ、2 m） |
 
@@ -120,6 +120,8 @@ EV の運行（`elevator.schedule`）:
 | `preview.png` | 真上の図に、人の軌跡（流れごとの色）・ゾーン・カメラの向きを重ねた確認の図 |
 | `summary.json` | 人数・状態ごとの時間・EV の待ち時間・ゲートの通過の向き・かかった時間・`inputs`（文献から決めた到着の率・EV の乗り降り・ゲートの時間） |
 | `validity.json`・`validity.md`・`validity.png` | 文献の値との比べ（入力の再現・出てくる量）と、シナリオの値ごとの根拠の台帳（docs/validity.md） |
+| `aicity/gt.txt` | 複数カメラの追跡の形（AI City Challenge の MTMC）。人の番号はカメラをまたいで同じ |
+| `logs/`・`mopf/`・`mopf_tracks/`・`mopf_eval/`・`mopf_graph/` | 記録の形（export-logs）、MOPF の人流モニターの設定と数えるはずの値、MOPF の追跡・正解との比べ・中間層のグラフ（docs/integration.md） |
 | `video/<カメラ>.mp4` | 描画した動画（`render` のあと） |
 
 ## 6. 使い方（API）

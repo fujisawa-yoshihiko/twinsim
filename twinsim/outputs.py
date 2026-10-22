@@ -109,6 +109,8 @@ def write_all(sim, builder, spec, out_dir):
     # ---- カメラごとの枠 ----
     if "mot" in spec["outputs"]:
         files += write_mot(sp, cams, per_frame, total, out / "mot", spec)
+        if "aicity" in spec["outputs"]:
+            files += write_aicity(out, agents)
 
     if "preview" in spec["outputs"]:
         try:
@@ -322,6 +324,26 @@ def write_mot(sp, cams, per_frame, total, folder, spec):
         files.append(f"mot/{name}.txt")
     (folder / "ids.json").write_text(json.dumps(ids))
     return files + ["mot/ids.json"]
+
+
+def write_aicity(out, agents):
+    """複数カメラの追跡の形（AI City Challenge の MTMC: camera_id obj_id frame_id xmin ymin width height xworld yworld、空白区切り、コマは 1 から）。
+    人の番号はカメラをまたいで同じ（mot/ids.json と同じ）。cameras.json にカメラの番号。"""
+    folder = out / "aicity"
+    folder.mkdir(parents=True, exist_ok=True)
+    ids = json.loads((out / "mot/ids.json").read_text())
+    name_of = {v: k for k, v in ids.items()}
+    pos = {a.name: {f: (x, y) for f, x, y, *_ in a.frames} for a in agents}
+    cams = sorted(p.stem for p in (out / "mot").glob("*.txt"))
+    with open(folder / "gt.txt", "w") as fh:
+        for ci, c in enumerate(cams, start=1):
+            for line in (out / "mot" / f"{c}.txt").read_text().splitlines():
+                f, i, x, y, w, h = line.split(",")[:6]
+                xy = pos[name_of[int(i)]].get(int(f) - 1)
+                if xy:
+                    fh.write(f"{ci} {i} {f} {float(x):.1f} {float(y):.1f} {float(w):.1f} {float(h):.1f} {xy[0]:.3f} {xy[1]:.3f}\n")
+    (folder / "cameras.json").write_text(json.dumps({c: ci for ci, c in enumerate(cams, start=1)}, ensure_ascii=False))
+    return ["aicity/gt.txt", "aicity/cameras.json"]
 
 
 def write_preview(sp, agents, cams, path):

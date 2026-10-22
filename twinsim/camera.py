@@ -56,6 +56,19 @@ class Camera:
         v = self.cy - self.fy * ph[:, 1] / depth
         return np.c_[u, v], depth
 
+    def floor_point(self, u, v, z=0.0):
+        """画素 (u, v) を通る光線と床（高さ z）の交点（世界の x, y）。床がカメラの後ろなら None。"""
+        inv = np.linalg.inv(self.M)
+        d_cam = np.array([(u - self.cx) / self.fx, -(v - self.cy) / self.fy, -1.0, 0.0])
+        o = np.array([0.0, 0.0, 0.0, 1.0]) @ inv
+        d = d_cam @ inv
+        if abs(d[2]) < 1e-9:
+            return None
+        t = (z - o[2]) / d[2]
+        if t <= 0:
+            return None
+        return float(o[0] + t * d[0]), float(o[1] + t * d[1])
+
     def person_box(self, x, y, height):
         corners = [(x + dx, y + dy, z) for dx in (-RADIUS_M, RADIUS_M) for dy in (-RADIUS_M, RADIUS_M) for z in (0.0, height)]
         uv, depth = self.project(corners)

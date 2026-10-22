@@ -4,6 +4,8 @@
   python -m twinsim validate <シナリオ>             シナリオの確かめ（行き先・カメラの名前など）
   python -m twinsim run <シナリオ> [--out 場所] [--set key=value ...]   人の動きを計算して書き出す（描画はしない）
   python -m twinsim check <結果の場所>               結果の確かめ（壁の中・人の近さ・歩く速さ・止まる時間）と文献との比べ（validity.*）
+  python -m twinsim mopf-process <結果の場所> [--cameras ..] [--model yolo11m]   描いた動画を MOPF で検出・追跡（MOPF が動いているとき。GPU）
+  python -m twinsim mopf-eval <結果の場所> [--tracks 場所]   MOPF の追跡を正解と比べる（mopf_eval/）、MOPF の追跡から中間層のグラフ（mopf_graph/）
   python -m twinsim export-logs <結果の場所>         ゲートの通過記録・EV の運行記録の形で書き出す（実データの形の見本・往復の確かめ）
   python -m twinsim calibrate <元のシナリオ> --gate-log a.csv --ev-log b.csv [--ev-mode replay]   記録で値を合わせたシナリオを作る
   python -m twinsim render <結果の場所> [--frames 始まり 終わり] [--cameras A,B]   Isaac Sim で描画して video/<カメラ>.mp4 を作る（GPU）
@@ -67,6 +69,13 @@ def main(argv=None):
     mo.add_argument("run_dir")
     mo.add_argument("--camera", required=True)
     mo.add_argument("--apply", action="store_true")
+    mp = sub.add_parser("mopf-process")
+    mp.add_argument("run_dir")
+    mp.add_argument("--cameras", nargs="*")
+    mp.add_argument("--model", default="yolo11m")
+    me = sub.add_parser("mopf-eval")
+    me.add_argument("run_dir")
+    me.add_argument("--tracks", help="tracking.jsonl の置き場所（既定 <結果>/mopf_tracks）")
     el = sub.add_parser("export-logs")
     el.add_argument("run_dir")
     el.add_argument("--out")
@@ -111,8 +120,22 @@ def main(argv=None):
         from . import mopf
         out, cfg, info = mopf.write(a.run_dir, a.camera)
         print("out:", out, "lines", len(cfg["lines"]), "zones", [z["name"] for z in cfg["zones"]], json.dumps(info, ensure_ascii=False))
+        from .mopf_link import expect
+        e = expect(a.run_dir, a.camera)
+        print("正解なら数えるはず:", json.dumps({"lines": e["lines"], "zones": e["zones"], "frames": e["frames"]}, ensure_ascii=False))
         if a.apply:
             print(mopf.apply(out))
+    elif a.cmd == "mopf-process":
+        from .mopf_link import process
+        print(json.dumps(process(a.run_dir, a.cameras, a.model), ensure_ascii=False, indent=1))
+    elif a.cmd == "mopf-eval":
+        from .mopf_link import evaluate, graph
+        e = evaluate(a.run_dir, a.tracks)
+        for c, r in e["cameras"].items():
+            print(c, " ".join(f"{k}={r[k]}" for k in ("mota", "idf1", "num_switches", "recall", "precision", "count_mae", "foot_error_m_median")))
+        g = graph(a.run_dir, a.tracks)
+        for c, r in g.items():
+            print(c, "中間層のグラフ（ゾーンの人数、MOPF / 正解）:", json.dumps(r["zones_compared"], ensure_ascii=False))
     elif a.cmd == "export-logs":
         from .calibrate import export_logs
         print("logs:", export_logs(a.run_dir, a.out))

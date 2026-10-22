@@ -23,11 +23,14 @@ def run(scenario, out_dir, overrides=None, elevator_policy=None):
         sim.elevator_policy = elevator_policy
     sim.run()
     t1 = time.monotonic()
-    old_video = Path(out_dir).expanduser() / "video"
-    if old_video.exists():  # 前の計算の動画は新しい正解と合わないので、名前を変えて残す（消さない）
-        moved = old_video.with_name(f"video_before_{time.strftime('%Y%m%d-%H%M%S')}")
-        old_video.rename(moved)
-        print(f"前の動画を {moved} に移した（新しい計算と合わないため）")
+    out0 = Path(out_dir).expanduser()
+    stale = [p for p in (out0 / "video", out0 / "render_log.json", out0 / "render_stdout.txt", out0 / "mopf_tracks", out0 / "mopf_eval", out0 / "mopf_graph") if p.exists()]
+    if stale:  # 前の計算の動画・描画の記録・MOPF の結果は新しい正解と合わないので、まとめて名前を変えて残す（消さない）
+        moved = out0 / f"before_{time.strftime('%Y%m%d-%H%M%S')}"
+        moved.mkdir()
+        for p in stale:
+            p.rename(moved / p.name)
+        print(f"前の動画・描画の記録を {moved} に移した（新しい計算と合わないため）")
     summary = write_all(sim, builder, spec, Path(out_dir).expanduser())
     summary["timing_s"] = {"simulate": round(t1 - t0, 1), "write": round(time.monotonic() - t1, 1)}
     out = Path(out_dir).expanduser()

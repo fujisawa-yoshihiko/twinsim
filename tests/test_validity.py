@@ -1,4 +1,5 @@
-"""文献に基づく分布と確かめ（CPU だけ、数十秒）: uv run --no-project --with numpy --with scipy --with pyyaml --with pillow --with networkx --with matplotlib --with pytest pytest -q tests"""
+"""文献に基づく分布・実データで合わせる・MOPF との連携の確かめ（CPU だけ、十数秒）:
+  uv run --no-project --with numpy --with scipy --with pyyaml --with pillow --with networkx --with matplotlib --with motmetrics --with pytest pytest -q tests"""
 
 import json
 import math
@@ -73,3 +74,21 @@ def test_calibrate_roundtrip(tmp_path):
     assert all(f["sha256"] for f in rep["files"])
     spec = load_scenario(str(path))
     assert spec["streams"][0]["rate"]["source"] == "data:t"
+
+
+def test_mopf_link_synthetic(tmp_path):
+    # 正解から作った MOPF の形の追跡（誤りなし）で評価すると MOTA・IDF1 が 1、見逃し 20% で再現率が約 0.8
+    from twinsim import mopf, mopf_link
+    run = tmp_path / "r"
+    api.run("office_gate_ev", run, overrides={"duration_s": 60, "outputs": ["ground_truth", "graph", "mot", "aicity"]})
+    clean = mopf_link.synthetic_tracks(run, "CamGate", tmp_path / "clean", jitter_px=1.0, miss=0.0)
+    r = mopf_link.evaluate(run, clean)["cameras"]["CamGate"]
+    assert r["mota"] == pytest.approx(1.0) and r["idf1"] == pytest.approx(1.0) and r["num_switches"] == 0
+    miss = mopf_link.synthetic_tracks(run, "CamGate", tmp_path / "miss", jitter_px=1.0, miss=0.2, seed=3)
+    assert mopf_link.evaluate(run, miss)["cameras"]["CamGate"]["recall"] == pytest.approx(0.8, abs=0.05)
+    g = mopf_link.graph(run, clean)
+    assert "gate_area" in g["CamGate"]["zones_compared"]
+    mopf.write(run, "CamGate")
+    e = mopf_link.expect(run, "CamGate")
+    assert e["lines"][0]["to_pos"] > 0
+    assert (run / "aicity/gt.txt").read_text().split("\n")[0].count(" ") == 8

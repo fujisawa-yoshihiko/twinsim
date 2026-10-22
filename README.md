@@ -14,6 +14,9 @@ cd ~/twinsim
 ./run.sh check ~/dt-data/twinsim/runs/office_gate_ev   # 確かめ（文献との比べ validity.md・png も書く）
 ./isaac_up.sh 2                # 描画するときだけ: Isaac Sim を GPU 2 で起動（止めるのは isim down）
 ./run.sh render ~/dt-data/twinsim/runs/office_gate_ev --frames 7395 7544   # 試し撮り
+./run.sh mopf-process ~/dt-data/twinsim/runs/office_gate_ev   # 動画を MOPF で検出・追跡（MOPF を起動してから。GPU）
+./run.sh mopf-eval ~/dt-data/twinsim/runs/office_gate_ev      # MOPF の追跡を正解と比べる・中間層のグラフ
+./run.sh calibrate office_gate_ev --gate-log gate_log.csv --ev-log ev_log.csv   # 実データで合わせる
 ```
 
 手元の PC のブラウザで GUI を開くには、手元の PC で `ssh -N -L 8770:localhost:8770 ampb` を実行したまま、`./run.sh serve --url` の URL を開く。
@@ -28,6 +31,8 @@ cd ~/twinsim
 | `twinsim/engine.py` | 人の動き（段取り・よけ合い・ゲートの列・複数台の EV）。hospital-sim の flow_scene2_lib を広げたもの |
 | `twinsim/scenario.py`・`dists.py` | シナリオと分布 → 人の発生・行き先・EV・ゲート |
 | `twinsim/literature.py`・`validity.py` | 文献に基づく人の分布（出典つき、`people.profile`・`demand`）と、計算のあとの文献との比べ（[docs/validity.md](docs/validity.md)） |
+| `twinsim/calibrate.py` | 実データ（ゲートの通過記録・EV の運行記録）で値を合わせる。シミュレータの結果を記録の形に書き出す（`export-logs`） |
+| `twinsim/mopf.py`・`mopf_link.py` | MOPF との連携: 人流モニターの設定と数えるはずの値、動画の検出・追跡、正解との比べ、中間層のグラフ（[docs/integration.md](docs/integration.md)） |
 | `twinsim/outputs.py`・`camera.py`・`quality.py` | 正解・集計・グラフ・枠・確かめ |
 | `twinsim/api.py`・`__main__.py` | Python の API とコマンド |
 | `twinsim/isaac_bridge.py`・`isaac/` | Isaac Sim での描画と、USD から空間を作る部品（`isaac/vendor/` は hospital-sim から写した人物の部品） |
@@ -44,7 +49,7 @@ cd ~/twinsim
 | `hospital_gate_ev` | 病院のロビー → 西の広間の EV（hospital-sim の sim-gate と同じ配置・カメラ。前の評価のデータと比べられる） |
 | `warehouse_picking` | 倉庫のピッキング（工場の図の「作業・待ち・移動」）。荷受け → 棚 → 梱包 → 待ち → 棚 → 梱包 → 帰る |
 | `simple_room_smoke` | 動作確認（小部屋、20 秒） |
-| `verify_corridor_speed`・`verify_fundamental_diagram`・`verify_groups`・`verify_gate_capacity` | エンジンの確かめ（まっすぐ歩けるか・速さと密度・グループ・混んだゲート）。結果は docs/validity.md の 5 |
+| `verify_corridor_speed`・`verify_fundamental_diagram`・`verify_groups`・`verify_gate_capacity`・`verify_counterflow`・`verify_bottleneck` | エンジンの確かめ（まっすぐ歩けるか・速さと密度・グループ・混んだゲート・すれ違い・幅 1 m の出入口）。結果は docs/validity.md の 5 |
 
 ## 欲しい機能（Notion の「シミュレータ」）との対応（2026-10-22 夜）
 
@@ -56,6 +61,6 @@ cd ~/twinsim
 | 人の分布を制御 | 済（到着の率・まとまり・種類・行き先・速さ・止まる時間）。文献の値の組（`people.profile`）と建物の人数からの EV の利用者（`demand`）、計算ごとの文献との比べと根拠の台帳（`validity.md`）。文献のない値は「仮」と明示 |
 | カメラ・発生・移動・イベントの制御（GUI・文書） | 済: シナリオのファイル・文書・GUI（真上の図でカメラをドラッグ、値を変えて計算・描画） |
 | テンプレート | 7 つ（上の表） |
-| API（MOPF・GNN） | 済: REST API・Python の API・グラフの書き出し・MOPF の人流モニターの設定の自動作成（MOPF への送信は未確認） |
+| API（MOPF・GNN） | 済: REST API・Python の API・グラフの書き出し・MOPF の人流モニターの設定の自動作成と数えるはずの値。動画を MOPF で検出・追跡して正解と比べる（`mopf-process`・`mopf-eval`）、MOPF の追跡から同じ形の中間層のグラフ、研究のコードから読める、AI City の形。実データで合わせる（`calibrate`）。MOPF を GPU で動かしての確かめは未 |
 
 GUI: `$U python -m twinsim serve`（URL は `--url`）。画面の確かめは `tools/gui_shot.py`。

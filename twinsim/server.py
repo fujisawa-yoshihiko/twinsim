@@ -12,7 +12,9 @@ API（JSON。詳しくは docs/spec.md の「API」）:
   GET  /api/profiles                                                 文献に基づく人の分布の組（people.profile）と文献の一覧
   POST /api/runs {scenario: 名前か dict, overrides, name}            計算を始める（CPU）→ {id}
   GET  /api/runs、/api/runs/<id>、/api/runs/<id>/file?path=...       結果の一覧・状態と要約・ファイル
-  POST /api/runs/<id>/mopf {camera, apply}                           MOPF の人流モニターの設定を作る（apply で送る）
+  POST /api/runs/<id>/mopf {camera, apply}                           MOPF の人流モニターの設定を作る（apply で送る）。正解なら数えるはずの値も返す
+  POST /api/runs/<id>/mopf/process {cameras, model, confirm}         描いた動画を MOPF で検出・追跡し、正解と比べる（confirm なしは見積もり。GPU）
+  POST /api/runs/<id>/mopf/eval                                      MOPF の追跡を正解と比べる・中間層のグラフ（CPU）
   POST /api/runs/<id>/render {frames, cameras, confirm}              描画（GPU）。confirm がなければ見積もりだけ返す
   GET  /api/isaac                                                    Isaac Sim が受け付けているか
 """
@@ -36,7 +38,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from . import api, isaac_bridge, mopf
+from . import api, isaac_bridge, mopf, mopf_link
 from .camera import camera_dict
 from .literature import LIFT_MIX, PROFILES, REFS
 from .scenario import TEMPLATES, load_scenario
@@ -124,7 +126,10 @@ class App:
         j = {k: v for k, v in self.jobs.get(rid, {}).items() if k != "summary"}
         s = json.loads((d / "summary.json").read_text()) if (d / "summary.json").exists() else None
         render = self.jobs.get(f"render:{rid}")
-        return {"id": rid, "job": j, "summary": s, "render": render,
+        ev = json.loads((d / "mopf_eval/summary.json").read_text()) if (d / "mopf_eval/summary.json").exists() else None
+        gr = json.loads((d / "mopf_graph/summary.json").read_text()) if (d / "mopf_graph/summary.json").exists() else None
+        return {"id": rid, "job": j, "summary": s, "render": render, "mopf_job": self.jobs.get(f"mopf:{rid}"),
+                "mopf_eval": ev, "mopf_graph": gr,
                 "files": sorted(str(p.relative_to(d)) for p in d.rglob("*") if p.is_file())[:200]}
 
     def file(self, rid, rel):
@@ -167,6 +172,36 @@ class App:
                 self.jobs[key].update(status="error", error=f"{type(e).__name__}: {e}")
         threading.Thread(target=work, daemon=True).start()
         return {"estimate": est, "started": True}
+
+
+def _mopf_process(self, rid, body):
+    """描いた動画を MOPF で検出・追跡し、正解と比べる。confirm がなければ見積もりだけ返す（MOPF の GPU を使うので確認を取る）。"""
+    d = self.run_dir(rid)
+    vids = sorted(p.stem for p in (d / "video").glob("*.mp4")) if (d / "video").exists() else []
+    est = {"videos": vids, "mopf_ready": mopf_link.mopf_ready(), "model": body.get("model", "yolo11m"),
+           "note": "MOPF（~/MOPF_ALL_video、./start_ampb.sh --gpu N --no-llm --no-vc3）の GPU を使う。目安は 5 分の動画 1 本で 1〜2 分"}
+    if not body.get("confirm"):
+        return {"estimate": est}
+    if not vids:
+        raise ApiError("動画がない（先に描画）")
+    if not est["mopf_ready"]:
+        raise ApiError("MOPF が動いていない（cd ~/MOPF_ALL_video && ./start_ampb.sh --gpu N --no-llm --no-vc3）")
+    key = f"mopf:{rid}"
+    if self.jobs.get(key, {}).get("status") == "running":
+        raise ApiError("この結果の MOPF の処理は実行中")
+    self.jobs[key] = {"kind": "mopf", "status": "running", "started": time.time()}
+
+    def work():
+        try:
+            mopf_link.process(d, body.get("cameras"), est["model"])
+            mopf_link.evaluate(d)
+            mopf_link.graph(d)
+            self.jobs[key].update(status="done")
+        except Exception as e:
+            traceback.print_exc()
+            self.jobs[key].update(status="error", error=f"{type(e).__name__}: {e}")
+    threading.Thread(target=work, daemon=True).start()
+    return {"estimate": est, "started": True}
 
 
 def load_token(path):
@@ -325,9 +360,16 @@ def make_handler(app, token):
                 body = self._body()
                 if parts == ["runs"]:
                     return self._json({"id": app.start_run(body["scenario"], body.get("overrides"), body.get("name"))})
+                if len(parts) == 4 and parts[0] == "runs" and parts[2] == "mopf" and parts[3] == "process":
+                    return self._json(_mopf_process(app, parts[1], body))
+                if len(parts) == 4 and parts[0] == "runs" and parts[2] == "mopf" and parts[3] == "eval":
+                    d = app.run_dir(parts[1])
+                    if not (d / "mopf_tracks").exists():
+                        raise ApiError("MOPF の結果（mopf_tracks）がない")
+                    return self._json({"eval": mopf_link.evaluate(d), "graph": mopf_link.graph(d)})
                 if len(parts) == 3 and parts[0] == "runs" and parts[2] == "mopf":
                     out, cfg, info = mopf.write(app.run_dir(parts[1]), body["camera"])
-                    res = {"config": cfg, "info": info, "out": str(out)}
+                    res = {"config": cfg, "info": info, "out": str(out), "expected": mopf_link.expect(app.run_dir(parts[1]), body["camera"])}
                     if body.get("apply"):
                         res["applied"] = mopf.apply(out)
                     return self._json(res)

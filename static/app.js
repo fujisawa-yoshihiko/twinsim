@@ -358,6 +358,15 @@ async function refreshRuns() {
 }
 $("refresh").addEventListener("click", refreshRuns);
 
+function mopfEvalHtml(ev, gr) {
+  if (!ev) return "";
+  const rows = Object.entries(ev.cameras).map(([c, r]) => `<tr><td>${c}</td><td>${r.mota}</td><td>${r.idf1}</td><td>${r.num_switches}</td>
+    <td>${r.recall}</td><td>${r.precision}</td><td>${r.count_mae}</td><td>${r.foot_error_m_median ?? "-"}</td></tr>`).join("");
+  const g = gr ? Object.entries(gr).map(([c, v]) => Object.entries(v.zones_compared).map(([z, x]) =>
+    `${c}・${z}: MOPF ${x.mean_mopf} 人 / 正解 ${x.mean_truth} 人（誤差 ${x.mae}）`).join("、")).join("、") : "";
+  return `<table class="dest"><tr><th>カメラ</th><th>MOTA</th><th>IDF1</th><th>ID の切り替わり</th><th>再現率</th><th>適合率</th><th>人数の誤差</th><th>足元のずれ（m）</th></tr>${rows}</table>
+    ${g ? `<div class="muted">中間層のグラフ（ゾーンの人数の平均）: ${g}</div>` : ""}`;
+}
 const fileUrl = (id, path) => `/api/runs/${encodeURIComponent(id)}/file?path=${encodeURIComponent(path)}`;
 async function showRun(id) {
   S.runId = id;
@@ -386,18 +395,42 @@ async function showRun(id) {
       <button class="secondary" id="render-all">全部を描画</button></div>
     <div id="render-msg" class="muted">${ren ? `描画: ${ren.status}${ren.error ? "・" + ren.error : ""}${ren.seconds ? "・" + ren.seconds + " 秒" : ""}` : ""}</div>
     ${vids.map((v) => `<div class="muted">${v}</div><video src="${fileUrl(id, v)}" controls muted loop></video>`).join("")}
-    <h3>MOPF の人流モニターの設定</h3>
+    <h3>MOPF との連携</h3>
+    <div class="muted">人流モニターの設定（床の図・位置合わせ・線・エリア）と、正解なら数えるはずの値:</div>
     <div class="row">${cams.map((c) => `<button class="secondary" data-mopf="${c}">${c}</button>`).join("")}</div>
     <div id="mopf-msg" class="muted"></div>
+    <div class="row"><button class="secondary" id="mopf-process" ${vids.length ? "" : "disabled"}>動画を MOPF で検出・追跡（GPU）</button>
+      <button class="secondary" id="mopf-eval" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>MOPF の追跡を正解と比べる</button></div>
+    <div id="mopf-proc-msg" class="muted">${r.mopf_job ? `MOPF: ${r.mopf_job.status}${r.mopf_job.error ? "・" + r.mopf_job.error : ""}` : ""}</div>
+    <div id="mopf-eval-box">${mopfEvalHtml(r.mopf_eval, r.mopf_graph)}</div>
     <h3>ファイル</h3>
     <div class="files">${r.files.filter((f) => !f.includes("/") || f.startsWith("graph/") || f.startsWith("mot/") || f.startsWith("video/"))
       .map((f) => `<a href="${fileUrl(id, f)}" target="_blank">${f}</a>`).join("")}</div>`;
+  $("mopf-process").addEventListener("click", async () => {
+    try {
+      const e = await post(`/api/runs/${id}/mopf/process`, {});
+      const m = e.estimate;
+      if (!m.mopf_ready) { $("mopf-proc-msg").textContent = "MOPF が動いていない（cd ~/MOPF_ALL_video && ./start_ampb.sh --gpu N --no-llm --no-vc3）"; return; }
+      if (!confirm(`動画 ${m.videos.join(", ")} を MOPF（${m.model}）で処理します。${m.note}。始めますか？`)) return;
+      await post(`/api/runs/${id}/mopf/process`, { confirm: true });
+      $("mopf-proc-msg").textContent = "MOPF: 実行中（終わったら結果を開き直す）";
+    } catch (err) { $("mopf-proc-msg").textContent = String(err); }
+  });
+  $("mopf-eval").addEventListener("click", async () => {
+    try {
+      const e = await post(`/api/runs/${id}/mopf/eval`, {});
+      $("mopf-eval-box").innerHTML = mopfEvalHtml(e.eval, e.graph);
+    } catch (err) { $("mopf-eval-box").textContent = String(err); }
+  });
   $("render-test").addEventListener("click", () => doRender(id, { window: "busy", seconds: 5 }));
   $("render-all").addEventListener("click", () => doRender(id, {}));
   $("run-detail").querySelectorAll("[data-mopf]").forEach((b) => b.addEventListener("click", async () => {
     try {
       const m = await post(`/api/runs/${id}/mopf`, { camera: b.dataset.mopf });
-      $("mopf-msg").textContent = `線 ${m.config.lines.length}・エリア ${m.config.zones.map((z) => z.name).join(", ") || "なし"}・対応の点 ${m.info.points}（${m.out}）`;
+      const ex = m.expected;
+      $("mopf-msg").textContent = `線 ${m.config.lines.length}・エリア ${m.config.zones.map((z) => z.name).join(", ") || "なし"}・対応の点 ${m.info.points}（${m.out}）。` +
+        `正解なら（${ex.seconds} 秒）: ` + ex.lines.map((l) => `${l.name} ${l.pos_label} ${l.to_pos}・${l.neg_label} ${l.to_neg}`).join("、") +
+        "、" + ex.zones.map((z) => `${z.name} に入った ${z.people_entered} 人`).join("、");
     } catch (e) { $("mopf-msg").innerHTML = `<span class="err">${e.message}</span>`; }
   }));
   if (ren && ren.status === "running") pollRender(id);

@@ -27,7 +27,7 @@ DEFAULTS = {
                "speed_density": dict(WEIDMANN_FD)},  # 前の人の密度で遅くなる（Weidmann 1993）。null で切る
     "gates": {}, "streams": [], "cameras": [],
     "render": {"width": 1280, "height": 720, "tint": "per_person", "props": []},
-    "outputs": ["ground_truth", "frames", "tasks", "graph", "mot", "preview", "validity"],
+    "outputs": ["ground_truth", "frames", "tasks", "graph", "mot", "aicity", "preview", "validity"],
 }
 
 
