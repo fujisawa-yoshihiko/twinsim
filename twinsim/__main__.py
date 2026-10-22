@@ -84,7 +84,7 @@ def main(argv=None):
         from . import isaac_bridge as ib
         ib.sync()
         if not ib.ready():
-            print("Isaac Sim が twinsim の受け付けで起動していない（README の「描画」の isim up を先に）")
+            print("Isaac Sim が動いていない。先に ./isaac_up.sh <空いている GPU の番号> を実行する（終わったら isim down）")
             return 1
         if a.cmd == "render":
             r = ib.render(a.run_dir, a.frames, a.cameras.split(",") if a.cameras else None, a.preset)

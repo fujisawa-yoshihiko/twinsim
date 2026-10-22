@@ -150,7 +150,7 @@ class App:
         if not body.get("confirm"):
             return {"estimate": est}
         if not est["isaac_ready"]:
-            raise ApiError("Isaac Sim が twinsim の受け付けで起動していない（docs/spec.md の「描画」）")
+            raise ApiError("Isaac Sim が動いていない（ampb で ./isaac_up.sh <GPU の番号>）")
         key = f"render:{rid}"
         if self.jobs.get(key, {}).get("status") == "running":
             raise ApiError("この結果の描画は実行中")

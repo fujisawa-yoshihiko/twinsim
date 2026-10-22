@@ -355,7 +355,7 @@ async function showRun(id) {
 async function doRender(id, body) {
   try {
     const est = (await post(`/api/runs/${id}/render`, body)).estimate;
-    if (!est.isaac_ready) { $("render-msg").innerHTML = `<span class="err">Isaac Sim が受け付けていません（docs/spec.md の「描画」の isim up を先に）</span>`; return; }
+    if (!est.isaac_ready) { $("render-msg").innerHTML = `<span class="err">Isaac Sim が動いていません。ampb で cd ~/twinsim && ./isaac_up.sh <空いている GPU の番号> を実行し、1 分ほど待ってからもう一度押してください（終わったら isim down）</span>`; return; }
     const min = Math.ceil(est.estimate_s / 60);
     if (!confirm(`${est.frames} コマ（${est.range[0]}〜${est.range[1]}）を描画します。目安 ${min} 分、GPU ${est.gpu}。共用の GPU なので、空きを確かめてから始めてください。始めますか？`)) return;
     await post(`/api/runs/${id}/render`, { ...body, confirm: true });
