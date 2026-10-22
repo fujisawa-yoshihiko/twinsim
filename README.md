@@ -4,15 +4,19 @@
 空間（USD）・人の分布・カメラ・イベント（EV・ゲート）をシナリオのファイルで決め、人の動きを CPU で計算し、
 正解・集計・GNN 向けのグラフ・カメラの枠を書き出す。映像が要るときは Isaac Sim で描く。仕様は [docs/spec.md](docs/spec.md)。
 
-## すぐ試す
+## 起動
 
 ```bash
 cd ~/twinsim
-U="uv run --no-project --with numpy --with scipy --with pyyaml --with pillow --with networkx"
-$U python -m twinsim templates
-$U python -m twinsim run office_gate_ev          # 5 分・約 100 人、計算 6 秒＋書き出し 11 秒
-$U python -m twinsim check ~/dt-data/twinsim/runs/office_gate_ev
+./run.sh serve                 # GUI（127.0.0.1:8770）。別の端末で ./run.sh serve --url を実行すると、開く URL が出る
+./run.sh templates             # テンプレートの一覧
+./run.sh run office_gate_ev    # 計算（CPU、5 分・約 100 人で 20 秒ほど）
+./run.sh check ~/dt-data/twinsim/runs/office_gate_ev
+./isaac_up.sh 2                # 描画するときだけ: Isaac Sim を GPU 2 で起動（止めるのは isim down）
+./run.sh render ~/dt-data/twinsim/runs/office_gate_ev --frames 7395 7544   # 試し撮り
 ```
+
+手元の PC のブラウザで GUI を開くには、手元の PC で `ssh -N -L 8770:localhost:8770 ampb` を実行したまま、`./run.sh serve --url` の URL を開く。
 
 結果は `~/dt-data/twinsim/runs/<名前>/`（`preview.png` で軌跡を確かめられる）。描画は docs/spec.md の「描画」。
 
