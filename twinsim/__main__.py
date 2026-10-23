@@ -24,7 +24,7 @@ from pathlib import Path
 
 import yaml
 
-from . import api
+from . import api, config
 from .scenario import TEMPLATES, load_scenario
 from .space import list_spaces
 
@@ -124,21 +124,21 @@ def main(argv=None):
         from . import mopf
         out, cfg, info = mopf.write(a.run_dir, a.camera)
         print("out:", out, "lines", len(cfg["lines"]), "zones", [z["name"] for z in cfg["zones"]], json.dumps(info, ensure_ascii=False))
-        from .mopf_link import expect
+        from .mopf import expect
         e = expect(a.run_dir, a.camera)
         print("正解なら数えるはず:", json.dumps({"lines": e["lines"], "zones": e["zones"], "frames": e["frames"]}, ensure_ascii=False))
         if a.apply:
             print(mopf.apply(out))
     elif a.cmd == "mopf-process":
-        from .mopf_link import process
+        from .mopf import process
         print(json.dumps(process(a.run_dir, a.cameras, a.model), ensure_ascii=False, indent=1))
     elif a.cmd == "mopf-overlay":
-        from .mopf_link import overlay
+        from .mopf import overlay
         run = Path(a.run_dir).expanduser()
         for cam in a.cameras or sorted(p.stem for p in (run / "mopf_tracks").glob("*.jsonl")):
             print(cam, json.dumps(overlay(run, cam), ensure_ascii=False))
     elif a.cmd == "mopf-eval":
-        from .mopf_link import evaluate, graph
+        from .mopf import evaluate, graph
         e = evaluate(a.run_dir, a.tracks)
         for c, r in e["cameras"].items():
             print(c, " ".join(f"{k}={r[k]}" for k in ("mota", "idf1", "num_switches", "recall", "precision", "count_mae", "foot_error_m_median")))
@@ -175,7 +175,7 @@ def main(argv=None):
             for idx, sub_over in over.pop(key).items():
                 from .scenario import deep_merge
                 spec["streams"][int(idx)] = deep_merge(spec["streams"][int(idx)], sub_over)
-        out = a.out or str(Path.home() / "dt-data/twinsim/runs" / (spec.get("name") or Path(a.scenario).stem))
+        out = a.out or str(config.RUNS / (spec.get("name") or Path(a.scenario).stem))
         summary = api.run(spec, out, overrides=over)
         print(json.dumps({k: summary[k] for k in ("people", "groups", "max_present", "elevator", "gate_passes", "timing_s")},
                          ensure_ascii=False, default=str))

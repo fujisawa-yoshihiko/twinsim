@@ -28,7 +28,8 @@ def point_in_poly(poly, x, y):
 
 
 def load_ascii_grid(path):
-    """walkable_*.txt: '# x0 .. y0 .. res ..' の説明の行（「# 」で始まる）と、1 行目が y の最大の '.'/'#' の行。返り値: (歩けるか [ny, nx]（行 0 = y0）, x0, y0, res)"""
+    """walkable_*.txt: '# x0 .. y0 .. res ..' の説明の行（「# 」で始まる）と、1 行目が y の最大の '.'/'#' の行。
+    返り値: (歩けるか [ny, nx]（行 0 = y0）, x0, y0, res)"""
     meta, rows = {}, []
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         if line.startswith("# "):  # 説明の行（地図の行は空白を含まない）

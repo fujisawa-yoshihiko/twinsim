@@ -108,7 +108,7 @@ def verdict(ok, note=None):
 # ---- 入力の再現 ----
 def free_speed(run, rows):
     by = defaultdict(list)
-    for n, f, v, rho, st, mv in rows:
+    for n, _f, v, rho, st, mv in rows:
         if st in WALK_STATES and rho == 0 and mv and v > 0.2 and run.P[n]["group"] is None:
             by[n].append(v)
     per = np.array([float(np.median(v)) for v in by.values() if len(v) >= 3])
@@ -268,11 +268,11 @@ def speed_density(run, rows):
 
 def group_speed(run, rows, members):
     by = defaultdict(list)
-    for n, f, v, rho, st, mv in rows:
+    for n, _f, v, rho, st, mv in rows:
         if st == "pass" and rho == 0 and mv and v > 0.2:
             by[n].append(v)
     pts = []
-    for g, names in members.items():
+    for _g, names in members.items():
         vs = [x for n in names for x in by.get(n, [])]
         if len(vs) >= 3:
             pts.append((min(len(names), 5), float(np.median(vs))))
@@ -296,7 +296,7 @@ def dyad_distance(run, members):
     profile = (run.spec.get("people") or {}).get("profile")
     rel_name, r_ref, x_ref = DYAD_REF.get(profile, DYAD_ALL)
     r_all, x_all = [], []
-    for g, names in members.items():
+    for _g, names in members.items():
         if len(names) != 2:
             continue
         a, b = (run.P[n] for n in names)
@@ -369,7 +369,7 @@ def bottleneck(run):
         return None
     x, (y0, y1), wd = float(b["x"]), b["y"], float(b["width_m"])
     times = []
-    for n, d in run.P.items():
+    for _n, d in run.P.items():
         xs = d["xy"][:, 0]
         k = np.nonzero((xs[:-1] < x) & (xs[1:] >= x))[0]
         for i in k:
@@ -556,58 +556,85 @@ def _fmt(v):
     return str(v)
 
 
-def to_markdown(res):
-    L = [f"# 妥当性の確かめ: {res['scenario']}（{res['profile'] or 'プロファイルなし'}）", "",
-         f"結果: `{res['run']}`。文献の一覧は末尾。判定の基準は twinsim/validity.py。", "",
-         "## 入力の再現（文献の分布を入れた量が、計算のあとも同じか）", "", "| 項目 | 計算 | 文献・入力 | 判定 |", "|---|---|---|---|"]
-    ir = res["input_reproduction"]
+def _row(*cells):
+    return "| " + " | ".join(str(c) for c in cells) + " |"
+
+
+def _md_input(ir):
+    """入力の再現の表の行。"""
+    rows = []
     f = ir["free_walking_speed"]
     tg = f.get("target", {"mean": 1.34, "sd": 0.26})
-    L.append(f"| 自由に歩く速さ | {f.get('mean_m_s', '-')} ± {f.get('sd_m_s', '-')} m/s（{f.get('n_people')} 人） | "
-             + ("1.34 ± 0.26 m/s（weidmann1993）" if (tg["mean"], tg["sd"]) == (1.34, 0.26) else f"シナリオ {tg['mean']} ± {tg['sd']} m/s（文献は 1.34 ± 0.26）") + f" | {f['verdict']} |")
+    lit = "1.34 ± 0.26 m/s（weidmann1993）" if (tg["mean"], tg["sd"]) == (1.34, 0.26) else f"シナリオ {tg['mean']} ± {tg['sd']} m/s（文献は 1.34 ± 0.26）"
+    rows.append(_row("自由に歩く速さ", f"{f.get('mean_m_s', '-')} ± {f.get('sd_m_s', '-')} m/s（{f.get('n_people')} 人）", lit, f["verdict"]))
     g = ir["group_size"]
-    lit = g.get("literature")
-    L.append(f"| グループの人数（人の割合 1/2/3/4/5+） | {_fmt(g['person_share'])}（{g['n_people']} 人・{g['n_groups']} 組） | "
-             f"入力 {_fmt(g.get('scenario_share'))}" + (f"、文献 {_fmt(lit['share'])}（{lit['source']}、{lit['note']}）" if lit else "") + f" | {g['verdict']} |")
+    gl = g.get("literature")
+    ref = f"入力 {_fmt(g.get('scenario_share'))}" + (f"、文献 {_fmt(gl['share'])}（{gl['source']}、{gl['note']}）" if gl else "")
+    rows.append(_row("グループの人数（人の割合 1/2/3/4/5+）", f"{_fmt(g['person_share'])}（{g['n_people']} 人・{g['n_groups']} 組）", ref, g["verdict"]))
     gs = ir["group_speed"]
-    L.append(f"| グループの速さ（1 人増えるごと） | {gs.get('slope_m_s_per_member', '-')} m/s（{gs.get('n_groups')} 組） | −0.04〜−0.08 m/s（moussaid2010） | {gs['verdict']} |")
+    rows.append(_row("グループの速さ（1 人増えるごと）", f"{gs.get('slope_m_s_per_member', '-')} m/s（{gs.get('n_groups')} 組）",
+                     "−0.04〜−0.08 m/s（moussaid2010）", gs["verdict"]))
     for s, a in ir["arrivals"].items():
-        L.append(f"| 到着 {s} | {a['observed_per_min']} 人/分（{a['persons']} 人） | " +
-                 (f"{a['expected_per_min']} 人/分（{a['source']}、z = {a['z']}）| {a['verdict']} |" if "expected_per_min" in a else "シナリオの値（仮） | - |"))
+        calc = f"{a['observed_per_min']} 人/分（{a['persons']} 人）"
+        if "expected_per_min" in a:
+            rows.append(_row(f"到着 {s}", calc, f"{a['expected_per_min']} 人/分（{a['source']}、z = {a['z']}）", a["verdict"]))
+        else:
+            rows.append(_row(f"到着 {s}", calc, "シナリオの値（仮）", "-"))
     lm = ir["lift_mix"]
     if "outgoing_share" in lm:
-        L.append(f"| EV の出る側の割合 | {lm['outgoing_share']}（乗った {lm['boarded']}・降りた {lm['alighted']}） | "
-                 f"{lm['literature']['outgoing_share']}（{lm['literature']['period']}、peters2011） | {lm['verdict']} |")
+        rows.append(_row("EV の出る側の割合", f"{lm['outgoing_share']}（乗った {lm['boarded']}・降りた {lm['alighted']}）",
+                         f"{lm['literature']['outgoing_share']}（{lm['literature']['period']}、peters2011）", lm["verdict"]))
     b = ir["elevator_boarding_interval"]
-    L.append(f"| EV に続けて乗る間隔 | {b.get('median_s', '-')} 秒（{b.get('n')} 組） | 1.0〜1.2 秒（peters_transfer） | {b['verdict']} |")
+    rows.append(_row("EV に続けて乗る間隔", f"{b.get('median_s', '-')} 秒（{b.get('n')} 組）", "1.0〜1.2 秒（peters_transfer）", b["verdict"]))
     gh = ir["gate_headway"]
-    L.append(f"| ゲートが混んだときの 1 人あたりの時間 | 中央 {gh.get('median_s', '-')} 秒（{gh.get('n')} 回、1 レーン最大 {gh.get('max_per_min_per_lane')} 人/分） | "
-             f"1.5〜4.0 秒・25〜40 人/分（fruin1987、カードを読む改札） | {gh['verdict']} |")
-    L += ["", "## 出てくる量（入れていない量が文献の範囲に入るか）", "", "| 項目 | 計算 | 文献 | 判定 |", "|---|---|---|---|"]
-    em = res["emergent"]
+    rows.append(_row("ゲートが混んだときの 1 人あたりの時間",
+                     f"中央 {gh.get('median_s', '-')} 秒（{gh.get('n')} 回、1 レーン最大 {gh.get('max_per_min_per_lane')} 人/分）",
+                     "1.5〜4.0 秒・25〜40 人/分（fruin1987、カードを読む改札）", gh["verdict"]))
+    return rows
+
+
+def _md_emergent(em):
+    """出てくる量の表の行。"""
+    rows = []
     sd = em["speed_density"]
-    bins = "、".join(f"{b['rho'][0]}–{b['rho'][1]}: {b['mean_v']} m/s・比 {b['mean_ratio']}（式 {b['weidmann_v']}・{b['weidmann_ratio']}）" for b in sd["bins"])
-    L.append(f"| 密度ごとの速さ（人/m²: 速さ・自分の速さに対する比） | {bins or '-'}（最大 {sd['max_rho']} 人/m²） | Kladek の式（weidmann1993） | {sd['verdict']} |")
+    bins = "、".join(f"{b['rho'][0]}–{b['rho'][1]}: {b['mean_v']} m/s・比 {b['mean_ratio']}（式 {b['weidmann_v']}・{b['weidmann_ratio']}）"
+                    for b in sd["bins"])
+    rows.append(_row("密度ごとの速さ（人/m²: 速さ・自分の速さに対する比）", f"{bins or '-'}（最大 {sd['max_rho']} 人/m²）",
+                     "Kladek の式（weidmann1993）", sd["verdict"]))
     dy = em["dyad_distance"]
-    L.append(f"| 2 人連れの距離・横の間隔 | {dy.get('mean_distance_m', '-')} m・{dy.get('mean_abreast_m', '-')} m | "
-             f"{dy.get('literature', {}).get('relation', '-')} {dy.get('literature', {}).get('distance_m', '-')} m・{dy.get('literature', {}).get('abreast_m', '-')} m（zanlungo2017） | {dy['verdict']} |")
+    dl = dy.get("literature", {})
+    rows.append(_row("2 人連れの距離・横の間隔", f"{dy.get('mean_distance_m', '-')} m・{dy.get('mean_abreast_m', '-')} m",
+                     f"{dl.get('relation', '-')} {dl.get('distance_m', '-')} m・{dl.get('abreast_m', '-')} m（zanlungo2017）", dy["verdict"]))
     ss = em["standing_spacing"]
-    L.append(f"| 待つ人どうしのいちばん近い距離 | 中央 {ss.get('median_m', '-')} m・0.45 m 未満 {ss.get('share_below_0.45m', '-')} | "
-             f"密接の距離 0.45 m 未満は少ない（hall1966） | {ss['verdict']} |")
+    rows.append(_row("待つ人どうしのいちばん近い距離", f"中央 {ss.get('median_m', '-')} m・0.45 m 未満 {ss.get('share_below_0.45m', '-')}",
+                     "密接の距離 0.45 m 未満は少ない（hall1966）", ss["verdict"]))
     gl = em["gridlock"]
-    L.append(f"| 詰まって動けなくなった人 | {gl['n_stuck']} 人 | 0 人 | {gl['verdict']} |")
+    rows.append(_row("詰まって動けなくなった人", f"{gl['n_stuck']} 人", "0 人", gl["verdict"]))
     if "bottleneck" in em:
         bn = em["bottleneck"]
-        L.append(f"| 出入口を通れる量 | 1 分に最大 {bn['max_per_min']} 人 = {bn['specific_flow']} 人/(m·s)（通った {bn['passed']} 人） | "
-                 f"幅 1.0 m の実験 1.90〜2.19 人/(m·s)（seyfried2009）。Weidmann の式の最大は 1.22 | {bn['verdict']} |")
+        rows.append(_row("出入口を通れる量", f"1 分に最大 {bn['max_per_min']} 人 = {bn['specific_flow']} 人/(m·s)（通った {bn['passed']} 人）",
+                         "幅 1.0 m の実験 1.90〜2.19 人/(m·s)（seyfried2009）。Weidmann の式の最大は 1.22", bn["verdict"]))
     w = em["waiting"]
-    L.append(f"| 待った時間（参考） | EV {_fmt(w.get('ev_wait_s', '-'))} 秒・ゲートの列 {_fmt(w.get('gate_queue_s', '-'))} 秒・終わりに残った {w.get('still_waiting_at_end')} 人 | - | 参考 |")
+    rows.append(_row("待った時間（参考）",
+                     f"EV {_fmt(w.get('ev_wait_s', '-'))} 秒・ゲートの列 {_fmt(w.get('gate_queue_s', '-'))} 秒・"
+                     f"終わりに残った {w.get('still_waiting_at_end')} 人",
+                     "-", "参考"))
+    return rows
+
+
+def to_markdown(res):
+    ir, em = res["input_reproduction"], res["emergent"]
+    L = [f"# 妥当性の確かめ: {res['scenario']}（{res['profile'] or 'プロファイルなし'}）", "",
+         f"結果: `{res['run']}`。文献の一覧は末尾。判定の基準は twinsim/validity.py。", "",
+         "## 入力の再現（文献の分布を入れた量が、計算のあとも同じか）", "", _row("項目", "計算", "文献・入力", "判定"), "|---|---|---|---|"]
+    L += _md_input(ir)
+    L += ["", "## 出てくる量（入れていない量が文献の範囲に入るか）", "", _row("項目", "計算", "文献", "判定"), "|---|---|---|---|"]
+    L += _md_emergent(em)
     notes = [(k, v["note"]) for part in (ir, em) for k, v in part.items() if isinstance(v, dict) and v.get("note")]
     if notes:
         L += ["", "注: " + "。".join(f"{k}: {n}" for k, n in notes)]
-    L += ["", "## 台帳（シナリオの値ごとの根拠）", "", "| 項目 | 値 | 根拠 | 状態 |", "|---|---|---|---|"]
-    for r in res["ledger"]:
-        L.append(f"| {r['item']} | {_fmt(r['value'])} | {r['source'] or '-'} | {r['status']} |")
+    L += ["", "## 台帳（シナリオの値ごとの根拠）", "", _row("項目", "値", "根拠", "状態"), "|---|---|---|---|"]
+    L += [_row(r["item"], _fmt(r["value"]), r["source"] or "-", r["status"]) for r in res["ledger"]]
     L += ["", "## 文献", ""] + [f"- **{k}**: {c}" for k, c in res["refs"].items()]
     return "\n".join(L) + "\n"
 

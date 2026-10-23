@@ -24,7 +24,7 @@ def run(scenario, out_dir, overrides=None, elevator_policy=None):
     sim.run()
     t1 = time.monotonic()
     out0 = Path(out_dir).expanduser()
-    stale = [p for p in (out0 / "video", out0 / "render_log.json", out0 / "render_stdout.txt", out0 / "mopf_tracks", out0 / "mopf_eval", out0 / "mopf_graph") if p.exists()]
+    stale = [out0 / n for n in ("video", "render_log.json", "render_stdout.txt", "mopf_tracks", "mopf_eval", "mopf_graph") if (out0 / n).exists()]
     if stale:  # 前の計算の動画・描画の記録・MOPF の結果は新しい正解と合わないので、まとめて名前を変えて残す（消さない）
         moved = out0 / f"before_{time.strftime('%Y%m%d-%H%M%S')}"
         moved.mkdir()

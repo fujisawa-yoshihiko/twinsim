@@ -38,14 +38,14 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from . import api, isaac_bridge, mopf, mopf_link
+from . import api, config, isaac_bridge, mopf
 from .camera import camera_dict
 from .literature import LIFT_MIX, PROFILES, REFS
 from .scenario import TEMPLATES, load_scenario
 from .space import ROOT, list_spaces, load_space
 
 STATIC = ROOT / "static"
-RUNS = Path.home() / "dt-data/twinsim/runs"
+RUNS = config.RUNS
 COOKIE = "twinsim_token"
 ALLOWED_HOSTS = {"localhost", "127.0.0.1", "[::1]"}
 RENDER_FPS_EST = 2.8  # 描画の速さの目安（コマ/秒、GPU 1 枚。hospital-sim の記録）
@@ -178,7 +178,7 @@ def _mopf_process(self, rid, body):
     """描いた動画を MOPF で検出・追跡し、正解と比べる。confirm がなければ見積もりだけ返す（MOPF の GPU を使うので確認を取る）。"""
     d = self.run_dir(rid)
     vids = sorted(p.stem for p in (d / "video").glob("*.mp4")) if (d / "video").exists() else []
-    est = {"videos": vids, "mopf_ready": mopf_link.mopf_ready(), "model": body.get("model", "yolo11m"),
+    est = {"videos": vids, "mopf_ready": mopf.mopf_ready(), "model": body.get("model", "yolo11m"),
            "note": "MOPF（~/MOPF_ALL_video、./start_ampb.sh --gpu N --no-llm --no-vc3）の GPU を使う。目安は 5 分の動画 1 本で 1〜2 分"}
     if not body.get("confirm"):
         return {"estimate": est}
@@ -193,9 +193,9 @@ def _mopf_process(self, rid, body):
 
     def work():
         try:
-            mopf_link.process(d, body.get("cameras"), est["model"])
-            mopf_link.evaluate(d)
-            mopf_link.graph(d)
+            mopf.process(d, body.get("cameras"), est["model"])
+            mopf.evaluate(d)
+            mopf.graph(d)
             self.jobs[key].update(status="done")
         except Exception as e:
             traceback.print_exc()
@@ -335,7 +335,8 @@ def make_handler(app, token):
             parts = path.strip("/").split("/")[1:]
             if method in ("GET", "HEAD"):
                 if parts == ["profiles"]:
-                    return self._json({"profiles": {k: {"title": v["title"], "sources": v["sources"], "notes": v.get("notes", [])} for k, v in PROFILES.items()},
+                    profiles = {k: {"title": v["title"], "sources": v["sources"], "notes": v.get("notes", [])} for k, v in PROFILES.items()}
+                    return self._json({"profiles": profiles,
                                        "periods": list(LIFT_MIX), "refs": {k: r["cite"] for k, r in REFS.items()}})
                 if parts == ["spaces"]:
                     return self._json([{"name": n, "title": load_space(n).spec.get("title")} for n in list_spaces()])
@@ -366,10 +367,10 @@ def make_handler(app, token):
                     d = app.run_dir(parts[1])
                     if not (d / "mopf_tracks").exists():
                         raise ApiError("MOPF の結果（mopf_tracks）がない")
-                    return self._json({"eval": mopf_link.evaluate(d), "graph": mopf_link.graph(d)})
+                    return self._json({"eval": mopf.evaluate(d), "graph": mopf.graph(d)})
                 if len(parts) == 3 and parts[0] == "runs" and parts[2] == "mopf":
                     out, cfg, info = mopf.write(app.run_dir(parts[1]), body["camera"])
-                    res = {"config": cfg, "info": info, "out": str(out), "expected": mopf_link.expect(app.run_dir(parts[1]), body["camera"])}
+                    res = {"config": cfg, "info": info, "out": str(out), "expected": mopf.expect(app.run_dir(parts[1]), body["camera"])}
                     if body.get("apply"):
                         res["applied"] = mopf.apply(out)
                     return self._json(res)
@@ -383,7 +384,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="twinsim serve")
     ap.add_argument("--port", type=int, default=8770)
     ap.add_argument("--url", action="store_true", help="開く URL を表示するだけ")
-    ap.add_argument("--token-file", default=str(Path.home() / ".config/twinsim/token"))
+    ap.add_argument("--token-file", default=str(config.TOKEN_FILE))
     a = ap.parse_args(argv)
     token = load_token(a.token_file)
     url = f"http://localhost:{a.port}/?token={token}"

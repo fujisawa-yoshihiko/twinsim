@@ -32,13 +32,15 @@ cd ~/twinsim
 | `twinsim/scenario.py`・`dists.py` | シナリオと分布 → 人の発生・行き先・EV・ゲート |
 | `twinsim/literature.py`・`validity.py` | 文献に基づく人の分布（出典つき、`people.profile`・`demand`）と、計算のあとの文献との比べ（[docs/validity.md](docs/validity.md)） |
 | `twinsim/calibrate.py` | 実データ（ゲートの通過記録・EV の運行記録）で値を合わせる。シミュレータの結果を記録の形に書き出す（`export-logs`） |
-| `twinsim/mopf.py`・`mopf_link.py` | MOPF との連携: 人流モニターの設定と数えるはずの値、動画の検出・追跡、正解との比べ、中間層のグラフ（[docs/integration.md](docs/integration.md)） |
+| `twinsim/mopf/` | MOPF との連携（[docs/integration.md](docs/integration.md)）: `monitor`（人流モニターの設定）・`process`（動画の検出・追跡）・`evaluate`（正解との比べ）・`graph`（中間層のグラフ）・`crossings`（線の数え方）・`overlay`（重ねた動画）・`control`（起動・停止）・`synthetic`（確かめ用）・`io` |
+| `twinsim/config.py` | 置き場所と接続先（`TWINSIM_DATA`・`TWINSIM_MOPF_HOME`・`TWINSIM_MOPF_URL`・`TWINSIM_ISAAC_WORK` などの環境変数で変えられる） |
 | `twinsim/outputs.py`・`camera.py`・`quality.py` | 正解・集計・グラフ・枠・確かめ |
 | `twinsim/api.py`・`__main__.py` | Python の API とコマンド |
 | `twinsim/isaac_bridge.py`・`isaac/` | Isaac Sim での描画と、USD から空間を作る部品（`isaac/vendor/` は hospital-sim から写した人物の部品） |
 | `spaces/` | 空間（office・hospital・warehouse・simple_room・warehouse_small・corridor（確かめ用の廊下）） |
 | `templates/` | テンプレート（下の表） |
-| `tests/` | 動作確認（`$U --with pytest pytest -q tests`） |
+| `tests/` | 動作確認（`uv run --group dev pytest -q`、書き方の確かめは `uv run --group dev ruff check`） |
+| `pyproject.toml`・`uv.lock` | 依存（`./run.sh` は `uv run twinsim`。初回に `.venv` を作る） |
 
 | テンプレート | 確かめること |
 |---|---|
@@ -63,4 +65,4 @@ cd ~/twinsim
 | テンプレート | 7 つ（上の表） |
 | API（MOPF・GNN） | 済: REST API・Python の API・グラフの書き出し・MOPF の人流モニターの設定の自動作成と数えるはずの値。動画を MOPF で検出・追跡して正解と比べる（`mopf-process`・`mopf-eval`）、MOPF の追跡から同じ形の中間層のグラフ、研究のコードから読める、AI City の形。実データで合わせる（`calibrate`）。MOPF を GPU で動かしての確かめは未 |
 
-GUI: `$U python -m twinsim serve`（URL は `--url`）。画面の確かめは `tools/gui_shot.py`。
+GUI: `./run.sh serve`（URL は `./run.sh serve --url`）。画面の確かめは `uv run --group gui-test python tools/gui_shot.py`。

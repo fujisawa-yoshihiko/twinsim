@@ -8,7 +8,6 @@ import omni.usd
 from pxr import Gf, UsdGeom
 
 
-
 def add_lights(stage, lights):
     """空間の space.yaml の lights（部屋の中に照明がない USD のため）: [{xy, z, radius, intensity}] の球の照明を置く。"""
     from pxr import UsdLux

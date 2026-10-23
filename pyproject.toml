@@ -1,14 +1,54 @@
 [project]
 name = "twinsim"
-version = "0.1.0"
-description = "建物・工場の人流のデジタルツインのシミュレータ（人の動きは CPU、描画は Isaac Sim）"
+version = "0.4.0"
+description = "建物・工場の人流のデジタルツインのシミュレータ（人の動き・正解・グラフ・カメラの枠、Isaac Sim での描画、MOPF との連携）"
+readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["numpy", "scipy", "pyyaml", "pillow"]
+dependencies = [
+    "numpy",
+    "scipy",
+    "pyyaml",
+    "pillow",
+    "networkx",
+    "matplotlib",
+    "motmetrics",
+    "opencv-python-headless",
+]
 
-[project.optional-dependencies]
-graph = ["networkx"]
-api = ["fastapi", "uvicorn"]
-dev = ["pytest"]
+[project.scripts]
+twinsim = "twinsim.__main__:main"
 
-[tool.uv]
-package = false
+[dependency-groups]
+dev = ["pytest", "ruff"]
+gui-test = ["playwright"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["twinsim"]
+
+[tool.ruff]
+line-length = 160
+target-version = "py310"
+extend-exclude = ["isaac/vendor"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "E731",  # 短い lambda を名前に入れる書き方は使う
+    "E741",  # l（横のずれ）・I などの名前は式に合わせている
+    "B905",  # zip の strict は使わない（3.10 でも動くように）
+    "RUF001", "RUF002", "RUF003",  # 日本語の全角の記号
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Isaac Sim の中で動くスクリプト: log・JOB は受け付け（isaac/agent_runner.py）が渡す。omni.* の読み込みは拡張を読み込ませるためのもの
+"isaac/*.py" = ["F401", "F821", "E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["twinsim"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

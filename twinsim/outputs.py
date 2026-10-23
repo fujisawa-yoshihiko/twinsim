@@ -221,7 +221,6 @@ def write_graph(sim, agents, per_frame, cams, folder, spec, cell_m=None):
         nodes.append({"id": z, "kind": "zone", "x": round(float(np.mean([p[0] for p in poly])), 2),
                       "y": round(float(np.mean([p[1] for p in poly])), 2), "area_m2": round(sp.zone_area(z), 1)})
     # 辺の流れ（1 分ごと）: 人のゾーンの列の移り変わり
-    minutes = int(math.ceil(total / fps / 60))
     flows = Counter()
     for a in agents:
         prev = None
@@ -384,7 +383,6 @@ def write_preview(sp, agents, cams, path):
         if len(pts) > 1:
             d.line(pts, fill=col, width=1)
     for name, c in cams.items():
-        cam = Camera(c)
         ex, ey = P(c["eye"][0], c["eye"][1])
         tx, ty = P(c["target"][0], c["target"][1])
         d.ellipse([ex - 5, ey - 5, ex + 5, ey + 5], fill=(220, 30, 30))

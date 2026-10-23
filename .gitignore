@@ -4,3 +4,5 @@ __pycache__/
 runs/
 *.mp4
 spaces/*/annotate.png
+.venv/
+uv.lock.bak

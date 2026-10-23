@@ -10,8 +10,8 @@ import yaml
 
 from . import dists
 from .characters import MODELS
-from .literature import PROFILES, WEIDMANN_FD, lift_demand_per_min
 from .engine import Agent, Car, Gate, Meet, Sim
+from .literature import PROFILES, WEIDMANN_FD, lift_demand_per_min
 from .space import ROOT, load_space, point_in_poly
 
 TEMPLATES = ROOT / "templates"
@@ -176,9 +176,8 @@ class Builder:
         self.meta = {"profile": spec["people"].get("profile"), "rates": {}, "elevator": {}, "gates": {}}
         models = spec["people"]["models"]
         self.models = list(MODELS) if models == "all" else list(models)
-        ev = spec.get("elevator") or {}
         self.ev_zone = None
-        for k, p in self.space.pois.items():
+        for p in self.space.pois.values():
             if p.get("kind") == "wait_zone":
                 self.ev_zone = p["zone"]
                 self.ev_poi = p
@@ -285,7 +284,6 @@ class Builder:
             cplan = [("gate", g) for g in cs.get("via", [])] + [("walk", c["xy"], "pass"), ("meet", c["meet"], c["face"], "companion_wait", 0.0)]
             if c["then"]:
                 cplan += self.plan_for(c["then"])
-            first = made[0]
             ca = self.new_agent(cplan, t0 + delay, self.space.poi_xy(corigin), speed, 0.3, group or f"G{self.group_n + 1:03d}",
                                 {"type": typ, "stream": stream, "destination": d["to"], "origin": corigin, "role": "companion"})
             if group is None:
@@ -353,7 +351,8 @@ class Builder:
             if p.get("kind") == "gate":
                 svc = spec["gates"].get(k, {}).get("service_s", self.profile.get("gate_service_s", 1.5))
                 gates[k] = Gate(k, p, svc, random.Random(f"{spec['seed']}-{k}"))
-                self.meta["gates"][k] = {"service_s": svc, "source": "fruin1987" if k not in spec["gates"] and self.profile.get("gate_service_s") else "scenario"}
+                from_lit = k not in spec["gates"] and self.profile.get("gate_service_s")
+                self.meta["gates"][k] = {"service_s": svc, "source": "fruin1987" if from_lit else "scenario"}
         ev = spec.get("elevator")
         cars, spots, policy, on_arrival = [], [], None, None
         timing = None
@@ -388,7 +387,8 @@ class Builder:
                         d = self.pick_destination(alight["destinations"], typ)
                         plan = [("walk", tuple(door + out_dir * 3.0), "alight")] + self.plan_for(d)  # 扉から 3 m 出るまでは降車
                         oxy = door + out_dir * (0.4 + 0.5 * k) + np.array([-out_dir[1], out_dir[0]]) * self.rng.uniform(-0.3, 0.3)
-                        a = self.new_agent(plan, t + timing["door_open_s"] + timing["transfer_s"] * k, oxy, float(dists.sample(spec["people"]["speed"], self.rng)),
+                        t_out = t + timing["door_open_s"] + timing["transfer_s"] * k  # 扉が開いてから 1 人ずつ
+                        a = self.new_agent(plan, t_out, oxy, float(dists.sample(spec["people"]["speed"], self.rng)),
                                            self.rng.uniform(-0.3, 0.3), None,
                                            {"type": typ, "stream": "alight", "destination": d["to"] if isinstance(d, dict) else d,
                                             "origin": car.name, "alight_zones": (self.ev_zone,)})

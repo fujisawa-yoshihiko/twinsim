@@ -24,7 +24,7 @@ def check(run_dir):
     for r in rows:
         byf[int(r["frame"])].append((float(r["x"]), float(r["y"]), r["group"]))
     near = []
-    for f, pts in byf.items():
+    for _f, pts in byf.items():
         if len(pts) < 2:
             continue
         P = np.array([p[:2] for p in pts])

@@ -24,9 +24,10 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from . import config
 from .scenario import load_scenario, resolve_rate
 
-OUT_ROOT = Path.home() / "dt-data/twinsim/calibration"
+OUT_ROOT = config.CALIBRATION
 SATURATED_S = 4.0  # これ以下の間隔は、列ができていた（ゲートの時間で決まった）とみなす（Fruin のカードの改札の上限）
 
 
@@ -180,7 +181,8 @@ def calibrate(base, gate_log=None, ev_log=None, out_dir=None, ev_mode="fit", bin
     out = Path(out_dir).expanduser() if out_dir else OUT_ROOT / cid
     out.mkdir(parents=True, exist_ok=True)
     path = out / "scenario.yaml"
-    head = (f"# {rep['date']} に記録で合わせたシナリオ（twinsim calibrate）。元: {base}。値の出典は source: {src}（calibration の欄に記録のファイルとハッシュ）。\n"
+    head = (f"# {rep['date']} に記録で合わせたシナリオ（twinsim calibrate）。元: {base}。\n"
+            f"# 値の出典は source: {src}（calibration の欄に記録のファイルとハッシュ）。\n"
             "# 竹芝の実データから作ったものは NDA の対象になりうる。git や共有の場所に置かない。\n")
     path.write_text(head + yaml.safe_dump(new, allow_unicode=True, sort_keys=False), encoding="utf-8")
     (out / "report.json").write_text(json.dumps(rep, ensure_ascii=False, indent=1))

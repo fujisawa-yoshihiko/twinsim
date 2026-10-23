@@ -11,9 +11,10 @@ from pathlib import Path
 
 import yaml
 
+from . import config
 from .space import ROOT, load_space
 
-WORK = Path.home() / "isaac-sim-work/twinsim"
+WORK = config.ISAAC_WORK
 CONTAINER = "/workspace/twinsim"
 
 

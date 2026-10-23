@@ -6,7 +6,7 @@
   lines   ゲートの線（入館の向きに横切ると pos_label）
   zones   カメラに 6 割以上映るゾーン（MOPF のエリア）
   floor   床の図（空間の真上の図）と、射影変換 H・対応の点
-使い方: python -m twinsim mopf <結果の場所> --camera CamEV [--apply]（--apply は動いている MOPF の API に送る。送る前に確認を取る）
+使い方: twinsim mopf <結果の場所> --camera CamEV [--apply]（--apply は動いている MOPF の API に送る）
 """
 
 import json
@@ -17,8 +17,9 @@ from pathlib import Path
 
 import numpy as np
 
-from .camera import Camera, camera_dict
-from .space import load_space
+from .. import config
+from ..camera import Camera, camera_dict
+from ..space import load_space
 
 
 def homography(src, dst):
@@ -115,8 +116,9 @@ def write(run_dir, camera, out=None, line_offset_m=LINE_OFFSET_M):
     return out, cfg, info
 
 
-def apply(out_dir, base="http://127.0.0.1:8010/api/live"):
+def apply(out_dir, base=None):
     """動いている MOPF に送る（床の図 → 位置合わせ → 線とエリア）。"""
+    base = base or f"{config.MOPF_URL}/api/live"
     out = Path(out_dir)
     cfg = json.loads((out / "config.json").read_text())
     boundary = uuid.uuid4().hex

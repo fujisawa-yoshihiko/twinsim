@@ -158,7 +158,7 @@ async def capture(app, cam, folder, start, end, fps, w, h, preset):
 async def main():
     import omni.kit.app
     app = omni.kit.app.get_app()
-    job = json.load(open(JOB))  # noqa: F821（JOB は run_isaac.sh が作る小さなスクリプトで決める）
+    job = json.load(open(JOB))  # JOB は受け付け（agent_runner.py）が決める
     run = job["run_dir"]
     gt = json.load(open(f"{run}/ground_truth.json"))
     fps = gt["fps"]

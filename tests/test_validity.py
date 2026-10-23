@@ -76,19 +76,19 @@ def test_calibrate_roundtrip(tmp_path):
     assert spec["streams"][0]["rate"]["source"] == "data:t"
 
 
-def test_mopf_link_synthetic(tmp_path):
+def test_mopf_synthetic(tmp_path):
     # 正解から作った MOPF の形の追跡（誤りなし）で評価すると MOTA・IDF1 が 1、見逃し 20% で再現率が約 0.8
-    from twinsim import mopf, mopf_link
+    from twinsim import mopf
     run = tmp_path / "r"
     api.run("office_gate_ev", run, overrides={"duration_s": 60, "outputs": ["ground_truth", "graph", "mot", "aicity"]})
-    clean = mopf_link.synthetic_tracks(run, "CamGate", tmp_path / "clean", jitter_px=1.0, miss=0.0)
-    r = mopf_link.evaluate(run, clean)["cameras"]["CamGate"]
+    clean = mopf.synthetic_tracks(run, "CamGate", tmp_path / "clean", jitter_px=1.0, miss=0.0)
+    r = mopf.evaluate(run, clean)["cameras"]["CamGate"]
     assert r["mota"] == pytest.approx(1.0) and r["idf1"] == pytest.approx(1.0) and r["num_switches"] == 0
-    miss = mopf_link.synthetic_tracks(run, "CamGate", tmp_path / "miss", jitter_px=1.0, miss=0.2, seed=3)
-    assert mopf_link.evaluate(run, miss)["cameras"]["CamGate"]["recall"] == pytest.approx(0.8, abs=0.05)
-    g = mopf_link.graph(run, clean)
+    miss = mopf.synthetic_tracks(run, "CamGate", tmp_path / "miss", jitter_px=1.0, miss=0.2, seed=3)
+    assert mopf.evaluate(run, miss)["cameras"]["CamGate"]["recall"] == pytest.approx(0.8, abs=0.05)
+    g = mopf.graph(run, clean)
     assert "gate_area" in g["CamGate"]["zones_compared"]
     mopf.write(run, "CamGate")
-    e = mopf_link.expect(run, "CamGate")
+    e = mopf.expect(run, "CamGate")
     assert e["lines"][0]["to_pos"] > 0
     assert (run / "aicity/gt.txt").read_text().split("\n")[0].count(" ") == 8
