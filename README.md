@@ -52,6 +52,8 @@ cd ~/twinsim
 
 ## 止め方
 
+手順書（起動・停止・確認・困ったとき）は [docs/operations.md](docs/operations.md)。
+
 GPU は他の利用者と共有なので、使い終わったら止める。止めたあと `nvidia-smi` で空いたかを確かめる（`./stop.sh` は最後に表示する）。
 
 | 止めるもの | 方法 | 補足 |

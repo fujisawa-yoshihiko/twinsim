@@ -52,6 +52,8 @@ Notes: boxes are approximate projections of a box around the person (not tight t
 
 ## Stopping
 
+The procedures (start, stop, check, troubleshooting) are in [docs/operations.en.md](docs/operations.en.md).
+
 The GPUs are shared with other users, so stop things when you are done. After stopping, check with `nvidia-smi` that the GPUs have been freed (`./stop.sh` shows it at the end).
 
 | What to stop | How | Notes |
