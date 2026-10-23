@@ -35,7 +35,12 @@ def homography(src, dst):
     return H
 
 
-def build_config(gt, camera, step=1.0):
+LINE_OFFSET_M = 1.0  # office_gate_ev・CamGate で、0 m だと入館の 72%、1 m で 93% を MOPF が数えた（docs/integration.md の 3）
+
+
+def build_config(gt, camera, step=1.0, line_offset_m=LINE_OFFSET_M):
+    """line_offset_m: 通過線をゲートから入館の向きへずらす距離（m）。ゲートが人の現れる所（扉の陰）に近いと、
+    現れた時点で線を越えていて数えられないので、少し内側に引く。"""
     sp = load_space(gt["space"])
     cam = Camera(gt["cameras"][camera])
     lv = sp.spec["levels"][0]
@@ -65,7 +70,7 @@ def build_config(gt, camera, step=1.0):
         lane = np.array(g["lanes"])
         d = np.array(g["in_dir"])
         n = np.array([-d[1], d[0]])
-        c = lane.mean(0)
+        c = lane.mean(0) + d * line_offset_m
         half = np.abs((lane - c) @ n).max() + 0.6
         a, b = c - n * half, c + n * half
         ab_n, depth = norm(cam, [tuple(a), tuple(b)])
@@ -97,10 +102,11 @@ def build_config(gt, camera, step=1.0):
         "floor_image": str(sp.folder / lv["top_image"])}
 
 
-def write(run_dir, camera, out=None):
+def write(run_dir, camera, out=None, line_offset_m=LINE_OFFSET_M):
     run = Path(run_dir).expanduser()
     gt = json.loads((run / "ground_truth.json").read_text())
-    cfg, info = build_config(gt, camera)
+    cfg, info = build_config(gt, camera, line_offset_m=line_offset_m)
+    info["line_offset_m"] = line_offset_m
     out = Path(out) if out else run / "mopf" / camera
     out.mkdir(parents=True, exist_ok=True)
     (out / "config.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=1))

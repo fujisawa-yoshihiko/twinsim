@@ -6,6 +6,7 @@
   python -m twinsim check <結果の場所>               結果の確かめ（壁の中・人の近さ・歩く速さ・止まる時間）と文献との比べ（validity.*）
   python -m twinsim mopf-process <結果の場所> [--cameras ..] [--model yolo11m]   描いた動画を MOPF で検出・追跡（MOPF が動いているとき。GPU）
   python -m twinsim mopf-eval <結果の場所> [--tracks 場所]   MOPF の追跡を正解と比べる（mopf_eval/）、MOPF の追跡から中間層のグラフ（mopf_graph/）
+  python -m twinsim mopf-overlay <結果の場所> [--cameras ..]   正解と MOPF の枠を重ねた動画・数えもらしの場面の画像（mopf_eval/）
   python -m twinsim export-logs <結果の場所>         ゲートの通過記録・EV の運行記録の形で書き出す（実データの形の見本・往復の確かめ）
   python -m twinsim calibrate <元のシナリオ> --gate-log a.csv --ev-log b.csv [--ev-mode replay]   記録で値を合わせたシナリオを作る
   python -m twinsim render <結果の場所> [--frames 始まり 終わり] [--cameras A,B]   Isaac Sim で描画して video/<カメラ>.mp4 を作る（GPU）
@@ -73,6 +74,9 @@ def main(argv=None):
     mp.add_argument("run_dir")
     mp.add_argument("--cameras", nargs="*")
     mp.add_argument("--model", default="yolo11m")
+    mov = sub.add_parser("mopf-overlay")
+    mov.add_argument("run_dir")
+    mov.add_argument("--cameras", nargs="*")
     me = sub.add_parser("mopf-eval")
     me.add_argument("run_dir")
     me.add_argument("--tracks", help="tracking.jsonl の置き場所（既定 <結果>/mopf_tracks）")
@@ -128,6 +132,11 @@ def main(argv=None):
     elif a.cmd == "mopf-process":
         from .mopf_link import process
         print(json.dumps(process(a.run_dir, a.cameras, a.model), ensure_ascii=False, indent=1))
+    elif a.cmd == "mopf-overlay":
+        from .mopf_link import overlay
+        run = Path(a.run_dir).expanduser()
+        for cam in a.cameras or sorted(p.stem for p in (run / "mopf_tracks").glob("*.jsonl")):
+            print(cam, json.dumps(overlay(run, cam), ensure_ascii=False))
     elif a.cmd == "mopf-eval":
         from .mopf_link import evaluate, graph
         e = evaluate(a.run_dir, a.tracks)

@@ -403,6 +403,11 @@ async function showRun(id) {
       <button class="secondary" id="mopf-eval" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>MOPF の追跡を正解と比べる</button></div>
     <div id="mopf-proc-msg" class="muted">${r.mopf_job ? `MOPF: ${r.mopf_job.status}${r.mopf_job.error ? "・" + r.mopf_job.error : ""}` : ""}</div>
     <div id="mopf-eval-box">${mopfEvalHtml(r.mopf_eval, r.mopf_graph)}</div>
+    ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_overlay.mp4")).map((v) => `<div class="muted">${v}
+      （緑 = 正解・灰 = ほとんど隠れた正解・赤 = 線を数えもらした人・細い色の枠 = MOPF の ID・黄色の線 = 通過線）</div>
+      <video src="${fileUrl(id, v)}" controls muted></video>`).join("")}
+    ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_missed.png")).map((v) => `<div class="muted">${v}（線を数えもらした場面）</div>
+      <img src="${fileUrl(id, v)}" alt="数えもらしの場面">`).join("")}
     <h3>ファイル</h3>
     <div class="files">${r.files.filter((f) => !f.includes("/") || f.startsWith("graph/") || f.startsWith("mot/") || f.startsWith("video/"))
       .map((f) => `<a href="${fileUrl(id, f)}" target="_blank">${f}</a>`).join("")}</div>`;

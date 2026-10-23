@@ -197,6 +197,10 @@ def evaluate(run_dir, tracks_dir=None):
         s = mh.compute(acc, metrics=["mota", "idf1", "num_switches", "recall", "precision", "num_unique_objects", "num_false_positives", "num_misses"],
                        name=camn)
         row = {k: (round(float(v), 4) if isinstance(v, (float, np.floating)) else int(v)) for k, v in s.iloc[0].items()}
+        ev = acc.mot_events
+        sw = ev[ev.Type == "SWITCH"].reset_index()
+        row["switches"] = [{"t_s": round((f0 + int(r.FrameId)) / gt["fps"], 2), "frame": f0 + int(r.FrameId),
+                            "person": name_of.get(int(r.OId)), "mopf_id": int(r.HId)} for r in sw.itertuples()][:300]
         row.update({"frames": nframes, "track_ids": len({x[0] for v in T.values() for x in v}),
                     "count_error_mean": round(float(np.mean(cnt_err)), 3) if cnt_err else None,
                     "count_mae": round(float(np.mean(np.abs(cnt_err))), 3) if cnt_err else None,
@@ -313,11 +317,11 @@ def _inside(poly, p):
     return ins
 
 
-def expect(run_dir, camera, frames=None, vis_min=VIS_MIN):
+def expect(run_dir, camera, frames=None, vis_min=VIS_MIN, config=None):
     """mopf/<カメラ>/config.json の線とエリアで、正解の足元（見えている人だけ）から MOPF と同じ決まりで数える。
     frames=(始まり, 終わり)（シミュレータのコマ）。既定は描いた範囲（render_log.json）、なければ全部。"""
     run, gt, f0 = _run(run_dir)
-    cfg = json.loads((run / "mopf" / camera / "config.json").read_text())
+    cfg = config or json.loads((run / "mopf" / camera / "config.json").read_text())
     rl = run / "render_log.json"
     a, b = frames or (json.loads(rl.read_text())["frames"] if rl.exists() else (0, gt["total_frames"] - 1))
     cam = Camera(gt["cameras"][camera])
@@ -328,6 +332,7 @@ def expect(run_dir, camera, frames=None, vis_min=VIS_MIN):
     side = defaultdict(dict)
     counts = [{"name": ln["name"], "to_pos": 0, "to_neg": 0, "pos_label": ln.get("pos_label"), "neg_label": ln.get("neg_label")} for ln in cfg["lines"]]
     zone_people = [set() for _ in cfg["zones"]]
+    events = []
     peak = 0
     for f in range(a, b + 1):
         vis = [x for x in G.get(f, []) if x[5] >= vis_min]
@@ -350,14 +355,62 @@ def expect(run_dir, camera, frames=None, vis_min=VIS_MIN):
                 last = side[pid].get(k)
                 if last is not None and last[0] != s and _segx(last[1], foot, ln["a"], ln["b"]):
                     counts[k]["to_pos" if s > 0 else "to_neg"] += 1
+                    events.append({"line": k, "dir": "to_pos" if s > 0 else "to_neg", "frame": f, "person": n})
                 side[pid][k] = (s, foot)
             for k, z in enumerate(cfg["zones"]):
                 if _inside(z["points"], foot):
                     zone_people[k].add(pid)
     out = {"camera": camera, "frames": [int(a), int(b)], "seconds": round((b - a + 1) / gt["fps"], 1), "lines": counts,
            "zones": [{"name": z["name"], "people_entered": len(s)} for z, s in zip(cfg["zones"], zone_people)],
-           "max_people_in_view": peak, "rule": "MOPF の人流モニターと同じ（足元・線から 8 画素・線分の交差）。見えている割合 0.4 以上の人だけ"}
-    (run / "mopf" / camera / "expected.json").write_text(json.dumps(out, ensure_ascii=False, indent=1))
+           "max_people_in_view": peak, "events": events,
+           "rule": "MOPF の人流モニターと同じ（足元・線から 8 画素・線分の交差）。見えている割合 0.4 以上の人だけ"}
+    if config is None:
+        (run / "mopf" / camera / "expected.json").write_text(json.dumps(out, ensure_ascii=False, indent=1))
+    return out
+
+
+def track_crossings(run_dir, camera, tracks_dir=None, config=None):
+    """MOPF の追跡（足元）が線を横切った出来事（人流モニターと同じ決まり）。frame はシミュレータのコマ。"""
+    run, gt, f0 = _run(run_dir)
+    tdir = Path(tracks_dir) if tracks_dir else run / "mopf_tracks"
+    info = json.loads((tdir / "info.json").read_text()) if (tdir / "info.json").exists() else {"frame_offset": f0}
+    f0 = int(info.get("frame_offset", f0))
+    cfg = config or json.loads((run / "mopf" / camera / "config.json").read_text())
+    W, H = gt["cameras"][camera]["width"], gt["cameras"][camera]["height"]
+    T = load_tracks(tdir / f"{camera}.jsonl")
+    side, events = defaultdict(dict), []
+    for k in sorted(T):
+        for tid, x0, y0, x1, y1 in T[k]:
+            foot = ((x0 + x1) / 2 / W, y1 / H)
+            for i, ln in enumerate(cfg["lines"]):
+                sd = _side(ln["a"], ln["b"], foot, W, H)
+                if sd == 0:
+                    continue
+                last = side[tid].get(i)
+                if last is not None and last[0] != sd and _segx(last[1], foot, ln["a"], ln["b"]):
+                    events.append({"line": i, "dir": "to_pos" if sd > 0 else "to_neg", "frame": f0 + k, "mopf_id": tid})
+                side[tid][i] = (sd, foot)
+    return events
+
+
+def compare_crossings(run_dir, camera, tracks_dir=None, window_s=1.5):
+    """正解なら横切る出来事と MOPF の出来事を、同じ線・同じ向き・window_s 秒以内で 1 対 1 に対応づける → 数えもらし・余分。"""
+    run, gt, f0 = _run(run_dir)
+    exp = expect(run, camera)["events"]
+    got = track_crossings(run, camera, tracks_dir)
+    w = window_s * gt["fps"]
+    used, missed = set(), []
+    for e in sorted(exp, key=lambda e: e["frame"]):
+        cand = [(abs(g["frame"] - e["frame"]), j) for j, g in enumerate(got)
+                if j not in used and g["line"] == e["line"] and g["dir"] == e["dir"] and abs(g["frame"] - e["frame"]) <= w]
+        if cand:
+            used.add(min(cand)[1])
+        else:
+            missed.append({**e, "t_s": round(e["frame"] / gt["fps"], 2)})
+    extra = [{**g, "t_s": round(g["frame"] / gt["fps"], 2)} for j, g in enumerate(got) if j not in used]
+    out = {"camera": camera, "expected": len(exp), "mopf": len(got), "matched": len(used), "missed": missed, "extra": extra}
+    (run / "mopf_eval").mkdir(exist_ok=True)
+    (run / "mopf_eval" / f"{camera}_crossings.json").write_text(json.dumps(out, ensure_ascii=False, indent=1))
     return out
 
 
@@ -381,3 +434,108 @@ def synthetic_tracks(run_dir, camera, out_dir, jitter_px=3.0, miss=0.1, switch_e
                                      "position_x_max": x1 + j[2], "position_y_max": y1 + j[3]}) + "\n")
     (out / "info.json").write_text(json.dumps({"frame_offset": a, "synthetic": {"jitter_px": jitter_px, "miss": miss, "switch_every": switch_every}}))
     return out
+
+
+# ---- 見て確かめる: 正解と MOPF の枠を重ねた動画、数えもらした場面の一覧の画像 ----
+def overlay(run_dir, camera, tracks_dir=None, scale=0.75, sheet_max=24):
+    """mopf_eval/<カメラ>_overlay.mp4（緑の枠 = 正解（見えている人）、灰色 = ほとんど隠れた正解、色つき = MOPF の ID、黄色の線 = 通過線）と
+    mopf_eval/<カメラ>_missed.png（線の数えもらしの場面）。数えもらしの前後は赤、ID の切り替わりは黄色の文字で示す。"""
+    import subprocess
+
+    import cv2
+    from PIL import Image, ImageDraw, ImageFont
+    run, gt, f0 = _run(run_dir)
+    tdir = Path(tracks_dir) if tracks_dir else run / "mopf_tracks"
+    info = json.loads((tdir / "info.json").read_text()) if (tdir / "info.json").exists() else {"frame_offset": f0}
+    f0 = int(info.get("frame_offset", f0))
+    fps = gt["fps"]
+    G = load_mot_gt(run / "mot" / f"{camera}.txt")
+    T = load_tracks(tdir / f"{camera}.jsonl")
+    ids = ensure_ids(run, gt)
+    name_of = {v: k for k, v in ids.items()}
+    cfgp = run / "mopf" / camera / "config.json"
+    lines = json.loads(cfgp.read_text())["lines"] if cfgp.exists() else []
+    cmp_ = compare_crossings(run, camera, tracks_dir) if lines else {"missed": [], "extra": []}
+    exp_ev = expect(run, camera)["events"] if lines else []
+    got_ev = track_crossings(run, camera, tracks_dir) if lines else []
+    ev = json.loads((run / "mopf_eval/summary.json").read_text())["cameras"].get(camera, {}) if (run / "mopf_eval/summary.json").exists() else {}
+    switches = ev.get("switches", [])
+    missed = cmp_["missed"]
+    font = ImageFont.truetype("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 20)
+    small = ImageFont.truetype("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 15)
+    cap = cv2.VideoCapture(str(run / "video" / f"{camera}.mp4"))
+    W0, H0 = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    W, H = int(W0 * scale) // 2 * 2, int(H0 * scale) // 2 * 2
+    out = run / "mopf_eval" / f"{camera}_overlay.mp4"
+    ff = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}", "-r", str(fps), "-i", "-",
+                           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "23", str(out)], stdin=subprocess.PIPE)
+    color = lambda i: tuple(int(c) for c in cv2.cvtColor(np.uint8([[[(i * 47) % 180, 200, 255]]]), cv2.COLOR_HSV2BGR)[0, 0])
+    miss_at = {m["frame"]: m for m in missed[:sheet_max]}
+    crops = []
+    k = 0
+    while True:
+        ok, img = cap.read()
+        if not ok:
+            break
+        f = f0 + k
+        img = cv2.resize(img, (W, H))
+        sx, sy = W / W0, H / H0
+        hot = {m["person"] for m in missed if -0.5 * fps <= f - m["frame"] <= 1.5 * fps}
+        swp = [x for x in switches if -0.5 * fps <= f - x["frame"] <= 1.0 * fps]
+        for pid, x0, y0, x1, y1, vis in G.get(f, []):
+            n = name_of.get(pid)
+            c, t = ((0, 0, 230), 3) if n in hot else (((60, 200, 60), 2) if vis >= VIS_MIN else ((150, 150, 150), 1))
+            cv2.rectangle(img, (int(x0 * sx), int(y0 * sy)), (int(x1 * sx), int(y1 * sy)), c, t)
+        for tid, x0, y0, x1, y1 in T.get(k, []):
+            c = color(tid)
+            cv2.rectangle(img, (int(x0 * sx) + 2, int(y0 * sy) + 2), (int(x1 * sx) - 2, int(y1 * sy) - 2), c, 1)
+            cv2.putText(img, f"ID {tid}", (int(x0 * sx), max(12, int(y0 * sy) - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, c, 1, cv2.LINE_AA)
+        for ln in lines:
+            cv2.line(img, (int(ln["a"][0] * W), int(ln["a"][1] * H)), (int(ln["b"][0] * W), int(ln["b"][1] * H)), (0, 220, 255), 2)
+        pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        d = ImageDraw.Draw(pil)
+        head = f"{f / fps:6.1f} 秒  {camera}"
+        if lines:
+            e_in = sum(1 for e in exp_ev if e["frame"] <= f and e["dir"] == "to_pos")
+            e_out = sum(1 for e in exp_ev if e["frame"] <= f and e["dir"] == "to_neg")
+            g_in = sum(1 for e in got_ev if e["frame"] <= f and e["dir"] == "to_pos")
+            g_out = sum(1 for e in got_ev if e["frame"] <= f and e["dir"] == "to_neg")
+            head += f"   正解なら 入館 {e_in}・退館 {e_out}   MOPF 入館 {g_in}・退館 {g_out}"
+        d.rectangle([0, 0, W, 30], fill=(0, 0, 0))
+        d.text((8, 3), head, font=font, fill=(255, 255, 255))
+        y = 36
+        for n in sorted(hot):
+            d.text((8, y), f"数えもらし（{n}）", font=font, fill=(255, 60, 60))
+            y += 26
+        for x in swp[:3]:
+            d.text((8, y), f"ID の切り替わり（{x['person']}、MOPF の ID {x['mopf_id']}）", font=font, fill=(255, 220, 0))
+            y += 26
+        d.text((8, H - 22), "緑 = 正解（見えている）・灰 = ほとんど隠れた正解・赤 = 線を数えもらした人・色つきの細い枠 = MOPF（ID）・黄色の線 = 通過線",
+               font=small, fill=(255, 255, 255))
+        img = cv2.cvtColor(np.asarray(pil), cv2.COLOR_RGB2BGR)
+        if f in miss_at and lines:  # 線のまわりを切り出す
+            ax = [ln["a"][0] * W for ln in lines] + [ln["b"][0] * W for ln in lines]
+            ay = [ln["a"][1] * H for ln in lines] + [ln["b"][1] * H for ln in lines]
+            cx0, cx1 = max(0, int(min(ax)) - 160), min(W, int(max(ax)) + 160)
+            cy0, cy1 = max(0, int(min(ay)) - 200), min(H, int(max(ay)) + 120)
+            crops.append((miss_at[f], img[cy0:cy1, cx0:cx1].copy()))
+        ff.stdin.write(img.tobytes())
+        k += 1
+    ff.stdin.close()
+    ff.wait()
+    cap.release()
+    files = [str(out)]
+    if crops:
+        ch, cw = max(c.shape[0] for _, c in crops), max(c.shape[1] for _, c in crops)
+        cols = 4
+        rows = (len(crops) + cols - 1) // cols
+        sheet = Image.new("RGB", (cols * cw, rows * (ch + 28)), (255, 255, 255))
+        d = ImageDraw.Draw(sheet)
+        for i, (m, c) in enumerate(crops):
+            x, y = (i % cols) * cw, (i // cols) * (ch + 28)
+            sheet.paste(Image.fromarray(cv2.cvtColor(c, cv2.COLOR_BGR2RGB)), (x, y + 28))
+            d.text((x + 6, y + 4), f"{m['t_s']} 秒 {m['person']}（{'入館' if m['dir'] == 'to_pos' else '退館'}）", font=small, fill=(0, 0, 0))
+        sp = run / "mopf_eval" / f"{camera}_missed.png"
+        sheet.save(sp)
+        files.append(str(sp))
+    return {"files": files, "frames": k, "missed": len(missed), "switches": len(switches)}
