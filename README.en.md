@@ -20,6 +20,7 @@ cd ~/twinsim
 ./run.sh mopf-eval ~/dt-data/twinsim/runs/office_gate_ev      # compare MOPF's tracking with the ground truth; intermediate graph layer
 ./run.sh calibrate office_gate_ev --gate-log gate_log.csv --ev-log ev_log.csv   # calibrate with real data
 ./run.sh mopf-sync ~/dt-data/twinsim/runs/office_gate_ev      # video of the 2 cameras synchronized in time, and the ID correspondence table of the same person across cameras
+./run.sh mopf-link ~/dt-data/twinsim/runs/office_gate_ev      # infer cross-camera association without ground truth and score it (also the prediction video)
 ```
 
 To open the GUI in a browser on your local PC, keep `ssh -N -L 8770:localhost:8770 ampb` running on your local PC and open the URL printed by `./run.sh serve --url`.
@@ -63,7 +64,7 @@ The GPUs are shared with other users, so stop things when you are done. After st
 | `twinsim/scenario.py`, `dists.py` | Scenarios and distributions → spawning of people, destinations, EVs, gates |
 | `twinsim/literature.py`, `validity.py` | Distributions of people based on the literature (with sources, `people.profile`, `demand`) and the comparison with the literature after a run ([docs/validity.en.md](docs/validity.en.md)) |
 | `twinsim/calibrate.py` | Calibrates values with real data (gate passage logs, elevator operation logs). Writes simulator results out in the log format (`export-logs`) |
-| `twinsim/mopf/` | Integration with MOPF ([docs/integration.en.md](docs/integration.en.md)): `monitor` (flow monitor settings), `process` (detection and tracking on videos), `evaluate` (comparison with the ground truth), `graph` (intermediate graph layer), `crossings` (how line crossings are counted), `overlay` (overlay video), `control` (start/stop), `synthetic` (for verification), `io` |
+| `twinsim/mopf/` | Integration with MOPF ([docs/integration.en.md](docs/integration.en.md)): `monitor` (flow monitor settings), `process` (detection and tracking on videos), `evaluate` (comparison with the ground truth), `graph` (intermediate graph layer), `crossings` (how line crossings are counted), `overlay` (overlay video), `identity` (aligning the 2 cameras in time), `linking` (inferring cross-camera association), `control` (start/stop), `synthetic` (for verification), `io` |
 | `twinsim/config.py` | Locations and connection targets (can be changed with environment variables such as `TWINSIM_DATA`, `TWINSIM_MOPF_HOME`, `TWINSIM_MOPF_URL`, `TWINSIM_ISAAC_WORK`) |
 | `twinsim/outputs.py`, `camera.py`, `quality.py` | Ground truth, aggregates, graphs, bounding boxes, checks |
 | `twinsim/api.py`, `__main__.py` | Python API and commands |

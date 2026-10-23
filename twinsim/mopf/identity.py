@@ -11,7 +11,7 @@ MOPF はカメラごとに ID を付ける（カメラをまたいで同じ ID �
 import colorsys
 import csv
 import json
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 import numpy as np
 
@@ -133,8 +133,20 @@ def _pcolor(name):
     return int(b * 255), int(g * 255), int(r * 255)  # OpenCV は BGR
 
 
-def sync_video(run_dir, cameras=None, tracks_dir=None, width=800):
-    """カメラを横に並べ、同じ時刻のコマを並べた動画 mopf_eval/sync.mp4。"""
+def _pred_lookup(pred, fps):
+    """links.json → (カメラ, MOPF の ID) ごとの [(始まりのコマ, 終わりのコマ, 予測の番号)] と、予測の番号ごとの多い人（採点の表示用）"""
+    spans = defaultdict(list)
+    votes = defaultdict(Counter)
+    for t in pred["tracklets"]:
+        spans[(t["camera"], t["mopf_id"])].append((round(t["t0"] * fps), round(t["t1"] * fps), t["global_id"]))
+        if t.get("person"):
+            votes[t["global_id"]][t["person"]] += round((t["t1"] - t["t0"]) * fps)
+    return spans, {g: v.most_common(1)[0][0] for g, v in votes.items()}
+
+
+def sync_video(run_dir, cameras=None, tracks_dir=None, width=800, pred=None):
+    """カメラを横に並べ、同じ時刻のコマを並べた動画。pred なし: mopf_eval/sync.mp4（正解の人の名前 / MOPF の ID）。
+    pred（links.json の中身）あり: mopf_eval/sync_pred.mp4（予測の番号 / MOPF の ID。正解の人と合っているかを ○・× で、予測したカメラの間の組を下に）。"""
     import subprocess
 
     import cv2
@@ -150,7 +162,14 @@ def sync_video(run_dir, cameras=None, tracks_dir=None, width=800):
     h = int(width * H0[cams[0]] / W0[cams[0]]) // 2 * 2
     head, foot = 40, 150
     WW, HH = width * len(cams), h + head + foot
-    out = run / "mopf_eval" / "sync.mp4"
+    out = run / "mopf_eval" / ("sync_pred.mp4" if pred else "sync.mp4")
+    spans, gperson = _pred_lookup(pred, fps) if pred else ({}, {})
+
+    def gid_at(c, tid, f):
+        for a, b, g in spans.get((c, tid), ()):
+            if a <= f <= b:
+                return g
+        return None
     ff = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{WW}x{HH}", "-r", str(fps), "-i", "-",
                            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "23", str(out)], stdin=subprocess.PIPE)
     try:
@@ -160,10 +179,17 @@ def sync_video(run_dir, cameras=None, tracks_dir=None, width=800):
         font = small = ImageFont.load_default()
     # 別のカメラに現れたときの知らせ（3 秒）
     notices = []
-    for n, p in res["persons"].items():
-        for ho in p["handovers"]:
-            notices.append((ho["t_to"], f"{n}: {ho['from']} では ID {ho['id_from'] if ho['id_from'] is not None else 'なし'} → "
-                                         f"{ho['to']} では ID {ho['id_to'] if ho['id_to'] is not None else 'なし'}（移動 {ho['dt']} 秒）"))
+    if pred:
+        for c in pred["cross_links"]:
+            tail = "○ 正解と同じ人" if c["correct"] else f"× 正解は {c['person_from']} → {c['person_to']}"
+            cz = f"・色の z {c['color_z']}" if c.get("color_z") is not None else ""
+            notices.append((c["t_to"], f"予測 {c['global_id']}: {c['from_camera']} ID {c['mopf_id_from']} → {c['to_camera']} ID {c['mopf_id_to']}"
+                                       f"（間 {c['gap']} 秒{cz}）{tail}", (30, 140, 60) if c["correct"] else (200, 40, 40)))
+    else:
+        for n, p in res["persons"].items():
+            for ho in p["handovers"]:
+                notices.append((ho["t_to"], f"{n}: {ho['from']} では ID {ho['id_from'] if ho['id_from'] is not None else 'なし'} → "
+                                             f"{ho['to']} では ID {ho['id_to'] if ho['id_to'] is not None else 'なし'}（移動 {ho['dt']} 秒）", (200, 60, 0)))
     nf = int(min(c.get(cv2.CAP_PROP_FRAME_COUNT) for c in caps.values()))
     for k in range(nf):
         f = f0 + k
@@ -176,13 +202,20 @@ def sync_video(run_dir, cameras=None, tracks_dir=None, width=800):
             img = cv2.resize(img, (width, h))
             s = width / W0[c]
             r = M[c].get(f, {"pairs": {}, "missed": [], "extra": [], "gt_boxes": {}, "mopf_boxes": {}})
-            for n, b in r["gt_boxes"].items():  # 正解: 人の色の細い枠
-                col = _pcolor(n)
+            for n, b in r["gt_boxes"].items():  # 正解: 細い枠（予測の動画では灰色）
+                col = (170, 170, 170) if pred else _pcolor(n)
                 cv2.rectangle(img, (int(b[0] * s), int(b[1] * s)), (int(b[2] * s), int(b[3] * s)), col, 1)
-            for n, tid in r["pairs"].items():  # 対応した MOPF の枠: 人の色の太い枠
+            for n, tid in r["pairs"].items():  # 対応した MOPF の枠: 太い枠
                 b = r["mopf_boxes"][tid]
-                cv2.rectangle(img, (int(b[0] * s), int(b[1] * s)), (int(b[2] * s), int(b[3] * s)), _pcolor(n), 3)
-                labels.append((ci * width + int(b[0] * s), head + max(0, int(b[1] * s) - 20), f"{n} / ID {tid}", _pcolor(n)))
+                if pred:  # 予測の番号の色。正解の人と、その番号の多い人が同じなら ○
+                    g = gid_at(c, tid, f)
+                    col = _pcolor(g or f"{c}{tid}")
+                    mark = "" if g is None else ("○" if gperson.get(g) == n else "×")
+                    text = f"{g or '-'} / ID {tid} {mark}"
+                else:
+                    col, text = _pcolor(n), f"{n} / ID {tid}"
+                cv2.rectangle(img, (int(b[0] * s), int(b[1] * s)), (int(b[2] * s), int(b[3] * s)), col, 3)
+                labels.append((ci * width + int(b[0] * s), head + max(0, int(b[1] * s) - 20), text, col))
             for n in r["missed"]:
                 b = r["gt_boxes"][n]
                 cv2.rectangle(img, (int(b[0] * s), int(b[1] * s)), (int(b[2] * s), int(b[3] * s)), (40, 40, 230), 2)
@@ -190,7 +223,8 @@ def sync_video(run_dir, cameras=None, tracks_dir=None, width=800):
             for tid in r["extra"]:
                 b = r["mopf_boxes"][tid]
                 cv2.rectangle(img, (int(b[0] * s), int(b[1] * s)), (int(b[2] * s), int(b[3] * s)), (200, 200, 200), 1)
-                labels.append((ci * width + int(b[0] * s), head + max(0, int(b[1] * s) - 20), f"ID {tid}?", (200, 200, 200)))
+                g = gid_at(c, tid, f) if pred else None
+                labels.append((ci * width + int(b[0] * s), head + max(0, int(b[1] * s) - 20), f"{g + ' / ' if g else ''}ID {tid}?", (200, 200, 200)))
             canvas[head:head + h, ci * width:(ci + 1) * width] = img
         pil = Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
         d = ImageDraw.Draw(pil)
@@ -204,8 +238,8 @@ def sync_video(run_dir, cameras=None, tracks_dir=None, width=800):
             d.text((x + 3, y), t, font=small, fill=(col[2], col[1], col[0]))
         y = head + h + 6
         now = f / fps
-        for _, msg in [n for n in notices if 0 <= now - n[0] <= 3.0][:3]:
-            d.text((10, y), msg, font=font, fill=(200, 60, 0))
+        for _, msg, col in [n for n in notices if 0 <= now - n[0] <= 3.0][:3]:
+            d.text((10, y), msg, font=font, fill=col)
             y += 26
         # 今どちらかのカメラにいる人の ID の一覧
         cur = []
@@ -218,9 +252,12 @@ def sync_video(run_dir, cameras=None, tracks_dir=None, width=800):
                 elif n in r.get("missed", []):
                     parts.append(f"{c} 見逃し")
             cur.append(f"{n}（{'・'.join(parts)}）")
-        d.text((10, y), "今: " + "  ".join(cur[:8]) + (" …" if len(cur) > 8 else ""), font=small, fill=(40, 40, 40))
-        d.text((10, HH - 22), "細い枠 = 正解（人ごとの色、2 台で同じ色）・太い枠 = MOPF（対応した人の色）・赤 = 見逃し・灰 = 対応する人のいない MOPF の枠",
-               font=small, fill=(90, 90, 90))
+        if not pred:
+            d.text((10, y), "今: " + "  ".join(cur[:8]) + (" …" if len(cur) > 8 else ""), font=small, fill=(40, 40, 40))
+        legend = ("太い枠 = MOPF（予測の番号の色。2 台で同じ番号なら同じ色）・「G… / ID …」= 予測の番号 / MOPF の ID・○ = 正解の人と合う・× = 違う人・"
+                  "細い灰色の枠 = 正解・赤 = 見逃し" if pred else
+                  "細い枠 = 正解（人ごとの色、2 台で同じ色）・太い枠 = MOPF（対応した人の色）・赤 = 見逃し・灰 = 対応する人のいない MOPF の枠")
+        d.text((10, HH - 22), legend, font=small, fill=(90, 90, 90))
         ff.stdin.write(cv2.cvtColor(np.asarray(pil), cv2.COLOR_RGB2BGR).tobytes())
     ff.stdin.close()
     ff.wait()

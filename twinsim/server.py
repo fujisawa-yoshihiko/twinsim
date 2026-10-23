@@ -16,6 +16,8 @@ API（JSON。詳しくは docs/spec.md の「API」）:
   POST /api/runs/<id>/mopf/process {cameras, model, confirm}         描いた動画を MOPF で検出・追跡し、正解と比べる（confirm なしは見積もり。GPU）
   POST /api/runs/<id>/mopf/eval                                      MOPF の追跡を正解と比べる・中間層のグラフ・床に写した図（CPU、数秒）
   POST /api/runs/<id>/mopf/overlay                                   正解と MOPF の枠を重ねた動画（CPU、1 本 2〜3 分、裏で）
+  POST /api/runs/<id>/mopf/link                                      正解を使わずに 2 台の間の対応を推論・採点し、
+                                                                     予測の番号で並べた動画も作る（CPU、約 4 分、裏で）
   POST /api/runs/<id>/mopf/sync                                      カメラを時刻でそろえて並べた動画と、同じ人の各カメラの ID の対応表（CPU、3〜4 分、裏で）
   GET  /api/runs/<id>/file?path=..&download=1、/api/runs/<id>/zip[?videos=1]   ダウンロード（zip は既定で動画を除く）
   GET  /api/mopf/status、POST /api/mopf/start {gpu, live: {run, camera}, confirm}、POST /api/mopf/stop {confirm}   MOPF の起動・停止
@@ -136,6 +138,7 @@ class App:
         gr = json.loads((d / "mopf_graph/summary.json").read_text()) if (d / "mopf_graph/summary.json").exists() else None
         return {"id": rid, "job": j, "summary": s, "render": render, "mopf_job": self.jobs.get(f"mopf:{rid}"),
                 "overlay_job": self.jobs.get(f"overlay:{rid}"), "sync_job": self.jobs.get(f"sync:{rid}"),
+                "link_job": self.jobs.get(f"link:{rid}"),
                 "mopf_crossings": {p.stem.replace("_crossings", ""): {k: (len(v) if isinstance(v, list) else v)
                                                                        for k, v in json.loads(p.read_text()).items() if k != "camera"}
                                    for p in sorted((d / "mopf_eval").glob("*_crossings.json"))},
@@ -517,6 +520,17 @@ def make_handler(app, token):
                     return self._json(mopf_eval_all(d))
                 if len(parts) == 4 and parts[0] == "runs" and parts[2] == "mopf" and parts[3] == "overlay":
                     return self._json(app.background(f"overlay:{parts[1]}", _overlay_job(app.run_dir(parts[1]))))
+                if len(parts) == 4 and parts[0] == "runs" and parts[2] == "mopf" and parts[3] == "link":
+                    d = app.run_dir(parts[1])
+
+                    def link_job(log, d=d):
+                        log("推論と採点")
+                        out = mopf.link(d)
+                        log("予測の番号で並べた動画")
+                        mopf.link_video(d)
+                        keys = ("idf1", "cross_correct", "cross_links", "handovers_found", "handovers")
+                        return {m: {k: r[k] for k in keys} for m, r in out["metrics"].items()}
+                    return self._json(app.background(f"link:{parts[1]}", link_job))
                 if len(parts) == 4 and parts[0] == "runs" and parts[2] == "mopf" and parts[3] == "sync":
                     d = app.run_dir(parts[1])
                     return self._json(app.background(f"sync:{parts[1]}", lambda log: mopf.sync_video(d)))

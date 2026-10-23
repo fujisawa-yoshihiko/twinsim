@@ -361,6 +361,37 @@ async function refreshRuns() {
 }
 $("refresh").addEventListener("click", refreshRuns);
 
+// 2 台の間の対応の予測: 方式ごとの採点と、予測した組（○・×）の表。行の時刻を押すと予測の動画がその時刻へ飛ぶ
+async function renderLinks(id) {
+  const res = await (await fetch(fileUrl(id, "mopf_eval/links.json"))).json();
+  const names = { none: tr("つながない（MOPF の ID のまま）", "No linking (MOPF IDs as is)"), within: tr("カメラの中だけ", "Within camera only"),
+    time: tr("時間＋向き", "Time + direction"), color: tr("服の色", "Clothing color"), "time+color": tr("時間＋向き＋服の色", "Time + direction + clothing color") };
+  const mrow = Object.entries(res.metrics).map(([m, x]) => `<tr${m === res.method ? ' style="font-weight:bold"' : ""}><td>${names[m] || m}</td><td>${x.idf1}</td>
+    <td>${x.cross_correct}/${x.cross_links}</td><td>${x.handovers_found}/${x.handovers}</td><td>${x.global_ids}</td></tr>`).join("");
+  const seek = (t) => `<a href="#" data-pseek="${Math.max(0, t - 2)}">`;
+  const rows = res.cross_links.map((c) => `<tr data-q="${c.global_id} ID${c.mopf_id_from} ID${c.mopf_id_to} ${c.person_from || ""} ${c.person_to || ""} ${c.correct ? "OK" : "NG"}">
+    <td style="color:${c.correct ? "#1e8c3c" : "#c82828"}">${c.correct ? "○" : "×"}</td><td>${seek(c.t_to)}${c.global_id}</a></td>
+    <td>${c.from_camera} ID ${c.mopf_id_from} → ${c.to_camera} ID ${c.mopf_id_to}</td><td>${c.t_from}→${c.t_to}</td>
+    <td>${c.gap}${c.expected_s != null ? ` / ${c.expected_s}` : ""}</td><td>${c.color_z ?? "-"}</td><td>${c.margin}</td>
+    <td>${c.person_from || "-"}${c.correct ? "" : ` → ${c.person_to || "-"}`}</td></tr>`).join("");
+  const missed = res.missed_handovers.map((h) => tr(`${h.person}（${h.from} → ${h.to}、${h.t_to} 秒）`, `${h.person} (${h.from} → ${h.to}, ${h.t_to} s)`)).join(tr("、", ", "));
+  $("link-box").innerHTML = `<table class="dest"><tr><th>${tr("方式", "Method")}</th><th>IDF1${tr("（2 台を合わせて）", " (both cameras)")}</th>
+      <th>${tr("組（正しい/予測）", "Links (correct/predicted)")}</th><th>${tr("見つけた/本当の組", "Found/true transitions")}</th><th>${tr("全体の番号", "Global IDs")}</th></tr>${mrow}</table>
+    <div class="row"><label>${tr("絞り込み", "Filter")} <input id="link-filter" placeholder="${tr("G012・ID19・P0030・NG", "e.g. G012, ID19, P0030, NG")}"></label></div>
+    <div style="max-height:360px;overflow:auto"><table class="dest"><tr><th></th><th>${tr("番号", "ID")}</th><th>${tr("予測した組", "Predicted link")}</th>
+      <th>${tr("時刻（秒）", "Time (s)")}</th><th>${tr("間 / 来るはずの時間（秒）", "Gap / expected (s)")}</th><th>${tr("色の z", "Color z")}</th>
+      <th>${tr("余裕", "Margin")}</th><th>${tr("正解の人", "Ground-truth person")}</th></tr>${rows}</table></div>
+    ${missed ? `<div class="muted">${tr("つなげなかった本当の組", "True transitions not linked")}: ${missed}</div>` : ""}`;
+  $("link-box").querySelectorAll("[data-pseek]").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    const v = $("pred-video");
+    if (v) { v.currentTime = Number(a.dataset.pseek); v.scrollIntoView({ block: "center" }); v.play(); }
+  }));
+  $("link-filter").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toUpperCase().replace(/\s+/g, "");
+    $("link-box").querySelectorAll("tr[data-q]").forEach((x) => { x.style.display = !q || x.dataset.q.toUpperCase().replace(/\s+/g, "").includes(q) ? "" : "none"; });
+  });
+}
 // 同じ人が各カメラでどの MOPF の ID だったかの表。ID を押すと並べた動画がその時刻へ飛ぶ
 async function renderIdTable(id) {
   const res = await (await fetch(fileUrl(id, "mopf_eval/identities.json"))).json();
@@ -463,6 +494,19 @@ async function showRun(id) {
         "thin boxes = ground truth (a color per person, the same color in both cameras) · thick boxes = MOPF (\"person / ID\") · red = missed · gray = MOPF boxes with no matching person")}</div>
       <video id="sync-video" src="${fileUrl(id, "mopf_eval/sync.mp4")}" controls muted preload="metadata"></video>` : ""}
     <div id="id-table"></div>
+    <h3>${tr("2 台の間の対応の予測（正解を使わない推論）", "Predicted cross-camera association (inference without ground truth)")}</h3>
+    <div class="muted">${tr("MOPF の追跡・動画・空間の地図だけから、時間（道のりから来るはずの時間）・歩く向き・服の色でつなぎ、全体の番号（G001…）を付ける。○・× は正解による採点。",
+      "Links tracks using only MOPF's tracks, the videos and the space map: time (expected from the walking distance), walking direction and clothing color, and assigns global IDs (G001…). ○ / × is scoring against the ground truth.")}</div>
+    <div class="row"><button class="secondary" id="mopf-link" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>${tr("推論して採点する（CPU、約 4 分。予測の動画も作る）", "Infer and score (CPU, about 4 min; also makes the prediction video)")}</button></div>
+    <div id="link-msg" class="muted">${r.link_job ? `${tr("推論", "Inference")}: ${r.link_job.status}${r.link_job.error ? tr("・", ", ") + r.link_job.error : ""}` : ""}</div>
+    <div id="link-box"></div>
+    ${r.files.includes("mopf_eval/sync_pred.mp4") ? `<div class="muted">mopf_eval/sync_pred.mp4 <a class="dl" href="${fileUrl(id, "mopf_eval/sync_pred.mp4")}" target="_blank" rel="noopener">${tr("別のタブで大きく開く", "Open large in a new tab")}</a>
+      ${dlLink(id, "mopf_eval/sync_pred.mp4")}${tr("・", " · ")}${dlLink(id, "mopf_eval/links.csv", tr("予測した組（CSV）", "Predicted links (CSV)"))}<br>
+      ${tr("太い枠 = MOPF（予測の番号の色。2 台で同じ番号なら同じ色）・「G… / ID …」= 予測の番号 / MOPF の ID・○ = 正解の人と合う・× = 違う人",
+        "thick boxes = MOPF (colored by predicted global ID; the same ID has the same color in both cameras) · \"G… / ID …\" = predicted global ID / MOPF ID · ○ = matches the ground-truth person · × = a different person")}</div>
+      <video id="pred-video" src="${fileUrl(id, "mopf_eval/sync_pred.mp4")}" controls muted preload="metadata"></video>` : ""}
+    ${r.files.includes("mopf_eval/links.png") ? `<div class="muted">${tr("予測した組の切り出し（確からしい順。左 = 前のカメラ、右 = 次のカメラ）", "Crops of the predicted links (most confident first; left = earlier camera, right = later camera)")} ${dlLink(id, "mopf_eval/links.png")}</div>
+      <img src="${fileUrl(id, "mopf_eval/links.png")}" alt="${tr("予測した組の切り出し", "Crops of predicted links")}">` : ""}
     <div class="row"><button class="secondary" id="mopf-overlay" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>${tr("正解と MOPF の枠を重ねた動画を作る（CPU、1 本 2〜3 分）", "Make overlay videos of the ground-truth and MOPF boxes (CPU, 2–3 min per video)")}</button></div>
     <div id="overlay-msg" class="muted">${r.overlay_job ? `${tr("重ねた動画", "Overlay video")}: ${r.overlay_job.status}${r.overlay_job.error ? tr("・", ", ") + r.overlay_job.error : ""}` : ""}</div>
     ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_overlay.mp4")).map((v) => `<div class="muted">${v} ${dlLink(id, v)}<br>
@@ -492,6 +536,13 @@ async function showRun(id) {
     } catch (err) { $("sync-msg").textContent = String(err); }
   });
   if (r.files.includes("mopf_eval/identities.json")) renderIdTable(id);
+  $("mopf-link").addEventListener("click", async () => {
+    try {
+      await post(`/api/runs/${id}/mopf/link`, {});
+      $("link-msg").textContent = tr("推論: 実行中（約 4 分。終わったら結果を開き直す）", "Inference: running (about 4 min; reopen the result when it finishes)");
+    } catch (err) { $("link-msg").textContent = String(err); }
+  });
+  if (r.files.includes("mopf_eval/links.json")) renderLinks(id);
   $("mopf-overlay").addEventListener("click", async () => {
     try {
       await post(`/api/runs/${id}/mopf/overlay`, {});

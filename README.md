@@ -20,6 +20,7 @@ cd ~/twinsim
 ./run.sh mopf-eval ~/dt-data/twinsim/runs/office_gate_ev      # MOPF の追跡を正解と比べる・中間層のグラフ
 ./run.sh calibrate office_gate_ev --gate-log gate_log.csv --ev-log ev_log.csv   # 実データで合わせる
 ./run.sh mopf-sync ~/dt-data/twinsim/runs/office_gate_ev      # 2 台を時刻でそろえた動画と、同じ人の各カメラの ID の対応表
+./run.sh mopf-link ~/dt-data/twinsim/runs/office_gate_ev      # 正解を使わずに 2 台の間の対応を推論して採点（予測の動画も）
 ```
 
 手元の PC のブラウザで GUI を開くには、手元の PC で `ssh -N -L 8770:localhost:8770 ampb` を実行したまま、`./run.sh serve --url` の URL を開く。
@@ -63,7 +64,7 @@ GPU は他の利用者と共有なので、使い終わったら止める。止�
 | `twinsim/scenario.py`・`dists.py` | シナリオと分布 → 人の発生・行き先・EV・ゲート |
 | `twinsim/literature.py`・`validity.py` | 文献に基づく人の分布（出典つき、`people.profile`・`demand`）と、計算のあとの文献との比べ（[docs/validity.md](docs/validity.md)） |
 | `twinsim/calibrate.py` | 実データ（ゲートの通過記録・EV の運行記録）で値を合わせる。シミュレータの結果を記録の形に書き出す（`export-logs`） |
-| `twinsim/mopf/` | MOPF との連携（[docs/integration.md](docs/integration.md)）: `monitor`（人流モニターの設定）・`process`（動画の検出・追跡）・`evaluate`（正解との比べ）・`graph`（中間層のグラフ）・`crossings`（線の数え方）・`overlay`（重ねた動画）・`control`（起動・停止）・`synthetic`（確かめ用）・`io` |
+| `twinsim/mopf/` | MOPF との連携（[docs/integration.md](docs/integration.md)）: `monitor`（人流モニターの設定）・`process`（動画の検出・追跡）・`evaluate`（正解との比べ）・`graph`（中間層のグラフ）・`crossings`（線の数え方）・`overlay`（重ねた動画）・`identity`（2 台を時刻でそろえる）・`linking`（2 台の間の対応の推論）・`control`（起動・停止）・`synthetic`（確かめ用）・`io` |
 | `twinsim/config.py` | 置き場所と接続先（`TWINSIM_DATA`・`TWINSIM_MOPF_HOME`・`TWINSIM_MOPF_URL`・`TWINSIM_ISAAC_WORK` などの環境変数で変えられる） |
 | `twinsim/outputs.py`・`camera.py`・`quality.py` | 正解・集計・グラフ・枠・確かめ |
 | `twinsim/api.py`・`__main__.py` | Python の API とコマンド |

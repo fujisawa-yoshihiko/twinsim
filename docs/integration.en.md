@@ -151,13 +151,38 @@ MOPF results are `twinsim-<run-name>-<camera>/tracking.jsonl` under `TRACKS_DIR`
 - MOPF tracks per camera (one camera per cv-app; IDs are per camera). It has no function to link the same person across cameras.
 - The ground truth uses the same ID across cameras (`aicity/gt.txt`, `mot/ids.json`), so linking methods can be evaluated.
 - The research code (`~/MOPF_ALL_video/research/multicam/`) has a prototype that links two cameras with non-overlapping fields of view by time (expected arrival time) and appearance
-  (virtual hospital: 6/6 with 4 people, 15/17 between the 2 cameras with 32 people). Automatic linking has not yet been evaluated on twinsim results (gate → elevator hall).
+  (virtual hospital: 6/6 with 4 people, 15/17 between the 2 cameras with 32 people). In twinsim, that idea became the inference below (mopf-link).
 - Viewing aligned by time (`./run.sh mopf-sync <run>`, "Show 2 cameras side by side in time" in the GUI): a side-by-side (synchronized) video of the cameras, `mopf_eval/sync.mp4`
   (the same person has the same color in both cameras, boxes are labeled "person / MOPF ID", and when someone appears in the other camera: "ID a at the gate → ID b at the elevator hall, moved in x s"), and
   a per-person ID correspondence table, `mopf_eval/identities.json` and `identities.csv` (IDs and time spans per camera, movement between cameras, how many people a single ID spanned).
   The table in the GUI can be filtered by person or ID, and clicking an ID jumps the video to that time.
   office_gate_ev (5 minutes): of the 92 ground-truth people, 78 appeared in both cameras; the gate → elevator hall movement took a median of 6.6 s.
   IDs that spanned 2 or more people (ID switches): 11 tracks at the gate, 10 at the elevator hall.
+- Linking inference without ground truth (`./run.sh mopf-link <run>`, "Predicted cross-camera association" in the GUI, `twinsim/mopf/linking.py`):
+  1. Project the foot points of tracklets (continuous runs of a MOPF ID) onto the floor. 2. Link gaps of up to 3 s within a camera using predicted position and clothing color.
+  3. Link the end of a camera track → the start of a camera track in another camera (within 90 s) using time, walking direction and clothing color. 4. Follow the links to assign global IDs (G001…).
+  - Time: deviation from the "expected time", the shortest walking distance over the walkable area of the space divided by walking speed (20% of people are assumed to be delayed by detours).
+  - Clothing color: hue–saturation histograms of the upper and lower halves. Dissimilarity is standardized by the distribution for two people seen at the same time in the same camera (always different people).
+  - Each cue is turned into a log-likelihood ratio of "same person" vs "different person"; they are summed, a prior set from the number of candidates is subtracted, and only pairs above 0 are linked one-to-one (Hungarian method).
+  - The ground truth is used only for scoring (the person of each tracklet, precision and recall of cross-camera links, IDF1 over both cameras).
+  - Outputs: `mopf_eval/links.json` and `links.csv` (predicted links and scores), `links.png` (crops of the predicted links, most confident first, with ○/×),
+    `sync_pred.mp4` (the 2 cameras side by side with predicted global IDs; ○ = matches the ground-truth person, × = a different person; predicted links shown below).
+
+  office_gate_ev (5 min, MOPF yolo11m + BoostTrack, 2026-10-23):
+
+  | Method | IDF1 (both cameras) | Links (correct/predicted) | Found/true transitions (78) | Global IDs (92 true people) |
+  |---|---|---|---|---|
+  | No linking (MOPF IDs as is) | 0.589 | - | 0 | 254 |
+  | Within camera only | 0.607 | - | 0 | 227 |
+  | Time + direction | 0.617 | 5/23 | 5 | 204 |
+  | Clothing color | 0.771 | 69/84 | 69 | 112 |
+  | **Time + direction + clothing color** | **0.816** | **70/80** | **70** | 116 |
+
+  - Time alone cannot narrow down the partner because about 11 people pass per minute (almost no pairs meet the linking threshold). Clothing color is the main cue, and time narrows it down.
+  - 5 of the 10 wrong links are one-by-one shifts in a crowded queue near the end (272–283 s). There are more global IDs than the 92 people because within-camera breaks remain.
+  - Changing the prior (0.5), the detour share (0.2) and the direction concentration (2.0) keeps IDF1 at 0.77–0.83 and found transitions at 60–74 (some values were set after seeing
+    this scene's results; the initially chosen values are kept rather than the best ones). The first half (up to 150 s) gets 28/28 links and the second half 42/52; the busier second half is harder.
+  - In this scene each person's clothing color differs (a rendering setting). In real video, people dress similarly, so the color cue is expected to be weaker.
 
 ## 10. REST API (GUI server, `Authorization: Bearer <token>`)
 

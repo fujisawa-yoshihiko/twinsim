@@ -106,3 +106,18 @@ def test_identities_synthetic(tmp_path):
     assert both and all(len({s["mopf_id"] for s in p["cams"][c]}) == 1 for p in both for c in p["cams"])
     assert all(len({s["person"] for s in segs}) == 1 for c in res["cameras"] for segs in res["mopf_ids"][c].values())
     assert (run / "mopf_eval/identities.csv").exists()
+
+
+def test_linking_synthetic(tmp_path):
+    # 正解から作った追跡（動画なし = 色なし）でも推論と採点が通り、時間の方式がつながない場合より IDF1 を下げない
+    from twinsim import mopf
+    run = tmp_path / "r"
+    api.run("office_gate_ev", run, overrides={"duration_s": 90, "outputs": ["ground_truth", "graph", "mot"]})
+    for cam in ("CamGate", "CamEV"):
+        mopf.synthetic_tracks(run, cam, tmp_path / "t", jitter_px=1.0, miss=0.0)
+    out = mopf.link(run, tracks_dir=tmp_path / "t")
+    m = out["metrics"]
+    assert m["none"]["cross_links"] == 0 and "color" not in m  # 動画がないので色の方式は除く
+    assert m["time"]["idf1"] >= m["none"]["idf1"] - 1e-9
+    assert all(c["cost"] <= 0 for c in out["cross_links"])
+    assert (run / "mopf_eval/links.json").exists() and (run / "mopf_eval/links.csv").exists()
