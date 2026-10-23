@@ -1,5 +1,7 @@
 # twinsim — 建物・工場の人流のデジタルツインのシミュレータ
 
+[English](README.en.md)
+
 研究計画（竹芝 VLM × QUBO、10/4 版）とデジタルツインの構想を確かめるための 3D のシミュレータ。
 空間（USD）・人の分布・カメラ・イベント（EV・ゲート）をシナリオのファイルで決め、人の動きを CPU で計算し、
 正解・集計・GNN 向けのグラフ・カメラの枠を書き出す。映像が要るときは Isaac Sim で描く。仕様は [docs/spec.md](docs/spec.md)。
@@ -17,6 +19,7 @@ cd ~/twinsim
 ./run.sh mopf-process ~/dt-data/twinsim/runs/office_gate_ev   # 動画を MOPF で検出・追跡（MOPF を起動してから。GPU）
 ./run.sh mopf-eval ~/dt-data/twinsim/runs/office_gate_ev      # MOPF の追跡を正解と比べる・中間層のグラフ
 ./run.sh calibrate office_gate_ev --gate-log gate_log.csv --ev-log ev_log.csv   # 実データで合わせる
+./run.sh mopf-sync ~/dt-data/twinsim/runs/office_gate_ev      # 2 台を時刻でそろえた動画と、同じ人の各カメラの ID の対応表
 ```
 
 手元の PC のブラウザで GUI を開くには、手元の PC で `ssh -N -L 8770:localhost:8770 ampb` を実行したまま、`./run.sh serve --url` の URL を開く。
@@ -24,6 +27,31 @@ cd ~/twinsim
 構成と開発の手順は [docs/architecture.md](docs/architecture.md)。
 
 結果は `~/dt-data/twinsim/runs/<名前>/`（`preview.png` で軌跡を確かめられる）。描画は docs/spec.md の「描画」。
+
+## 止め方
+
+GPU は他の利用者と共有なので、使い終わったら止める。止めたあと `nvidia-smi` で空いたかを確かめる（`./stop.sh` は最後に表示する）。
+
+| 止めるもの | 方法 | 補足 |
+|---|---|---|
+| GUI のサーバー（ポート 8770） | 起動した端末で `Ctrl+C`、または `./stop.sh gui` | CPU だけ。`setsid` などで裏で起動したときは `./stop.sh gui` |
+| MOPF（GPU を 1 枚使う） | GUI の「MOPF」のタブの「止める」、または `./stop.sh mopf`（= `~/MOPF_ALL_video/stop_ampb.sh`） | データとイメージは残る |
+| Isaac Sim（描画、GPU を 1 枚使う） | `./stop.sh isaac`（= `isim down`） | 描画の途中なら描画も止まる。次に描くときは `./isaac_up.sh <GPU>` |
+| 夜間の描画と比べる処理（`tools/night_b.sh`） | `pgrep -af night_b` で番号を見て `kill <番号>` | 描画（Isaac Sim の中）はそのまま続くので、止めるなら `./stop.sh isaac` も。描画が済んでいれば `tools/night_b.sh --resume` で続きから |
+| まとめて | `./stop.sh`（GUI と MOPF）、`./stop.sh all`（Isaac Sim も） | |
+
+## 映像を作るのにかかる時間（2026-10-23 の実測、GPU は RTX PRO 6000 1 枚）
+
+| 段 | office_gate_ev（5 分・94 人・カメラ 2 台、1280×720） | 映像の長さに対して |
+|---|---|---|
+| 人の動きの計算（CPU） | 約 15 秒 | 0.05 倍 |
+| 描画（Isaac Sim、RAY_TRACE） | 1 台 42 分、2 台で 89 分（読み込み 1 分を含む。カメラは 1 台ずつ順に描く） | 1 台あたり約 8.5 倍 |
+| mp4 にする | 2 台で約 3 分 | |
+| MOPF で検出・追跡（yolo11m・BoostTrack） | 1 台 約 3 分 | 0.6 倍 |
+| 比べる・重ねた動画・並べた動画（CPU） | 数秒・1 台 2〜3 分・3〜4 分 | |
+
+- 空間で描画の速さが違う（試し撮りの値）: オフィス 1 秒に 3.5〜5.7 コマ、倉庫 1.9 コマ（約 16 倍）、病院 1.1 コマ（約 27 倍。照明が多い）。
+- 速くする方法: カメラごとに別の GPU で同時に描く（2 枚なら半分。同時に使うのは 2 枚まで）、解像度を下げる、コマ数を 15 にする（MOPF の追跡への影響は要確認）。
 
 ## 構成
 
