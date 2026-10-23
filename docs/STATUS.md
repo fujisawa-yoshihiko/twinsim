@@ -1,5 +1,15 @@
 # 作業の状態（再開用）
 
+## 2026-10-23（画面からの操作・保守性・GitHub）
+
+動いているもの: GUI のサーバー（ポート 8770、こちらで起動、setsid）。MOPF は止めた。GPU 2 の Isaac Sim は藤澤さんが起動したもの（描画は終わっている）。
+
+- 画面: 結果のダウンロード（ファイル・zip）、MOPF のタブ（GPU を選んで起動・ライブ・停止、ライブの映像と集計を正解と並べる）、床に写した図、重ねた動画を作るボタン
+- 保守性: pyproject（`./run.sh` は `uv run twinsim`）、config.py（置き場所・接続先）、MOPF 連携を twinsim/mopf/ に分割、ruff、読み込みのテスト、CI、docs/architecture.md
+- GitHub: 非公開の fujisawa-yoshihiko/twinsim に送った
+- 複数カメラをまたぐ追跡: MOPF にはない。研究の試作（research/multicam）を twinsim の結果で評価するのが次の候補
+
+
 ## 2026-10-22 深夜（残りと、ほかのアプリとの連携）
 
 動いているもの: なし（MOPF は B の最後に止めた）。ポート 8770 の GUI のサーバー（17:23 起動、古いコード）と GPU 2 の Isaac Sim（17:30 起動）は藤澤さんが起動したもの。

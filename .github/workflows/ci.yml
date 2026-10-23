@@ -1,0 +1,14 @@
+# 送るたびに、書き方の確かめ（ruff）と動作確認（pytest、CPU だけ）。GPU・Isaac Sim・MOPF は使わない。
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --group dev
+      - run: uv run ruff check
+      - run: uv run pytest -q

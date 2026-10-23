@@ -12,8 +12,10 @@
   io         共通の読み込み
 """
 
+from . import control
 from .crossings import compare_crossings, expect, track_crossings
 from .evaluate import evaluate
+from .floormap import floormap
 from .graph import graph
 from .io import ensure_ids, load_mot_gt, load_tracks, open_run
 from .monitor import apply, build_config, write
@@ -21,5 +23,5 @@ from .overlay import overlay
 from .process import mopf_ready, process
 from .synthetic import synthetic_tracks
 
-__all__ = ["apply", "build_config", "compare_crossings", "ensure_ids", "evaluate", "expect", "graph", "load_mot_gt", "load_tracks",
+__all__ = ["control", "apply", "build_config", "compare_crossings", "ensure_ids", "evaluate", "expect", "floormap", "graph", "load_mot_gt", "load_tracks",
            "mopf_ready", "open_run", "overlay", "process", "synthetic_tracks", "track_crossings", "write"]

@@ -28,6 +28,7 @@
     <nav class="tabs">
       <button data-tab="settings" class="active">設定</button>
       <button data-tab="results">結果</button>
+      <button data-tab="mopf">MOPF</button>
     </nav>
     <div id="tab-settings" class="tab">
       <fieldset>
@@ -84,6 +85,39 @@
       </div>
       <p id="run-msg" class="muted"></p>
     </div>
+    <div id="tab-mopf" class="tab hidden">
+      <fieldset>
+        <legend>MOPF の状態</legend>
+        <div id="mopf-state" class="muted">確認中…</div>
+        <div class="row"><button id="mopf-refresh" class="secondary">更新</button>
+          <a id="mopf-open" target="_blank" rel="noopener">MOPF の画面を開く</a></div>
+        <div class="muted">MOPF の画面は、手元の PC で <code>ssh -N -L 5174:localhost:5174 ampb</code> を実行してから開く。</div>
+      </fieldset>
+      <fieldset>
+        <legend>起動・停止（GPU を使う）</legend>
+        <div class="muted">GPU は他の利用者と共有。空いている GPU を選ぶ（同時に使うのは 2 枚まで）。</div>
+        <table id="gpu-table" class="dest"></table>
+        <div class="row">
+          <label>ライブに流す動画 <select id="live-run"></select></label>
+          <label><select id="live-cam"></select></label>
+        </div>
+        <div class="row">
+          <button id="mopf-start" class="secondary">動画の処理用に起動</button>
+          <button id="mopf-start-live" class="secondary">選んだ動画をライブで起動</button>
+          <button id="mopf-stop" class="secondary">止める</button>
+        </div>
+        <pre id="mopf-log" class="log"></pre>
+      </fieldset>
+      <fieldset>
+        <legend>ライブ（人流モニター）</legend>
+        <div class="row">
+          <button id="live-apply" class="secondary">選んだ結果の設定（線・エリア・床の図）を送る</button>
+          <button id="live-reset" class="secondary">集計をリセット</button>
+        </div>
+        <img id="live-img" alt="MOPF のライブの映像（ライブで起動しているとき）">
+        <div id="live-summary" class="muted"></div>
+      </fieldset>
+    </div>
     <div id="tab-results" class="tab hidden">
       <div class="row"><button id="refresh" class="secondary">一覧を更新</button></div>
       <ul id="runs"></ul>
@@ -92,5 +126,6 @@
   </section>
 </main>
 <script src="app.js"></script>
+<script src="mopf.js"></script>
 </body>
 </html>

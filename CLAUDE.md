@@ -9,4 +9,4 @@ Isaac Sim の環境（`isim`）と人物の部品は `~/digitaltwin` のもの�
 - データ（計算の結果・動画）は git に入れない。置き場所は `~/dt-data/twinsim/`（runs/）。
 - 竹芝の実際の映像・図面（NDA の対象）から作ったもの（空間・映像）は、このリポジトリにも共有の場所にも置かない。
 - 素材の利用条件（spaces/*/space.yaml の license）を確かめてから、作ったデータを外に出す。
-- git は手元だけ。GitHub に送るのは確認を取ってから。
+- GitHub は非公開の `fujisawa-yoshihiko/twinsim`（2026-10-23 作成）。送るのは確認を取ってから。構成と開発の手順は docs/architecture.md。

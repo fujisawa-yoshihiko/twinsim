@@ -358,6 +358,11 @@ async function refreshRuns() {
 }
 $("refresh").addEventListener("click", refreshRuns);
 
+function mopfCrossHtml(c) {
+  if (!c || !Object.keys(c).length) return "";
+  return `<div class="muted">通過線（人流モニターと同じ数え方）: ` + Object.entries(c).map(([cam, x]) =>
+    `${cam} 正解なら ${x.expected} 回・MOPF ${x.mopf} 回・対応 ${x.matched}（数えもらし ${x.missed}・余分 ${x.extra}）`).join("、") + "</div>";
+}
 function mopfEvalHtml(ev, gr) {
   if (!ev) return "";
   const rows = Object.entries(ev.cameras).map(([c, r]) => `<tr><td>${c}</td><td>${r.mota}</td><td>${r.idf1}</td><td>${r.num_switches}</td>
@@ -368,6 +373,8 @@ function mopfEvalHtml(ev, gr) {
     ${g ? `<div class="muted">中間層のグラフ（ゾーンの人数の平均）: ${g}</div>` : ""}`;
 }
 const fileUrl = (id, path) => `/api/runs/${encodeURIComponent(id)}/file?path=${encodeURIComponent(path)}`;
+const dlUrl = (id, path) => fileUrl(id, path) + "&download=1";
+const dlLink = (id, path, label = "ダウンロード") => `<a class="dl" href="${dlUrl(id, path)}">⬇ ${label}</a>`;
 async function showRun(id) {
   S.runId = id;
   $("runs").querySelectorAll("li").forEach((li) => li.classList.toggle("active", li.dataset.id === id));
@@ -385,6 +392,8 @@ async function showRun(id) {
       <span class="chip">EV ${ev.arrivals ?? 0} 回・乗った ${ev.boarded ?? 0}・待ち 平均 ${ev.wait_mean_s ?? "-"} 秒</span>
       <span class="chip">ゲート 入館 ${(s.gate_passes || {}).in ?? 0}・退館 ${(s.gate_passes || {}).out ?? 0}</span></div>
     <div class="muted">状態ごとの時間: ${states}</div>
+    <div class="row"><a class="secondary" href="/api/runs/${encodeURIComponent(id)}/zip">⬇ 結果をまとめてダウンロード（動画なし、zip）</a>
+      <a class="dl" href="/api/runs/${encodeURIComponent(id)}/zip?videos=1">⬇ 動画も含める</a></div>
     <img src="${fileUrl(id, "preview.png")}" alt="確認の図">
     ${r.files.includes("validity.png") ? `<h3>文献との比べ（妥当性）</h3>
       <div class="muted">入力の再現（文献の分布を入れた量が崩れていないか）と、出てくる量（入れていない量が文献の範囲か）。表と根拠の台帳は
@@ -394,7 +403,7 @@ async function showRun(id) {
     <div class="row"><button class="secondary" id="render-test">いちばん混む 5 秒を試し撮り</button>
       <button class="secondary" id="render-all">全部を描画</button></div>
     <div id="render-msg" class="muted">${ren ? `描画: ${ren.status}${ren.error ? "・" + ren.error : ""}${ren.seconds ? "・" + ren.seconds + " 秒" : ""}` : ""}</div>
-    ${vids.map((v) => `<div class="muted">${v}</div><video src="${fileUrl(id, v)}" controls muted loop></video>`).join("")}
+    ${vids.map((v) => `<div class="muted">${v} ${dlLink(id, v)}</div><video src="${fileUrl(id, v)}" controls muted loop preload="metadata"></video>`).join("")}
     <h3>MOPF との連携</h3>
     <div class="muted">人流モニターの設定（床の図・位置合わせ・線・エリア）と、正解なら数えるはずの値:</div>
     <div class="row">${cams.map((c) => `<button class="secondary" data-mopf="${c}">${c}</button>`).join("")}</div>
@@ -403,14 +412,19 @@ async function showRun(id) {
       <button class="secondary" id="mopf-eval" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>MOPF の追跡を正解と比べる</button></div>
     <div id="mopf-proc-msg" class="muted">${r.mopf_job ? `MOPF: ${r.mopf_job.status}${r.mopf_job.error ? "・" + r.mopf_job.error : ""}` : ""}</div>
     <div id="mopf-eval-box">${mopfEvalHtml(r.mopf_eval, r.mopf_graph)}</div>
-    ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_overlay.mp4")).map((v) => `<div class="muted">${v}
+    ${mopfCrossHtml(r.mopf_crossings)}
+    ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_floor.png")).map((v) => `<div class="muted">${v}（MOPF の足元を床に写した軌跡と正解）${dlLink(id, v)}</div>
+      <img src="${fileUrl(id, v)}" alt="床に写した図">`).join("")}
+    <div class="row"><button class="secondary" id="mopf-overlay" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>正解と MOPF の枠を重ねた動画を作る（CPU、1 本 2〜3 分）</button></div>
+    <div id="overlay-msg" class="muted">${r.overlay_job ? `重ねた動画: ${r.overlay_job.status}${r.overlay_job.error ? "・" + r.overlay_job.error : ""}` : ""}</div>
+    ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_overlay.mp4")).map((v) => `<div class="muted">${v} ${dlLink(id, v)}<br>
       （緑 = 正解・灰 = ほとんど隠れた正解・赤 = 線を数えもらした人・細い色の枠 = MOPF の ID・黄色の線 = 通過線）</div>
-      <video src="${fileUrl(id, v)}" controls muted></video>`).join("")}
-    ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_missed.png")).map((v) => `<div class="muted">${v}（線を数えもらした場面）</div>
+      <video src="${fileUrl(id, v)}" controls muted preload="metadata"></video>`).join("")}
+    ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_missed.png")).map((v) => `<div class="muted">${v}（線を数えもらした場面）${dlLink(id, v)}</div>
       <img src="${fileUrl(id, v)}" alt="数えもらしの場面">`).join("")}
     <h3>ファイル</h3>
     <div class="files">${r.files.filter((f) => !f.includes("/") || f.startsWith("graph/") || f.startsWith("mot/") || f.startsWith("video/"))
-      .map((f) => `<a href="${fileUrl(id, f)}" target="_blank">${f}</a>`).join("")}</div>`;
+      .map((f) => `<a href="${dlUrl(id, f)}">${f}</a>`).join("")}</div>`;
   $("mopf-process").addEventListener("click", async () => {
     try {
       const e = await post(`/api/runs/${id}/mopf/process`, {});
@@ -420,6 +434,12 @@ async function showRun(id) {
       await post(`/api/runs/${id}/mopf/process`, { confirm: true });
       $("mopf-proc-msg").textContent = "MOPF: 実行中（終わったら結果を開き直す）";
     } catch (err) { $("mopf-proc-msg").textContent = String(err); }
+  });
+  $("mopf-overlay").addEventListener("click", async () => {
+    try {
+      await post(`/api/runs/${id}/mopf/overlay`, {});
+      $("overlay-msg").textContent = "重ねた動画: 作っている（終わったら結果を開き直す）";
+    } catch (err) { $("overlay-msg").textContent = String(err); }
   });
   $("mopf-eval").addEventListener("click", async () => {
     try {
@@ -463,8 +483,8 @@ function pollRender(id) {
 
 function switchTab(name) {
   document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
-  $("tab-settings").classList.toggle("hidden", name !== "settings");
-  $("tab-results").classList.toggle("hidden", name !== "results");
+  for (const t of ["settings", "results", "mopf"]) $(`tab-${t}`).classList.toggle("hidden", name !== t);
+  if (window.mopfTab) window.mopfTab(name === "mopf");  // static/mopf.js
 }
 document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { switchTab(b.dataset.tab); if (b.dataset.tab === "results") refreshRuns(); }));
 

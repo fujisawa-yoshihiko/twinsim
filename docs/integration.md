@@ -135,14 +135,32 @@ MOPF の結果は `TRACKS_DIR` の下の `twinsim-<結果の名前>-<カメラ>/
 - 竹芝の記録（NDA の対象になりうる）から作ったものは、git にも共有の場所にも置かない（既定の置き場所は `~/dt-data` の下）。
 - 東急不動産にお願いするときの形の案: 上の 2 つ（時刻は秒かミリ秒、日付と時刻でもよい）。EV が行き先階の予約の方式かどうかも確かめる。
 
-## 8. REST API（GUI のサーバー、`Authorization: Bearer <トークン>`）
+## 8. 画面（GUI）から
+
+- 「結果」のタブ: 動画・重ねた動画・図はファイルごとに「⬇ ダウンロード」、まとめて zip（動画なし・動画あり）。動画は途中から再生できる（Range）。
+  MOPF との連携の欄に、評価の表・通過線の数え方・床に写した図（`mopf_eval/<カメラ>_floor.png`、左が正解・右が MOPF）・重ねた動画を作るボタン。
+- 「MOPF」のタブ: 状態・GPU の表（メモリ・使用率・twinsim と MOPF が使っている GPU）から GPU を選び、「動画の処理用に起動」「選んだ動画をライブで起動」
+  「止める」（どれも確認の画面が出る。同時に使う GPU は 2 枚まで）。ライブの映像（MOPF の人流モニターの映像を中継）と、MOPF が数えた値・正解なら数えるはずの値
+  （動画の周回分）を並べる。「選んだ結果の設定を送る」で線・エリア・床の図を送り直せる。MOPF の画面そのものは 5174 を転送して開く。
+- 確かめ（2026-10-23）: 画面から GPU 3 でライブで起動 → 設定を送る → 映像の中継（3 秒で 1.1 MB）と集計 → 止める、まで通した。
+
+## 9. 複数カメラをまたぐ追跡
+
+- MOPF は、カメラごとに追跡する（1 つの cv-app で 1 台。ID はカメラごと）。カメラをまたいで同じ人をつなぐ機能はない。
+- 正解はカメラをまたいで同じ番号（`aicity/gt.txt`・`mot/ids.json`）なので、つなぎ方を評価できる。
+- 研究のコード（`~/MOPF_ALL_video/research/multicam/`）に、視野が重ならない 2 台を時間（来るはずの時間）と見た目でつなぐ試作がある
+  （仮想病院 4 人で 6/6、32 人で 2 台の間 15/17）。twinsim の結果（ゲート → EV 前）での評価はまだ。
+
+## 10. REST API（GUI のサーバー、`Authorization: Bearer <トークン>`）
 
 `POST /api/runs {scenario, overrides}` で計算、`GET /api/runs/<id>/file?path=...` でファイル、
 `POST /api/runs/<id>/mopf {camera, apply}`（人流モニターの設定と、数えるはずの値）、
-`POST /api/runs/<id>/mopf/process {cameras, model, confirm}`（MOPF で処理。confirm なしは見積もり）、`POST /api/runs/<id>/mopf/eval`（比べる・グラフ）。
+`POST /api/runs/<id>/mopf/process {cameras, model, confirm}`（MOPF で処理。confirm なしは見積もり）、`POST /api/runs/<id>/mopf/eval`（比べる・グラフ・床の図）、
+`POST /api/runs/<id>/mopf/overlay`（重ねた動画、裏で）、`GET /api/runs/<id>/zip[?videos=1]`、`GET /api/mopf/status`・`POST /api/mopf/start {gpu, live, confirm}`・
+`POST /api/mopf/stop {confirm}`・`GET /api/mopf/live/summary`・`/api/mopf/live/stream`（中継）・`POST /api/mopf/live/reset`・`/api/mopf/live/apply {run, camera}`。
 Python からは `twinsim.api.run(..., elevator_policy=f)` で EV の運行を差し替えられる（最適化の差し込み口）。
 
-## 9. まだのこと
+## 11. まだのこと
 
 - 一周のつなぎ（MOPF の出力 → 最適化（MOPF_OPT の Gurobi）→ EV の運行 → シミュレータ → 結果）。差し込み口（`elevator_policy`）はあるが、MOPF_OPT とはつないでいない
 - 外から API でイベント（サイネージの切り替え・混んだら案内）を指示する口
