@@ -151,3 +151,28 @@ def test_reid_embedder():
     if MODELS["clipreid_vitb16_msmt17"]["weights"].exists():  # CLIP-ReID（1280 次元）も同じ約束
         g = Embedder("clipreid_vitb16_msmt17", threads=2)([red, red, blue])
         assert g.shape == (3, 1280) and float(g[0] @ g[1]) > 0.999 and float(g[0] @ g[2]) < 0.999
+
+
+def test_output_formats_match_docs(tmp_path):
+    # docs/formats.md に書いた列・キーと、実際の出力が合っているか（出力の形を変えたら文書も直す）
+    import csv
+    import gzip
+    run = tmp_path / "r"
+    api.run("office_gate_ev", run, overrides={"duration_s": 30})
+    with gzip.open(run / "frames.csv.gz", "rt") as fh:
+        assert next(csv.reader(fh)) == ["frame", "t", "person", "x", "y", "yaw", "moving", "state", "zone", "group", "type"]
+    gt = json.loads((run / "ground_truth.json").read_text())
+    assert {"fps", "total_frames", "seed", "space", "scenario", "people", "tracks", "moving", "cameras", "gate_events", "elevator_events",
+            "gates", "zones"} <= set(gt)
+    p = next(iter(gt["people"].values()))
+    assert {"model", "kind", "height_m", "tint_index", "type", "stream", "origin", "destination", "flow", "group", "start_frame", "arrive_frame",
+            "speed_m_s", "states", "events"} <= set(p)
+    cam = next(iter(gt["cameras"].values()))
+    assert {"world_to_camera_rowmajor", "fx_px", "fy_px", "cx_px", "cy_px", "width", "height", "eye", "target"} <= set(cam)
+    mot = (run / "mot" / f"{next(iter(gt['cameras']))}.txt").read_text().splitlines()
+    assert mot and all(len(line.split(",")) == 9 for line in mot[:20]) and int(mot[0].split(",")[0]) >= 1
+    assert all(len(line.split()) == 9 for line in (run / "aicity/gt.txt").read_text().splitlines()[:20])
+    tasks = json.loads((run / "tasks.json").read_text())
+    assert {"1_count", "2_direction", "3_dwell", "4_group", "5_congestion", "6_trend", "elevator"} <= set(tasks)
+    assert (run / "graph/zone_counts.csv").read_text().startswith("t,")
+    assert (run / "graph/zone_flows.csv").read_text().startswith("minute,source,target,count")

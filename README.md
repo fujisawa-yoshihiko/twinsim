@@ -30,6 +30,25 @@ cd ~/twinsim
 
 結果は `~/dt-data/twinsim/runs/<名前>/`（`preview.png` で軌跡を確かめられる）。描画は docs/spec.md の「描画」。
 
+## 出力の形（学習データ・正解ラベル）
+
+ほかの目的（検出・追跡・複数カメラの追跡・人物照合・人流の予測・GNN・VLM）で使う人向けの要約。詳しくは [docs/formats.md](docs/formats.md)。
+置き場所は `~/dt-data/twinsim/runs/<結果の名前>/`。座標は世界の m（Z が上）、シミュレータのコマは 0 始まり（秒 = コマ ÷ 30）。
+
+| ファイル | 形 | 中身 |
+|---|---|---|
+| `ground_truth.json` | JSON | 人ごとの軌跡 `tracks[名前] = [[x, y, yaw], …]`・歩いているか・状態の区間・出来事（ゲート・EV）・属性（人物モデル・背の高さ・種類・グループ）、カメラ（4×4 の行列と画角）、ゾーン |
+| `frames.csv.gz` | CSV | 1 コマ 1 人 1 行: `frame, t, person, x, y, yaw, moving, state, zone, group, type` |
+| `mot/<カメラ>.txt`・`mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility`（コマは 1 始まり、id はカメラをまたいで同じ） |
+| `aicity/gt.txt` | AI City の MTMC | `camera_id obj_id frame_id xmin ymin width height xworld yworld` |
+| `video/<カメラ>.mp4` | H.264 | 描いた映像（1280×720・30 fps）。k コマ目 = `render_log.json` の `frames[0]` ＋ k |
+| `tasks.json` | JSON | 計画書 p7 の 6 タスクの正解（人数・ゲートの通過・滞留・グループ・混雑・行き先、EV の待ち） |
+| `graph/` | JSON・CSV・NPZ・GraphML | ゾーンのグラフ・2 m の格子のグラフ、秒ごとの人数・1 分ごとの流れ、カメラから見える所 |
+| `logs/` | CSV | ゲートの通過記録・EV の運行記録（実データと同じ形） |
+
+状態: `pass`・`gate_queue`・`ev_approach`・`ev_wait`・`alight`・`reception`・`dwell`・`sign_check`・`companion_wait`（倉庫は `work`・`wait`）。
+注意: 枠は人を囲む箱を映した近似（輪郭にぴったりではない）、見えている割合も近似。人物モデルは 10 種類で、服の色を人ごとに変えている。
+
 ## 止め方
 
 GPU は他の利用者と共有なので、使い終わったら止める。止めたあと `nvidia-smi` で空いたかを確かめる（`./stop.sh` は最後に表示する）。

@@ -1,4 +1,4 @@
-"""正解を使わずに、カメラの中の途切れと、カメラの間をつなぎ、全体の人の番号（G001…）を推論する。正解は最後の採点だけに使う。
+"""正解を使わずに、カメラの中の途切れと、カメラの間をつなぎ、全体の人の番号（M001…。正解のグループの番号 G001… とは別）を推論する。正解は最後の採点だけに使う。
 
 手がかり（どれも MOPF の追跡・動画・空間の地図だけから求める）:
   時間    a の終わりの床の位置から b の始まりの床の位置までの道のり（空間の歩ける所の上の最短の道）を、歩く速さで割った「来るはずの時間」と、
@@ -521,7 +521,7 @@ def chains(tracks, links):
 
 def predict(tracks, geo, nulls, method, learned=None):
     """方式ごとに、カメラの中 → カメラの間の順につなぐ。nulls: 見た目の種類 → 別の人の距離の分布。
-    返り値: (番号 {キー: G…}, カメラの中のつながり, カメラの間のつながり)"""
+    返り値: (番号 {キー: M…}, カメラの中のつながり, カメラの間のつながり)"""
     opt = parse_method(method)
     kind = opt["app"] if opt else None
     null = nulls.get(kind) if kind else None
@@ -559,7 +559,7 @@ def predict(tracks, geo, nulls, method, learned=None):
                           "from_camera": a.camera, "to_camera": b.camera, "t_from": round(a.t1, 2), "t_to": round(b.t0, 2), **p, "margin": mg})
     root2 = chains(tracks, [(w["from"], w["to"]) for w in within] + [(c["from"], c["to"]) for c in cross])
     order = sorted({root2[t.key] for t in tracks}, key=lambda r: min(t.t0 for t in tracks if root2[t.key] == r))
-    gid = {r: f"G{k + 1:03d}" for k, r in enumerate(order)}
+    gid = {r: f"M{k + 1:03d}" for k, r in enumerate(order)}
     return {t.key: gid[root2[t.key]] for t in tracks}, within, cross
 
 
@@ -615,7 +615,7 @@ def _predict_cluster(tracks, ctracks, within, geo, null, opt, kind, learned):
         members = sorted((ctracks[m] for m in ms), key=lambda c: c.t0)
         for c in members:
             for t in c.members:
-                gid_of[t.key] = f"G{g + 1:03d}"
+                gid_of[t.key] = f"M{g + 1:03d}"
         for a, b in zip(members, members[1:]):  # 時間の順に隣り合う別のカメラの追跡を「カメラの間の組」として書く
             if a.camera == b.camera:
                 continue

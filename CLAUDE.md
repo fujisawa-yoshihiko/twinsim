@@ -11,3 +11,4 @@ Isaac Sim の環境（`isim`）と人物の部品は `~/digitaltwin` のもの�
 - 素材の利用条件（spaces/*/space.yaml の license）を確かめてから、作ったデータを外に出す。
 - GitHub は非公開の `fujisawa-yoshihiko/twinsim`（2026-10-23 作成）。送るのは確認を取ってから。構成と開発の手順は docs/architecture.md。
 - 文書は日本語と英語の 2 つ（README.md・README.en.md、docs/*.md・docs/*.en.md）。片方を直したら、もう片方も同じように直す。
+- 出力の形を変えたら docs/formats.md（と英語版）と README の「出力の形」を直す（ほかの人が学習データとして読む）。

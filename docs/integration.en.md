@@ -160,7 +160,7 @@ MOPF results are `twinsim-<run-name>-<camera>/tracking.jsonl` under `TRACKS_DIR`
   IDs that spanned 2 or more people (ID switches): 11 tracks at the gate, 10 at the elevator hall.
 - Linking inference without ground truth (`./run.sh mopf-link <run> [--apps color osnet_x0_25_msmt17] [--method <method>]`, "Predicted cross-camera association" in the GUI, `twinsim/mopf/linking.py`):
   1. Project the foot points of tracklets (continuous runs of a MOPF ID) onto the floor. 2. Link gaps of up to 3 s within a camera using predicted position and clothing color.
-  3. Link the end of a camera track → the start of a camera track in another camera (within 90 s) using time, walking direction and clothing color. 4. Follow the links to assign global IDs (G001…).
+  3. Link the end of a camera track → the start of a camera track in another camera (within 90 s) using time, walking direction and clothing color. 4. Follow the links to assign global IDs (M001…; separate from the ground-truth group IDs G001…).
   - Time: deviation from the "expected time", the shortest walking distance over the walkable area of the space divided by walking speed (20% of people are assumed to be delayed by detours).
   - Clothing color: hue–saturation histograms of the upper and lower halves. Dissimilarity is standardized by the distribution for two people seen at the same time in the same camera (always different people).
   - Each cue is turned into a log-likelihood ratio of "same person" vs "different person"; they are summed, a prior set from the number of candidates is subtracted, and only pairs above 0 are linked one-to-one (Hungarian method).

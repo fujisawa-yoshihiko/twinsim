@@ -30,6 +30,25 @@ The structure and the development procedure are in [docs/architecture.en.md](doc
 
 Results go to `~/dt-data/twinsim/runs/<name>/` (the trajectories can be checked in `preview.png`). For rendering, see "Rendering" in docs/spec.en.md.
 
+## Output formats (training data and ground-truth labels)
+
+A summary for people using the data for other purposes (detection, tracking, multi-camera tracking, person re-identification, people-flow prediction, GNNs, VLMs). Details: [docs/formats.en.md](docs/formats.en.md).
+Files are under `~/dt-data/twinsim/runs/<run-name>/`. Coordinates are world meters (Z up); simulator frames start at 0 (seconds = frame ÷ 30).
+
+| File | Format | Contents |
+|---|---|---|
+| `ground_truth.json` | JSON | Per-person trajectories `tracks[name] = [[x, y, yaw], …]`, whether walking, state intervals, events (gate, elevator), attributes (character model, height, type, group), cameras (4×4 matrix and field of view), zones |
+| `frames.csv.gz` | CSV | One row per frame per person: `frame, t, person, x, y, yaw, moving, state, zone, group, type` |
+| `mot/<camera>.txt`, `mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility` (frames start at 1; the id is the same across cameras) |
+| `aicity/gt.txt` | AI City MTMC | `camera_id obj_id frame_id xmin ymin width height xworld yworld` |
+| `video/<camera>.mp4` | H.264 | Rendered video (1280×720, 30 fps). Frame k = `frames[0]` in `render_log.json` + k |
+| `tasks.json` | JSON | Ground truth for the six tasks on p. 7 of the research plan (counts, gate crossings, dwelling, groups, congestion, destinations, elevator waits) |
+| `graph/` | JSON, CSV, NPZ, GraphML | Zone graph and 2 m grid graph, per-second counts, per-minute flows, what each camera sees |
+| `logs/` | CSV | Gate crossing logs and elevator operation logs (the same format as real data) |
+
+States: `pass`, `gate_queue`, `ev_approach`, `ev_wait`, `alight`, `reception`, `dwell`, `sign_check`, `companion_wait` (warehouse: `work`, `wait`).
+Notes: boxes are approximate projections of a box around the person (not tight to the silhouette), and visibility is approximate too. There are 10 character models, and each person's clothing color is varied.
+
 ## Stopping
 
 The GPUs are shared with other users, so stop things when you are done. After stopping, check with `nvidia-smi` that the GPUs have been freed (`./stop.sh` shows it at the end).

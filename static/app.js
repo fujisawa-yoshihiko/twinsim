@@ -385,7 +385,7 @@ async function renderLinks(id) {
       <th>${tr("組（正しい/予測）", "Links (correct/predicted)")}</th><th>${tr("見つけた/本当の組", "Found/true transitions")}</th><th>${tr("全体の番号", "Global IDs")}</th></tr>${mrow}</table>
     <div class="muted">${tr(`動画・下の表の方式: ${names[res.method]}。見た目の特徴を出す時間（切り出し 1 枚あたり、CPU）: ${speed || "-"}（切り出し ${tm.crops ?? "-"} 枚）`,
       `Method used for the video and the table below: ${names[res.method]}. Time to compute appearance features (per crop, CPU): ${speed || "-"} (${tm.crops ?? "-"} crops)`)}</div>
-    <div class="row"><label>${tr("絞り込み", "Filter")} <input id="link-filter" placeholder="${tr("G012・ID19・P0030・NG", "e.g. G012, ID19, P0030, NG")}"></label></div>
+    <div class="row"><label>${tr("絞り込み", "Filter")} <input id="link-filter" placeholder="${tr("M012・ID19・P0030・NG", "e.g. M012, ID19, P0030, NG")}"></label></div>
     <div style="max-height:360px;overflow:auto"><table class="dest"><tr><th></th><th>${tr("番号", "ID")}</th><th>${tr("予測した組", "Predicted link")}</th>
       <th>${tr("時刻（秒）", "Time (s)")}</th><th>${tr("間 / 来るはずの時間（秒）", "Gap / expected (s)")}</th><th>${tr("見た目の z", "Appearance z")}</th>
       <th>${tr("余裕", "Margin")}</th><th>${tr("正解の人", "Ground-truth person")}</th></tr>${rows}</table></div>
@@ -503,15 +503,15 @@ async function showRun(id) {
       <video id="sync-video" src="${fileUrl(id, "mopf_eval/sync.mp4")}" controls muted preload="metadata"></video>` : ""}
     <div id="id-table"></div>
     <h3>${tr("2 台の間の対応の予測（正解を使わない推論）", "Predicted cross-camera association (inference without ground truth)")}</h3>
-    <div class="muted">${tr("MOPF の追跡・動画・空間の地図だけから、時間（道のりから来るはずの時間）・歩く向き・服の色でつなぎ、全体の番号（G001…）を付ける。○・× は正解による採点。",
-      "Links tracks using only MOPF's tracks, the videos and the space map: time (expected from the walking distance), walking direction and clothing color, and assigns global IDs (G001…). ○ / × is scoring against the ground truth.")}</div>
+    <div class="muted">${tr("MOPF の追跡・動画・空間の地図だけから、時間（道のりから来るはずの時間）・歩く向き・服の色でつなぎ、全体の番号（M001…）を付ける。○・× は正解による採点。",
+      "Links tracks using only MOPF's tracks, the videos and the space map: time (expected from the walking distance), walking direction and clothing color, and assigns global IDs (M001…). ○ / × is scoring against the ground truth.")}</div>
     <div class="row"><button class="secondary" id="mopf-link" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>${tr("推論して採点する（CPU、約 4 分。予測の動画も作る）", "Infer and score (CPU, about 4 min; also makes the prediction video)")}</button></div>
     <div id="link-msg" class="muted">${r.link_job ? `${tr("推論", "Inference")}: ${r.link_job.status}${r.link_job.error ? tr("・", ", ") + r.link_job.error : ""}` : ""}</div>
     <div id="link-box"></div>
     ${r.files.includes("mopf_eval/sync_pred.mp4") ? `<div class="muted">mopf_eval/sync_pred.mp4 <a class="dl" href="${fileUrl(id, "mopf_eval/sync_pred.mp4")}" target="_blank" rel="noopener">${tr("別のタブで大きく開く", "Open large in a new tab")}</a>
       ${dlLink(id, "mopf_eval/sync_pred.mp4")}${tr("・", " · ")}${dlLink(id, "mopf_eval/links.csv", tr("予測した組（CSV）", "Predicted links (CSV)"))}<br>
-      ${tr("太い枠 = MOPF（予測の番号の色。2 台で同じ番号なら同じ色）・「G… / ID …」= 予測の番号 / MOPF の ID・○ = 正解の人と合う・× = 違う人",
-        "thick boxes = MOPF (colored by predicted global ID; the same ID has the same color in both cameras) · \"G… / ID …\" = predicted global ID / MOPF ID · ○ = matches the ground-truth person · × = a different person")}</div>
+      ${tr("太い枠 = MOPF（予測の番号の色。2 台で同じ番号なら同じ色）・「M… / ID …」= 予測の番号 / MOPF の ID・○ = 正解の人と合う・× = 違う人",
+        "thick boxes = MOPF (colored by predicted global ID; the same ID has the same color in both cameras) · \"M… / ID …\" = predicted global ID / MOPF ID · ○ = matches the ground-truth person · × = a different person")}</div>
       <video id="pred-video" src="${fileUrl(id, "mopf_eval/sync_pred.mp4")}" controls muted preload="metadata"></video>` : ""}
     ${r.files.includes("mopf_eval/links.png") ? `<div class="muted">${tr("予測した組の切り出し（確からしい順。左 = 前のカメラ、右 = 次のカメラ）", "Crops of the predicted links (most confident first; left = earlier camera, right = later camera)")} ${dlLink(id, "mopf_eval/links.png")}</div>
       <img src="${fileUrl(id, "mopf_eval/links.png")}" alt="${tr("予測した組の切り出し", "Crops of predicted links")}">` : ""}

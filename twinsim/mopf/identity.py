@@ -254,7 +254,7 @@ def sync_video(run_dir, cameras=None, tracks_dir=None, width=800, pred=None):
             cur.append(f"{n}（{'・'.join(parts)}）")
         if not pred:
             d.text((10, y), "今: " + "  ".join(cur[:8]) + (" …" if len(cur) > 8 else ""), font=small, fill=(40, 40, 40))
-        legend = ("太い枠 = MOPF（予測の番号の色。2 台で同じ番号なら同じ色）・「G… / ID …」= 予測の番号 / MOPF の ID・○ = 正解の人と合う・× = 違う人・"
+        legend = ("太い枠 = MOPF（予測の番号の色。2 台で同じ番号なら同じ色）・「M… / ID …」= 予測の番号 / MOPF の ID・○ = 正解の人と合う・× = 違う人・"
                   "細い灰色の枠 = 正解・赤 = 見逃し" if pred else
                   "細い枠 = 正解（人ごとの色、2 台で同じ色）・太い枠 = MOPF（対応した人の色）・赤 = 見逃し・灰 = 対応する人のいない MOPF の枠")
         d.text((10, HH - 22), legend, font=small, fill=(90, 90, 90))
