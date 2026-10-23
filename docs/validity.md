@@ -1,5 +1,7 @@
 # 人の分布の妥当性（文献に基づく分布と、その確かめ）
 
+[English](validity.en.md)
+
 2026-10-22。人の量・種類・まとまり・速さ・止まる場所の分布を、文献の値で作り、計算のあとに文献の値と比べる仕組み。
 文献の一覧と値は `twinsim/literature.py`（`REFS`・`PROFILES`）、確かめは `twinsim/validity.py`。
 

@@ -1,5 +1,7 @@
 # 構成（開発する人向け）
 
+[English](architecture.en.md)
+
 ## データの流れ
 
 ```

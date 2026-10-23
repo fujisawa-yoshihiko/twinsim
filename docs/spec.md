@@ -1,5 +1,7 @@
 # twinsim の仕様（v0.2、2026-10-22）
 
+[English](spec.en.md)
+
 建物・工場の人流のデジタルツインのシミュレータ。研究計画（竹芝 VLM × QUBO、10/4 版）と、デジタルツインの構想の図（Observe → Understand → Predict & simulate → Optimize）を確かめるための環境。
 人の動きは CPU で計算し（数秒〜数十秒）、映像が要るときだけ Isaac Sim で描く（GPU、数分〜数時間）。
 
