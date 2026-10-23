@@ -23,7 +23,8 @@ cd ~/twinsim
 ./run.sh mopf-link ~/dt-data/twinsim/runs/office_gate_ev      # infer cross-camera association without ground truth and score it (also the prediction video; re-ID weights via tools/fetch_reid_weights.sh)
 ```
 
-To open the GUI in a browser on your local PC, keep `ssh -N -L 8770:localhost:8770 ampb` running on your local PC and open the URL printed by `./run.sh serve --url`.
+To open the GUI in a browser on your local PC, keep `ssh -N -L 8770:localhost:8770 ampb` running on your local PC and open the URL printed by `./run.sh serve --url`
+(to also see the MOPF screen: `ssh -N -L 8770:localhost:8770 -L 5174:localhost:5174 ampb`). Check what is running with `./status.sh` (GUI server, MOPF, Isaac Sim, GPU).
 The screen has 3 tabs: "Settings" (scenario, distribution of people, cameras), "Results" (summary, check figures, comparison with the literature, videos, comparison with MOPF, downloads) and "MOPF" (start, live, stop).
 The display can be switched between 日本語 and English at the top right (the browser remembers the choice). Text inside the result figures and videos, and validity.md, stays in Japanese.
 The structure and the development procedure are in [docs/architecture.en.md](docs/architecture.en.md).

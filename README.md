@@ -23,7 +23,8 @@ cd ~/twinsim
 ./run.sh mopf-link ~/dt-data/twinsim/runs/office_gate_ev      # 正解を使わずに 2 台の間の対応を推論して採点（予測の動画も。人物照合の重みは tools/fetch_reid_weights.sh）
 ```
 
-手元の PC のブラウザで GUI を開くには、手元の PC で `ssh -N -L 8770:localhost:8770 ampb` を実行したまま、`./run.sh serve --url` の URL を開く。
+手元の PC のブラウザで GUI を開くには、手元の PC で `ssh -N -L 8770:localhost:8770 ampb` を実行したまま、`./run.sh serve --url` の URL を開く
+（MOPF の画面も見るなら `ssh -N -L 8770:localhost:8770 -L 5174:localhost:5174 ampb`）。起動状況は `./status.sh`（GUI のサーバー・MOPF・Isaac Sim・GPU）。
 画面は「設定」（シナリオ・人の分布・カメラ）、「結果」（要約・確認の図・文献との比べ・動画・MOPF との比べ・ダウンロード）、「MOPF」（起動・ライブ・停止）の 3 つのタブ。
 右上で表示を日本語・English に切り替えられる（ブラウザに覚える）。結果の図・動画の中の文字と validity.md は日本語のまま。
 構成と開発の手順は [docs/architecture.md](docs/architecture.md)。
@@ -59,7 +60,7 @@ GPU は他の利用者と共有なので、使い終わったら止める。止�
 | MOPF（GPU を 1 枚使う） | GUI の「MOPF」のタブの「止める」、または `./stop.sh mopf`（= `~/MOPF_ALL_video/stop_ampb.sh`） | データとイメージは残る |
 | Isaac Sim（描画、GPU を 1 枚使う） | `./stop.sh isaac`（= `isim down`） | 描画の途中なら描画も止まる。次に描くときは `./isaac_up.sh <GPU>` |
 | 夜間の描画と比べる処理（`tools/night_b.sh`） | `pgrep -af night_b` で番号を見て `kill <番号>` | 描画（Isaac Sim の中）はそのまま続くので、止めるなら `./stop.sh isaac` も。描画が済んでいれば `tools/night_b.sh --resume` で続きから |
-| まとめて | `./stop.sh`（GUI と MOPF）、`./stop.sh all`（Isaac Sim も） | |
+| まとめて | `./stop.sh`（GUI と MOPF）、`./stop.sh all`（Isaac Sim も） | 止める前後の状態は `./status.sh` |
 
 ## 映像を作るのにかかる時間（2026-10-23 の実測、GPU は RTX PRO 6000 1 枚）
 
