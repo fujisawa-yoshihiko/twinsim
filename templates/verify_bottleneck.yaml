@@ -2,6 +2,7 @@
 # 通った人数の 1 分ごとの最大を、幅 1 m あたり・1 秒あたりにして、文献の値と比べる（validity.md の「ボトルネック」）。
 name: verify_bottleneck
 title: "確かめ: 幅 1 m の出入口を通れる量"
+title_en: "Check: flow through a 1 m wide doorway"
 space: corridor_door
 seed: 4
 duration_s: 240

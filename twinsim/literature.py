@@ -141,6 +141,11 @@ PROFILES = {
         "notes": ["グループの割合は大阪の地下の歩行者空間の値（オフィスのロビーそのものの値ではない）",
                   "グループの横の間隔は大阪 ATC の同僚の 2 人連れの値",
                   "ゲートは 1987 年のカードを読む改札の範囲の中ほど（1 人ごとのばらつきの形は仮）。今の IC カードのゲートはもっと速い可能性がある"],
+        "title_en": "Morning commute to a Japanese office",
+        "notes_en": ["The group share is from an underground pedestrian space in Osaka (not from an office lobby itself)",
+                     "The lateral spacing of groups is that of colleague dyads at Osaka ATC",
+                     "The gate value is the middle of the range for 1987 card-reading turnstiles (the per-person spread is provisional); "
+                     "today's IC-card gates may be faster"],
     },
     "leisure_low_density": {
         "title": "余暇の人出（昼・商業、低密度）",
@@ -154,6 +159,8 @@ PROFILES = {
         "sources": {"speed": "weidmann1993", "group_size": "moussaid2010", "group_speed": "moussaid2010",
                     "group_lateral_m": "zanlungo2017", "speed_density": "weidmann1993"},
         "notes": ["グループの割合はトゥールーズの商店街（平日の午後）の値", "横の間隔は大阪 ATC の友人の 2 人連れ"],
+        "title_en": "Leisure crowd (midday, commercial, low density)",
+        "notes_en": ["The group share is from a shopping street in Toulouse (weekday afternoon)", "The lateral spacing is that of friend dyads at Osaka ATC"],
     },
 }
 

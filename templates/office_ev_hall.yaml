@@ -1,6 +1,7 @@
 # EV 前の紛らわしい状態（研究 1 の RQ1）: EV 待ち・同行者待ち・案内確認・受付・通過が同じ広間に混ざる。カメラは EV 前の 1 台。
 name: office_ev_hall
 title: EV 前の紛らわしい状態（EV 待ち・同行者待ち・案内確認・受付）
+title_en: "Confusable states in the elevator hall (waiting for the elevator, waiting for a companion, checking signs, reception)"
 space: office
 seed: 21
 people:

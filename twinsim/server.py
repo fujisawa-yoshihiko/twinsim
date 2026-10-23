@@ -78,7 +78,8 @@ class App:
             M = np.asarray(c["world_to_camera_rowmajor"])
             top = {**c, "camera_to_world_rowmajor": np.linalg.inv(M).tolist()}
         rows = ["".join("." if v else "#" for v in r) for r in sp.grid[::-1]]
-        return {"name": name, "title": sp.spec.get("title"), "usd": sp.spec.get("usd"), "license": sp.spec.get("license"), "z": sp.z,
+        return {"name": name, "title": sp.spec.get("title"), "title_en": sp.spec.get("title_en"), "usd": sp.spec.get("usd"),
+                "license": sp.spec.get("license"), "license_en": sp.spec.get("license_en"), "z": sp.z,
                 "bounds": sp.bounds(),
                 "pois": sp.pois, "zones": {k: [list(p) for p in v] for k, v in sp.zones.items()},
                 "cameras": sp.spec.get("cameras", {}), "top_view": top, "has_top": bool(lv.get("top_image")),
@@ -88,7 +89,7 @@ class App:
         out = []
         for p in sorted(TEMPLATES.glob("*.yaml")):
             s = yaml.safe_load(p.read_text(encoding="utf-8"))
-            out.append({"name": p.stem, "title": s.get("title", ""), "space": s.get("space")})
+            out.append({"name": p.stem, "title": s.get("title", ""), "title_en": s.get("title_en", ""), "space": s.get("space")})
         return out
 
     # ---- 計算 ----
@@ -224,7 +225,8 @@ def _mopf_process(self, rid, body):
     d = self.run_dir(rid)
     vids = sorted(p.stem for p in (d / "video").glob("*.mp4")) if (d / "video").exists() else []
     est = {"videos": vids, "mopf_ready": mopf.mopf_ready(), "model": body.get("model", "yolo11m"),
-           "note": "MOPF（~/MOPF_ALL_video、./start_ampb.sh --gpu N --no-llm --no-vc3）の GPU を使う。目安は 5 分の動画 1 本で 1〜2 分"}
+           "note": "MOPF（~/MOPF_ALL_video、./start_ampb.sh --gpu N --no-llm --no-vc3）の GPU を使う。目安は 5 分の動画 1 本で 1〜2 分",
+           "note_en": "Uses MOPF's GPU (~/MOPF_ALL_video, ./start_ampb.sh --gpu N --no-llm --no-vc3). About 1–2 min per 5-minute video"}
     if not body.get("confirm"):
         return {"estimate": est}
     if not vids:
@@ -467,7 +469,8 @@ def make_handler(app, token):
             parts = path.strip("/").split("/")[1:]
             if method in ("GET", "HEAD"):
                 if parts == ["profiles"]:
-                    profiles = {k: {"title": v["title"], "sources": v["sources"], "notes": v.get("notes", [])} for k, v in PROFILES.items()}
+                    profiles = {k: {"title": v["title"], "title_en": v.get("title_en"), "sources": v["sources"], "notes": v.get("notes", []),
+                                    "notes_en": v.get("notes_en")} for k, v in PROFILES.items()}
                     return self._json({"profiles": profiles,
                                        "periods": list(LIFT_MIX), "refs": {k: r["cite"] for k, r in REFS.items()}})
                 if parts == ["spaces"]:

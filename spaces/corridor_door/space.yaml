@@ -1,7 +1,9 @@
 # 空間: 合成の廊下（幅 4 m・長さ 50 m、USD なし）の x = 30 に、幅 1.0 m の出入口（壁の厚さ 0.5 m）。ボトルネックを通れる量の確かめ用。
 name: corridor_door
 title: 廊下と幅 1 m の出入口（確かめ用）
+title_en: "Corridor with a 1 m wide doorway (for checks)"
 license: 自作（制限なし）
+license_en: "Self-made (no restrictions)"
 levels:
   - name: 1F
     z: 0.0

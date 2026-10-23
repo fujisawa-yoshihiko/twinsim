@@ -1,6 +1,7 @@
 # 動作確認: オフィスで 30 秒・数人。変更のたびに回す（tests/test_smoke.py）。
 name: office_smoke
 title: 動作確認（30 秒・数人）
+title_en: "Operation check (30 s, a few people)"
 space: office
 seed: 1
 duration_s: 30

@@ -2,7 +2,9 @@
 # 描画はしない（USD がない）。入口・出口は幅のある線（line）で、人はその線の上のどこかから出て、どこかへ向かう。
 name: corridor
 title: 廊下（確かめ用、4 m × 50 m）
+title_en: "Corridor (for checks, 4 m × 50 m)"
 license: 自作（制限なし）
+license_en: "Self-made (no restrictions)"
 levels:
   - name: 1F
     z: 0.0

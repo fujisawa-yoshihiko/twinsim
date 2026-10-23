@@ -2,8 +2,10 @@
 # 描画は未対応: 部屋の中にカメラを置くと、照明を足しても真っ暗に写る（外からは赤い壁の箱に見える。原因は未調査、2026-10-22）。
 name: simple_room
 title: 小部屋（動作確認用）
+title_en: "Small room (for operation checks)"
 usd: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Simple_Room/simple_room.usd
 license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジットを書く）
+license_en: "CC BY 4.0 (NVIDIA Isaac Sim assets; give credit when distributing)"
 navmesh_region: [-5.0, 5.0, -5.0, 5.2, -0.8, 2.2]
 levels:
   - name: 1F
@@ -22,4 +24,4 @@ pois:
 zones:
   room: {polygon: [[-4.6, -4.6], [4.6, -4.6], [4.6, 4.8], [-4.6, 4.8]]}
 cameras:
-  CamRoom: {eye: [-4.0, -4.0, 1.9], target: [1.0, 1.0, -0.77], note: 南西の角の上から部屋を見る}
+  CamRoom: {eye: [-4.0, -4.0, 1.9], target: [1.0, 1.0, -0.77], note: 南西の角の上から部屋を見る, note_en: "Looks at the room from above the south-west corner"}

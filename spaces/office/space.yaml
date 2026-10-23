@@ -3,8 +3,10 @@
 # 入口・ゲートは見立て（USD に入館のゲート機はない。北の廊下の先を建物の入口とし、廊下の中にゲートを置く）。
 name: office
 title: オフィスのロビー（入口 → ゲート → 受付 → エレベーター）
+title_en: "Office lobby (entrance → gate → reception → elevator)"
 usd: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Office/office.usd
 license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジットを書く）
+license_en: "CC BY 4.0 (NVIDIA Isaac Sim assets; give credit when distributing)"
 navmesh_region: [-30.0, 12.0, -16.0, 32.0, 0.0, 3.0]   # x0 x1 y0 y1 z0 z1（シーンは外の建物まで含み 1 km 四方あるので、焼く範囲を絞る）
 levels:
   - name: 1F
@@ -51,6 +53,6 @@ zones:
 
 # カメラの候補（シナリオで名前を指定して使う。位置・向きはシナリオで上書きできる）
 cameras:
-  CamGate:  {eye: [-0.8, 5.5, 2.7], target: [-3.0, 14.5, 0.8], note: ロビーから北の廊下（扉の向こうのゲート）を見る}
-  CamEV:    {eye: [-8.0, 4.0, 2.7], target: [-14.0, -3.0, 0.8], note: 受付の北から、西のエレベーター前を見る}
-  CamLobby: {eye: [4.5, -7.5, 2.7], target: [-5.0, 2.0, 0.8], note: 南東の角からロビー全体を見る}
+  CamGate:  {eye: [-0.8, 5.5, 2.7], target: [-3.0, 14.5, 0.8], note: ロビーから北の廊下（扉の向こうのゲート）を見る, note_en: "Looks from the lobby at the north corridor (the gate beyond the door)"}
+  CamEV:    {eye: [-8.0, 4.0, 2.7], target: [-14.0, -3.0, 0.8], note: 受付の北から、西のエレベーター前を見る, note_en: "Looks from north of the reception at the elevator hall to the west"}
+  CamLobby: {eye: [4.5, -7.5, 2.7], target: [-5.0, 2.0, 0.8], note: 南東の角からロビー全体を見る, note_en: "Looks at the whole lobby from the south-east corner"}

@@ -2,6 +2,7 @@
 # 次の指示を待ってから、もう 1 度ピッキング → 梱包をして帰る。状態: pass（移動）・work（作業）・wait（待ち）。
 name: warehouse_picking
 title: 倉庫のピッキング（作業・待ち・移動）
+title_en: "Warehouse picking (work, waiting, moving)"
 space: warehouse
 seed: 5
 duration_s: 300

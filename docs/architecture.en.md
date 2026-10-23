@@ -36,7 +36,7 @@ spaces/<name>/   ──→ space.load_space (grid of the walkable area, semantic
 | `twinsim/isaac_bridge.py`, `isaac/` | Rendering in Isaac Sim, space assets (what runs inside Isaac Sim is `isaac/`) | `render`, `finish_render`, `export_space` |
 | `twinsim/mopf/` | Integration with MOPF (listed in `__init__.py`) | `process`, `evaluate`, `graph`, `floormap`, `overlay`, `control` |
 | `twinsim/api.py`, `__main__.py` | Python entry point and commands (`twinsim <subcommand>`) | `api.run` |
-| `twinsim/server.py`, `static/` | GUI and REST API (`app.js`: settings and results, `mopf.js`: the MOPF tab) | `serve` |
+| `twinsim/server.py`, `static/` | GUI and REST API (`app.js`: Settings and Results, `mopf.js`: the MOPF tab, `i18n.js`: switching between 日本語 and English. On-screen text uses `tr("日本語", "English")` and `data-en` in the HTML. English for templates, spaces and literature profiles is in `title_en`, `license_en`, `note_en` and `notes_en`) | `serve` |
 
 ## Development procedure
 

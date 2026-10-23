@@ -2,6 +2,7 @@
 # 詰まって動けなくなる人がいないか・近づきすぎないか・速さ（validity.md の「動けなくなった人」と密度ごとの速さ（参考））。
 name: verify_counterflow
 title: "確かめ: すれ違い（向かい合う流れ）"
+title_en: "Check: counterflow (opposing streams)"
 space: corridor
 seed: 6
 duration_s: 240

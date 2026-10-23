@@ -24,6 +24,7 @@ cd ~/twinsim
 
 手元の PC のブラウザで GUI を開くには、手元の PC で `ssh -N -L 8770:localhost:8770 ampb` を実行したまま、`./run.sh serve --url` の URL を開く。
 画面は「設定」（シナリオ・人の分布・カメラ）、「結果」（要約・確認の図・文献との比べ・動画・MOPF との比べ・ダウンロード）、「MOPF」（起動・ライブ・停止）の 3 つのタブ。
+右上で表示を日本語・English に切り替えられる（ブラウザに覚える）。結果の図・動画の中の文字と validity.md は日本語のまま。
 構成と開発の手順は [docs/architecture.md](docs/architecture.md)。
 
 結果は `~/dt-data/twinsim/runs/<名前>/`（`preview.png` で軌跡を確かめられる）。描画は docs/spec.md の「描画」。

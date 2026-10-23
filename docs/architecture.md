@@ -36,7 +36,7 @@ spaces/<名前>/   ──→ space.load_space（歩ける所の格子・意味�
 | `twinsim/isaac_bridge.py`・`isaac/` | Isaac Sim での描画・空間の材料（Isaac Sim の中で動くのは `isaac/`） | `render`・`finish_render`・`export_space` |
 | `twinsim/mopf/` | MOPF との連携（`__init__.py` に一覧） | `process`・`evaluate`・`graph`・`floormap`・`overlay`・`control` |
 | `twinsim/api.py`・`__main__.py` | Python の入口・コマンド（`twinsim <サブコマンド>`） | `api.run` |
-| `twinsim/server.py`・`static/` | GUI と REST API（`app.js`: 設定・結果、`mopf.js`: MOPF のタブ） | `serve` |
+| `twinsim/server.py`・`static/` | GUI と REST API（`app.js`: 設定・結果、`mopf.js`: MOPF のタブ、`i18n.js`: 日本語・English の切り替え。画面の文字は `tr("日本語", "English")` と、HTML の `data-en`。テンプレート・空間・文献の組の英語は `title_en`・`license_en`・`note_en`・`notes_en`） | `serve` |
 
 ## 開発の手順
 

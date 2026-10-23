@@ -175,16 +175,17 @@ function renderStreams() {
   S.spec.streams.forEach((st, i) => {
     const d = document.createElement("div"); d.className = "stream";
     const lam = st.group_size && st.group_size.lam !== undefined ? st.group_size.lam : "";
-    const dflt = S.spec.people?.profile ? "文献の既定" : "なし";
-    const unit = st.rate?.unit === "persons" ? "人/分" : "まとまり/分";
+    const dflt = S.spec.people?.profile ? tr("文献の既定", "literature default") : tr("なし", "none");
+    const unit = st.rate?.unit === "persons" ? tr("人/分", "people/min") : tr("まとまり/分", "groups/min");
     const rateField = isDemand(st.rate)
-      ? `<span class="muted">到着: 建物の人数から ${(demandPerMin(st.rate) ?? 0).toFixed(1)} 人/分（${st.rate.flow || "incoming"}・割合 ${st.rate.share ?? 1}、Peters ら 2011）</span>`
-      : `<label>到着（${unit}。時間帯で変えるなら 秒:率, …）<input type="text" data-k="rate" value="${rateText(st.rate)}" style="width:200px"></label>`;
-    d.innerHTML = `<h4>${st.name || "流れ " + (i + 1)}（現れる所: ${st.origin}）</h4>
+      ? `<span class="muted">${tr(`到着: 建物の人数から ${(demandPerMin(st.rate) ?? 0).toFixed(1)} 人/分（${st.rate.flow || "incoming"}・割合 ${st.rate.share ?? 1}、Peters ら 2011）`,
+        `Arrivals: from the building population, ${(demandPerMin(st.rate) ?? 0).toFixed(1)} people/min (${st.rate.flow || "incoming"}, share ${st.rate.share ?? 1}; Peters et al. 2011)`)}</span>`
+      : `<label>${tr(`到着（${unit}。時間帯で変えるなら 秒:率, …）`, `Arrivals (${unit}; to vary over time, s:rate, …)`)}<input type="text" data-k="rate" value="${rateText(st.rate)}" style="width:200px"></label>`;
+    d.innerHTML = `<h4>${st.name || tr("流れ ", "Stream ") + (i + 1)}${tr(`（現れる所: ${st.origin}）`, ` (appears at: ${st.origin})`)}</h4>
       ${rateField}
-      <label>まとまりの λ（0 を除いたポアソン）<input type="number" step="0.05" min="0" data-k="lam" value="${lam}" placeholder="${dflt}"></label>
-      <table class="dest"><tr><th>行き先</th><th>重み</th><th>種類</th></tr>
-      ${(st.destinations || []).map((de, j) => `<tr><td>${typeof de === "string" ? de : de.to}${de.then ? " → …" : ""}${(de.via || []).length ? "（ゲート経由）" : ""}</td>
+      <label>${tr("まとまりの λ（0 を除いたポアソン）", "Group size λ (zero-truncated Poisson)")}<input type="number" step="0.05" min="0" data-k="lam" value="${lam}" placeholder="${dflt}"></label>
+      <table class="dest"><tr><th>${tr("行き先", "Destination")}</th><th>${tr("重み", "Weight")}</th><th>${tr("種類", "Types")}</th></tr>
+      ${(st.destinations || []).map((de, j) => `<tr><td>${typeof de === "string" ? de : de.to}${de.then ? " → …" : ""}${(de.via || []).length ? tr("（ゲート経由）", " (via gate)") : ""}</td>
         <td><input type="number" step="0.01" min="0" data-dest="${j}" value="${de.p ?? 1}"></td><td>${(de.types || []).join(",")}</td></tr>`).join("")}
       </table>`;
     d.querySelector('[data-k="rate"]')?.addEventListener("change", (e) => { st.rate = parseRate(e.target.value, st.rate); syncJson(); });
@@ -203,10 +204,11 @@ let PROFILES = null;
 async function renderPeople() {
   if (!PROFILES) PROFILES = await api("/api/profiles");
   const cur = S.spec.people?.profile || "";
-  $("profile").innerHTML = `<option value="">なし（既定: 速さ・速さと密度・グループの速さと間隔は文献、人数の分布はシナリオ）</option>` +
-    Object.entries(PROFILES.profiles).map(([k, p]) => `<option value="${k}" ${k === cur ? "selected" : ""}>${p.title}（${k}）</option>`).join("");
+  $("profile").innerHTML = `<option value="">${tr("なし（既定: 速さ・速さと密度・グループの速さと間隔は文献、人数の分布はシナリオ）",
+    "None (default: speed, speed–density, and group speed and spacing from the literature; the number of people from the scenario)")}</option>` +
+    Object.entries(PROFILES.profiles).map(([k, p]) => `<option value="${k}" ${k === cur ? "selected" : ""}>${tr(`${p.title}（${k}）`, `${p.title_en || p.title} (${k})`)}</option>`).join("");
   const p = PROFILES.profiles[cur];
-  $("profile-note").innerHTML = p ? `根拠: ${Object.entries(p.sources).map(([k, v]) => `${k} = ${v}`).join("、")}<br>${p.notes.join("<br>")}` : "";
+  $("profile-note").innerHTML = p ? `${tr("根拠", "Sources")}: ${Object.entries(p.sources).map(([k, v]) => `${k} = ${v}`).join(tr("、", ", "))}<br>${tr(p.notes, p.notes_en || p.notes).join("<br>")}` : "";
   const d = S.spec.demand || {};
   const uses = S.spec.streams.some((st) => isDemand(st.rate)) || isDemand(S.spec.elevator?.alight?.count);
   $("demand-row").classList.toggle("hidden", !uses && !S.spec.demand);
@@ -231,7 +233,7 @@ function renderEv() {
   $("ev-min").value = iv.min; $("ev-max").value = iv.max; $("ev-cap").value = ev.capacity ?? 8;
   const c = ev.alight?.count;
   $("ev-alight").value = isDemand(c) ? "" : (c?.lam ?? 0);
-  $("ev-alight").placeholder = isDemand(c) ? "建物の人数から" : "";
+  $("ev-alight").placeholder = isDemand(c) ? tr("建物の人数から", "from building population") : "";
 }
 ["ev-min", "ev-max", "ev-cap", "ev-alight"].forEach((id) => $(id).addEventListener("change", () => {
   const ev = S.spec.elevator; if (!ev) return;
@@ -246,10 +248,10 @@ function renderEv() {
 function renderGates() {
   const gates = Object.entries(S.space.pois).filter(([, p]) => p.kind === "gate");
   $("gate-box").classList.toggle("hidden", !gates.length);
-  const dflt = S.spec.people?.profile ? "文献の既定（中央 2.0）" : "1.5";
+  const dflt = S.spec.people?.profile ? tr("文献の既定（中央 2.0）", "literature default (median 2.0)") : "1.5";
   $("gates").innerHTML = gates.map(([k]) => {
     const v = S.spec.gates?.[k]?.service_s;
-    return `<label>${k}: 1 人を通す間隔（秒）<input type="number" step="0.1" min="0.3" data-gate="${k}" value="${typeof v === "number" ? v : ""}" placeholder="${dflt}" style="width:150px"></label>`;
+    return `<label>${k}: ${tr("1 人を通す間隔（秒）", "time per person (s)")}<input type="number" step="0.1" min="0.3" data-gate="${k}" value="${typeof v === "number" ? v : ""}" placeholder="${dflt}" style="width:150px"></label>`;
   }).join("");
   $("gates").querySelectorAll("[data-gate]").forEach((inp) => inp.addEventListener("change", (e) => {
     S.spec.gates = S.spec.gates || {};
@@ -268,8 +270,8 @@ function renderCameras() {
     const c = i !== undefined ? resolveCam(S.spec.cameras[i]) : S.space.cameras[n];
     const xyz = (k) => (c[k] || [0, 0, 0]).map((v, j) => `<input class="xyz" type="number" step="0.1" data-cam="${n}" data-k="${k}" data-j="${j}" value="${(+v).toFixed(2)}" ${i === undefined ? "disabled" : ""}>`).join("");
     return `<div class="cam"><label><input type="checkbox" data-use="${n}" ${i !== undefined ? "checked" : ""}> <b>${n}</b></label>
-      <span class="muted">${S.space.cameras[n].note || ""}</span>
-      <div class="row">位置 ${xyz("eye")}</div><div class="row">見る点 ${xyz("target")}</div></div>`;
+      <span class="muted">${tr(S.space.cameras[n].note || "", S.space.cameras[n].note_en || S.space.cameras[n].note || "")}</span>
+      <div class="row">${tr("位置", "Position")} ${xyz("eye")}</div><div class="row">${tr("見る点", "Look-at point")} ${xyz("target")}</div></div>`;
   }).join("");
   box.querySelectorAll("[data-use]").forEach((cb) => cb.addEventListener("change", (e) => {
     const n = e.target.dataset.use;
@@ -289,7 +291,7 @@ function renderProps() {
   const props = Object.entries(S.space.pois).filter(([, p]) => p.kind === "prop");
   $("props-box").classList.toggle("hidden", !props.length);
   const on = new Set(S.spec.render?.props || []);
-  $("props").innerHTML = props.map(([k, p]) => `<label><input type="checkbox" data-prop="${k}" ${on.has(k) ? "checked" : ""}> ${k}（${p.prop}）</label>`).join("");
+  $("props").innerHTML = props.map(([k, p]) => `<label><input type="checkbox" data-prop="${k}" ${on.has(k) ? "checked" : ""}> ${tr(`${k}（${p.prop}）`, `${k} (${p.prop})`)}</label>`).join("");
   $("props").querySelectorAll("[data-prop]").forEach((cb) => cb.addEventListener("change", (e) => {
     const s = new Set(S.spec.render.props || []);
     e.target.checked ? s.add(e.target.dataset.prop) : s.delete(e.target.dataset.prop);
@@ -305,8 +307,8 @@ $("duration").addEventListener("change", (e) => { S.spec.duration_s = num(e.targ
 $("seed").addEventListener("change", (e) => { S.spec.seed = Math.round(num(e.target.value, 0)); syncJson(); });
 function syncJson() { $("spec-json").value = JSON.stringify(S.spec, null, 1); }
 $("apply-json").addEventListener("click", () => {
-  try { S.spec = JSON.parse($("spec-json").value); renderAll(); $("run-msg").textContent = "JSON を反映しました"; }
-  catch (e) { $("run-msg").textContent = "JSON を読めません: " + e.message; }
+  try { S.spec = JSON.parse($("spec-json").value); renderAll(); $("run-msg").textContent = tr("JSON を反映しました", "Applied the JSON"); }
+  catch (e) { $("run-msg").textContent = tr("JSON を読めません: ", "Cannot read the JSON: ") + e.message; }
 });
 $("download").addEventListener("click", () => {
   const a = document.createElement("a");
@@ -326,19 +328,20 @@ async function loadTemplate(name) {
       img.src = `/api/spaces/${S.space.name}/top`;
     }
   }
-  $("space-name").textContent = `空間: ${S.space.title || S.space.name}（${S.space.license || ""}）`;
+  $("space-name").textContent = tr(`空間: ${S.space.title || S.space.name}（${S.space.license || ""}）`,
+    `Space: ${S.space.title_en || S.space.title || S.space.name} (${S.space.license_en || S.space.license || ""})`);
   resize(); renderAll();
 }
 
 // ---- 計算と結果 ----
 $("run").addEventListener("click", async () => {
-  $("run").disabled = true; $("run-msg").textContent = "計算を始めます…";
+  $("run").disabled = true; $("run-msg").textContent = tr("計算を始めます…", "Starting the simulation…");
   try {
     const { id } = await post("/api/runs", { scenario: S.spec });
-    $("run-msg").textContent = `計算中: ${id}`;
+    $("run-msg").textContent = tr(`計算中: ${id}`, `Running: ${id}`);
     await waitRun(id);
     switchTab("results"); await refreshRuns(); await showRun(id);
-    $("run-msg").textContent = `できました: ${id}`;
+    $("run-msg").textContent = tr(`できました: ${id}`, `Done: ${id}`);
   } catch (e) { $("run-msg").innerHTML = `<span class="err">${e.message}</span>`; }
   $("run").disabled = false;
 });
@@ -353,7 +356,7 @@ async function waitRun(id) {
 async function refreshRuns() {
   const runs = await api("/api/runs");
   $("runs").innerHTML = runs.map((r) => `<li data-id="${r.id}" class="${r.id === S.runId ? "active" : ""}"><span>${r.id}</span>
-    <span class="muted">${r.status}${r.videos.length ? "・動画 " + r.videos.length : ""}</span></li>`).join("");
+    <span class="muted">${r.status}${r.videos.length ? tr("・動画 ", ", videos ") + r.videos.length : ""}</span></li>`).join("");
   $("runs").querySelectorAll("li").forEach((li) => li.addEventListener("click", () => showRun(li.dataset.id)));
 }
 $("refresh").addEventListener("click", refreshRuns);
@@ -365,18 +368,19 @@ async function renderIdTable(id) {
   const multi = {};
   for (const c of cams) for (const [tid, segs] of Object.entries(res.mopf_ids[c] || {})) {
     const ps = [...new Set(segs.map((x) => x.person))];
-    if (ps.length > 1) (multi[c] = multi[c] || []).push(`ID ${tid} = ${ps.join("・")}`);
+    if (ps.length > 1) (multi[c] = multi[c] || []).push(`ID ${tid} = ${ps.join(tr("・", ", "))}`);
   }
   const seek = (t) => `<a href="#" data-seek="${Math.max(0, t - 1)}">`;
   const rows = Object.entries(res.persons).map(([n, p]) => {
-    const cells = cams.map((c) => (p.cams[c] || []).map((x) => `${seek(x.t0)}ID ${x.mopf_id}</a>（${x.t0}〜${x.t1} 秒）`).join("<br>") || "-");
-    const ho = p.handovers.map((h) => `${h.from} ID ${h.id_from ?? "なし"} → ${h.to} ID ${h.id_to ?? "なし"}（${h.dt} 秒）`).join("<br>") || "-";
+    const cells = cams.map((c) => (p.cams[c] || []).map((x) => `${seek(x.t0)}ID ${x.mopf_id}</a>${tr(`（${x.t0}〜${x.t1} 秒）`, ` (${x.t0}–${x.t1} s)`)}`).join("<br>") || "-");
+    const ho = p.handovers.map((h) => `${h.from} ID ${h.id_from ?? tr("なし", "none")} → ${h.to} ID ${h.id_to ?? tr("なし", "none")}${tr(`（${h.dt} 秒）`, ` (${h.dt} s)`)}`).join("<br>") || "-";
     return `<tr data-q="${n} ${cams.map((c) => (p.cams[c] || []).map((x) => "ID" + x.mopf_id).join(" ")).join(" ")}"><td>${n}</td><td>${p.type ?? ""}</td>${cells.map((x) => `<td>${x}</td>`).join("")}<td>${ho}</td></tr>`;
   }).join("");
-  $("id-table").innerHTML = `<div class="row"><label>絞り込み <input id="id-filter" placeholder="P0012 や ID19"></label>
-      <span class="muted">${Object.keys(res.persons).length} 人・2 台に映った ${Object.values(res.persons).filter((p) => p.handovers.length).length} 人</span></div>
-    ${Object.keys(multi).length ? `<div class="muted">1 つの ID が複数の人にまたがった（取り違え）: ${Object.entries(multi).map(([c, v]) => `${c}: ${v.slice(0, 8).join("、")}${v.length > 8 ? " ほか " + (v.length - 8) : ""}`).join("／")}</div>` : ""}
-    <div style="max-height:360px;overflow:auto"><table class="dest"><tr><th>人</th><th>種類</th>${cams.map((c) => `<th>${c} の ID</th>`).join("")}<th>カメラの間</th></tr>${rows}</table></div>`;
+  $("id-table").innerHTML = `<div class="row"><label>${tr("絞り込み", "Filter")} <input id="id-filter" placeholder="${tr("P0012 や ID19", "e.g. P0012 or ID19")}"></label>
+      <span class="muted">${tr(`${Object.keys(res.persons).length} 人・2 台に映った ${Object.values(res.persons).filter((p) => p.handovers.length).length} 人`,
+        `${Object.keys(res.persons).length} people, ${Object.values(res.persons).filter((p) => p.handovers.length).length} seen by 2 cameras`)}</span></div>
+    ${Object.keys(multi).length ? `<div class="muted">${tr("1 つの ID が複数の人にまたがった（取り違え）", "IDs that spanned several people (ID switches)")}: ${Object.entries(multi).map(([c, v]) => `${c}: ${v.slice(0, 8).join(tr("、", "; "))}${v.length > 8 ? tr(" ほか " + (v.length - 8), ` and ${v.length - 8} more`) : ""}`).join(tr("／", " / "))}</div>` : ""}
+    <div style="max-height:360px;overflow:auto"><table class="dest"><tr><th>${tr("人", "Person")}</th><th>${tr("種類", "Type")}</th>${cams.map((c) => `<th>${tr(`${c} の ID`, `${c} ID`)}</th>`).join("")}<th>${tr("カメラの間", "Between cameras")}</th></tr>${rows}</table></div>`;
   $("id-table").querySelectorAll("[data-seek]").forEach((a) => a.addEventListener("click", (e) => {
     e.preventDefault();
     const v = $("sync-video");
@@ -389,100 +393,109 @@ async function renderIdTable(id) {
 }
 function mopfCrossHtml(c) {
   if (!c || !Object.keys(c).length) return "";
-  return `<div class="muted">通過線（人流モニターと同じ数え方）: ` + Object.entries(c).map(([cam, x]) =>
-    `${cam} 正解なら ${x.expected} 回・MOPF ${x.mopf} 回・対応 ${x.matched}（数えもらし ${x.missed}・余分 ${x.extra}）`).join("、") + "</div>";
+  return `<div class="muted">${tr("通過線（人流モニターと同じ数え方）", "Counting lines (counted the same way as the flow monitor)")}: ` + Object.entries(c).map(([cam, x]) =>
+    tr(`${cam} 正解なら ${x.expected} 回・MOPF ${x.mopf} 回・対応 ${x.matched}（数えもらし ${x.missed}・余分 ${x.extra}）`,
+      `${cam}: ground truth ${x.expected}, MOPF ${x.mopf}, matched ${x.matched} (missed counts ${x.missed}, extra ${x.extra})`)).join(tr("、", "; ")) + "</div>";
 }
 function mopfEvalHtml(ev, gr) {
   if (!ev) return "";
   const rows = Object.entries(ev.cameras).map(([c, r]) => `<tr><td>${c}</td><td>${r.mota}</td><td>${r.idf1}</td><td>${r.num_switches}</td>
     <td>${r.recall}</td><td>${r.precision}</td><td>${r.count_mae}</td><td>${r.foot_error_m_median ?? "-"}</td></tr>`).join("");
   const g = gr ? Object.entries(gr).map(([c, v]) => Object.entries(v.zones_compared).map(([z, x]) =>
-    `${c}・${z}: MOPF ${x.mean_mopf} 人 / 正解 ${x.mean_truth} 人（誤差 ${x.mae}）`).join("、")).join("、") : "";
-  return `<table class="dest"><tr><th>カメラ</th><th>MOTA</th><th>IDF1</th><th>ID の切り替わり</th><th>再現率</th><th>適合率</th><th>人数の誤差</th><th>足元のずれ（m）</th></tr>${rows}</table>
-    ${g ? `<div class="muted">中間層のグラフ（ゾーンの人数の平均）: ${g}</div>` : ""}`;
+    tr(`${c}・${z}: MOPF ${x.mean_mopf} 人 / 正解 ${x.mean_truth} 人（誤差 ${x.mae}）`,
+      `${c} ${z}: MOPF ${x.mean_mopf} / ground truth ${x.mean_truth} people (error ${x.mae})`)).join(tr("、", "; "))).join(tr("、", "; ")) : "";
+  return `<table class="dest"><tr><th>${tr("カメラ", "Camera")}</th><th>MOTA</th><th>IDF1</th><th>${tr("ID の切り替わり", "ID switches")}</th><th>${tr("再現率", "Recall")}</th><th>${tr("適合率", "Precision")}</th><th>${tr("人数の誤差", "Count error")}</th><th>${tr("足元のずれ（m）", "Foot-point error (m)")}</th></tr>${rows}</table>
+    ${g ? `<div class="muted">${tr("中間層のグラフ（ゾーンの人数の平均）", "Intermediate graph layer (mean number of people per zone)")}: ${g}</div>` : ""}`;
 }
 const fileUrl = (id, path) => `/api/runs/${encodeURIComponent(id)}/file?path=${encodeURIComponent(path)}`;
 const dlUrl = (id, path) => fileUrl(id, path) + "&download=1";
-const dlLink = (id, path, label = "ダウンロード") => `<a class="dl" href="${dlUrl(id, path)}">⬇ ${label}</a>`;
+const dlLink = (id, path, label = tr("ダウンロード", "Download")) => `<a class="dl" href="${dlUrl(id, path)}">⬇ ${label}</a>`;
 async function showRun(id) {
   S.runId = id;
   $("runs").querySelectorAll("li").forEach((li) => li.classList.toggle("active", li.dataset.id === id));
   const r = await api(`/api/runs/${id}`);
   const s = r.summary || {};
   const ev = s.elevator || {};
-  const states = Object.entries(s.state_seconds || {}).map(([k, v]) => `${k} ${Math.round(v)} 秒`).join("・");
+  const states = Object.entries(s.state_seconds || {}).map(([k, v]) => tr(`${k} ${Math.round(v)} 秒`, `${k} ${Math.round(v)} s`)).join(tr("・", ", "));
   const cams = r.files.filter((f) => f.startsWith("mot/") && f.endsWith(".txt")).map((f) => f.slice(4, -4));
   const vids = r.files.filter((f) => f.startsWith("video/") && f.endsWith(".mp4"));
   const ren = r.render;
   $("run-detail").innerHTML = `
     <h3>${id}</h3>
-    <div class="chips"><span class="chip">${s.people ?? "-"} 人</span><span class="chip">同時に最大 ${s.max_present ?? "-"} 人</span>
-      <span class="chip">グループ ${s.groups ?? "-"}</span>
-      <span class="chip">EV ${ev.arrivals ?? 0} 回・乗った ${ev.boarded ?? 0}・待ち 平均 ${ev.wait_mean_s ?? "-"} 秒</span>
-      <span class="chip">ゲート 入館 ${(s.gate_passes || {}).in ?? 0}・退館 ${(s.gate_passes || {}).out ?? 0}</span></div>
-    <div class="muted">状態ごとの時間: ${states}</div>
-    <div class="row"><a class="secondary" href="/api/runs/${encodeURIComponent(id)}/zip">⬇ 結果をまとめてダウンロード（動画なし、zip）</a>
-      <a class="dl" href="/api/runs/${encodeURIComponent(id)}/zip?videos=1">⬇ 動画も含める</a></div>
-    <img src="${fileUrl(id, "preview.png")}" alt="確認の図">
-    ${r.files.includes("validity.png") ? `<h3>文献との比べ（妥当性）</h3>
-      <div class="muted">入力の再現（文献の分布を入れた量が崩れていないか）と、出てくる量（入れていない量が文献の範囲か）。表と根拠の台帳は
+    <div class="chips"><span class="chip">${tr(`${s.people ?? "-"} 人`, `${s.people ?? "-"} people`)}</span><span class="chip">${tr(`同時に最大 ${s.max_present ?? "-"} 人`, `max ${s.max_present ?? "-"} at once`)}</span>
+      <span class="chip">${tr(`グループ ${s.groups ?? "-"}`, `groups ${s.groups ?? "-"}`)}</span>
+      <span class="chip">${tr(`EV ${ev.arrivals ?? 0} 回・乗った ${ev.boarded ?? 0}・待ち 平均 ${ev.wait_mean_s ?? "-"} 秒`,
+        `EV ${ev.arrivals ?? 0} arrivals, boarded ${ev.boarded ?? 0}, mean wait ${ev.wait_mean_s ?? "-"} s`)}</span>
+      <span class="chip">${tr(`ゲート 入館 ${(s.gate_passes || {}).in ?? 0}・退館 ${(s.gate_passes || {}).out ?? 0}`,
+        `gate entry ${(s.gate_passes || {}).in ?? 0}, exit ${(s.gate_passes || {}).out ?? 0}`)}</span></div>
+    <div class="muted">${tr("状態ごとの時間", "Time per state")}: ${states}</div>
+    <div class="row"><a class="secondary" href="/api/runs/${encodeURIComponent(id)}/zip">⬇ ${tr("結果をまとめてダウンロード（動画なし、zip）", "Download all results (without videos, zip)")}</a>
+      <a class="dl" href="/api/runs/${encodeURIComponent(id)}/zip?videos=1">⬇ ${tr("動画も含める", "Include videos")}</a></div>
+    <img src="${fileUrl(id, "preview.png")}" alt="${tr("確認の図", "Check figure")}">
+    ${r.files.includes("validity.png") ? `<h3>${tr("文献との比べ（妥当性）", "Comparison with the literature (validity)")}</h3>
+      <div class="muted">${tr("入力の再現（文献の分布を入れた量が崩れていないか）と、出てくる量（入れていない量が文献の範囲か）。表と根拠の台帳は",
+        "Reproduction of the inputs (whether quantities given literature distributions are preserved) and the emergent quantities (whether quantities not given are within the literature ranges). The table and the ledger of sources:")}
       <a href="${fileUrl(id, "validity.md")}" target="_blank">validity.md</a></div>
-      <img src="${fileUrl(id, "validity.png")}" alt="文献との比べ">` : ""}
-    <h3>描画（GPU）</h3>
-    <div class="row"><button class="secondary" id="render-test">いちばん混む 5 秒を試し撮り</button>
-      <button class="secondary" id="render-all">全部を描画</button></div>
-    <div id="render-msg" class="muted">${ren ? `描画: ${ren.status}${ren.error ? "・" + ren.error : ""}${ren.seconds ? "・" + ren.seconds + " 秒" : ""}` : ""}</div>
+      <img src="${fileUrl(id, "validity.png")}" alt="${tr("文献との比べ", "Comparison with the literature")}">` : ""}
+    <h3>${tr("描画（GPU）", "Rendering (GPU)")}</h3>
+    <div class="row"><button class="secondary" id="render-test">${tr("いちばん混む 5 秒を試し撮り", "Test render of the busiest 5 s")}</button>
+      <button class="secondary" id="render-all">${tr("全部を描画", "Render all")}</button></div>
+    <div id="render-msg" class="muted">${ren ? `${tr("描画", "Rendering")}: ${ren.status}${ren.error ? tr("・", ", ") + ren.error : ""}${ren.seconds ? tr("・", ", ") + ren.seconds + tr(" 秒", " s") : ""}` : ""}</div>
     ${vids.map((v) => `<div class="muted">${v} ${dlLink(id, v)}</div><video src="${fileUrl(id, v)}" controls muted loop preload="metadata"></video>`).join("")}
-    <h3>MOPF との連携</h3>
-    <div class="muted">人流モニターの設定（床の図・位置合わせ・線・エリア）と、正解なら数えるはずの値:</div>
+    <h3>${tr("MOPF との連携", "Integration with MOPF")}</h3>
+    <div class="muted">${tr("人流モニターの設定（床の図・位置合わせ・線・エリア）と、正解なら数えるはずの値:",
+      "Flow monitor settings (floor map, alignment, lines, areas) and the values the ground truth says should be counted:")}</div>
     <div class="row">${cams.map((c) => `<button class="secondary" data-mopf="${c}">${c}</button>`).join("")}</div>
     <div id="mopf-msg" class="muted"></div>
-    <div class="row"><button class="secondary" id="mopf-process" ${vids.length ? "" : "disabled"}>動画を MOPF で検出・追跡（GPU）</button>
-      <button class="secondary" id="mopf-eval" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>MOPF の追跡を正解と比べる</button></div>
-    <div id="mopf-proc-msg" class="muted">${r.mopf_job ? `MOPF: ${r.mopf_job.status}${r.mopf_job.error ? "・" + r.mopf_job.error : ""}` : ""}</div>
+    <div class="row"><button class="secondary" id="mopf-process" ${vids.length ? "" : "disabled"}>${tr("動画を MOPF で検出・追跡（GPU）", "Detect and track the videos with MOPF (GPU)")}</button>
+      <button class="secondary" id="mopf-eval" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>${tr("MOPF の追跡を正解と比べる", "Compare MOPF's tracks with the ground truth")}</button></div>
+    <div id="mopf-proc-msg" class="muted">${r.mopf_job ? `MOPF: ${r.mopf_job.status}${r.mopf_job.error ? tr("・", ", ") + r.mopf_job.error : ""}` : ""}</div>
     <div id="mopf-eval-box">${mopfEvalHtml(r.mopf_eval, r.mopf_graph)}</div>
     ${mopfCrossHtml(r.mopf_crossings)}
-    ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_floor.png")).map((v) => `<div class="muted">${v}（MOPF の足元を床に写した軌跡と正解）${dlLink(id, v)}</div>
-      <img src="${fileUrl(id, v)}" alt="床に写した図">`).join("")}
-    <h3>2 台を時刻で並べる（同じ人が各カメラでどの ID か）</h3>
-    <div class="row"><button class="secondary" id="mopf-sync" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>並べた動画と対応表を作る（CPU、3〜4 分）</button></div>
-    <div id="sync-msg" class="muted">${r.sync_job ? `並べた動画: ${r.sync_job.status}${r.sync_job.error ? "・" + r.sync_job.error : ""}` : ""}</div>
-    ${r.files.includes("mopf_eval/sync.mp4") ? `<div class="muted">mopf_eval/sync.mp4 <a class="dl" href="${fileUrl(id, "mopf_eval/sync.mp4")}" target="_blank" rel="noopener">別のタブで大きく開く</a>
-      ${dlLink(id, "mopf_eval/sync.mp4")}・${dlLink(id, "mopf_eval/identities.csv", "対応表（CSV）")}<br>
-      細い枠 = 正解（人ごとの色、2 台で同じ色）・太い枠 = MOPF（「人 / ID」）・赤 = 見逃し・灰 = 対応する人のいない MOPF の枠</div>
+    ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_floor.png")).map((v) => `<div class="muted">${v}${tr("（MOPF の足元を床に写した軌跡と正解）", " (MOPF's foot points projected on the floor, and the ground truth)")}${dlLink(id, v)}</div>
+      <img src="${fileUrl(id, v)}" alt="${tr("床に写した図", "Floor map")}">`).join("")}
+    <h3>${tr("2 台を時刻で並べる（同じ人が各カメラでどの ID か）", "Show 2 cameras side by side in time (which ID the same person has in each camera)")}</h3>
+    <div class="row"><button class="secondary" id="mopf-sync" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>${tr("並べた動画と対応表を作る（CPU、3〜4 分）", "Make the side-by-side video and the ID correspondence table (CPU, 3–4 min)")}</button></div>
+    <div id="sync-msg" class="muted">${r.sync_job ? `${tr("並べた動画", "Side-by-side video")}: ${r.sync_job.status}${r.sync_job.error ? tr("・", ", ") + r.sync_job.error : ""}` : ""}</div>
+    ${r.files.includes("mopf_eval/sync.mp4") ? `<div class="muted">mopf_eval/sync.mp4 <a class="dl" href="${fileUrl(id, "mopf_eval/sync.mp4")}" target="_blank" rel="noopener">${tr("別のタブで大きく開く", "Open large in a new tab")}</a>
+      ${dlLink(id, "mopf_eval/sync.mp4")}${tr("・", " · ")}${dlLink(id, "mopf_eval/identities.csv", tr("対応表（CSV）", "ID correspondence table (CSV)"))}<br>
+      ${tr("細い枠 = 正解（人ごとの色、2 台で同じ色）・太い枠 = MOPF（「人 / ID」）・赤 = 見逃し・灰 = 対応する人のいない MOPF の枠",
+        "thin boxes = ground truth (a color per person, the same color in both cameras) · thick boxes = MOPF (\"person / ID\") · red = missed · gray = MOPF boxes with no matching person")}</div>
       <video id="sync-video" src="${fileUrl(id, "mopf_eval/sync.mp4")}" controls muted preload="metadata"></video>` : ""}
     <div id="id-table"></div>
-    <div class="row"><button class="secondary" id="mopf-overlay" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>正解と MOPF の枠を重ねた動画を作る（CPU、1 本 2〜3 分）</button></div>
-    <div id="overlay-msg" class="muted">${r.overlay_job ? `重ねた動画: ${r.overlay_job.status}${r.overlay_job.error ? "・" + r.overlay_job.error : ""}` : ""}</div>
+    <div class="row"><button class="secondary" id="mopf-overlay" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>${tr("正解と MOPF の枠を重ねた動画を作る（CPU、1 本 2〜3 分）", "Make overlay videos of the ground-truth and MOPF boxes (CPU, 2–3 min per video)")}</button></div>
+    <div id="overlay-msg" class="muted">${r.overlay_job ? `${tr("重ねた動画", "Overlay video")}: ${r.overlay_job.status}${r.overlay_job.error ? tr("・", ", ") + r.overlay_job.error : ""}` : ""}</div>
     ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_overlay.mp4")).map((v) => `<div class="muted">${v} ${dlLink(id, v)}<br>
-      （緑 = 正解・灰 = ほとんど隠れた正解・赤 = 線を数えもらした人・細い色の枠 = MOPF の ID・黄色の線 = 通過線）</div>
+      ${tr("（緑 = 正解・灰 = ほとんど隠れた正解・赤 = 線を数えもらした人・細い色の枠 = MOPF の ID・黄色の線 = 通過線）",
+        "(green = ground truth · gray = mostly hidden ground truth · red = people whose line crossing was missed · thin colored boxes = MOPF IDs · yellow line = counting line)")}</div>
       <video src="${fileUrl(id, v)}" controls muted preload="metadata"></video>`).join("")}
-    ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_missed.png")).map((v) => `<div class="muted">${v}（線を数えもらした場面）${dlLink(id, v)}</div>
-      <img src="${fileUrl(id, v)}" alt="数えもらしの場面">`).join("")}
-    <h3>ファイル</h3>
+    ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_missed.png")).map((v) => `<div class="muted">${v}${tr("（線を数えもらした場面）", " (scenes of missed counts at the line)")}${dlLink(id, v)}</div>
+      <img src="${fileUrl(id, v)}" alt="${tr("数えもらしの場面", "Missed-count scenes")}">`).join("")}
+    <h3>${tr("ファイル", "Files")}</h3>
     <div class="files">${r.files.filter((f) => !f.includes("/") || f.startsWith("graph/") || f.startsWith("mot/") || f.startsWith("video/"))
       .map((f) => `<a href="${dlUrl(id, f)}">${f}</a>`).join("")}</div>`;
   $("mopf-process").addEventListener("click", async () => {
     try {
       const e = await post(`/api/runs/${id}/mopf/process`, {});
       const m = e.estimate;
-      if (!m.mopf_ready) { $("mopf-proc-msg").textContent = "MOPF が動いていない（cd ~/MOPF_ALL_video && ./start_ampb.sh --gpu N --no-llm --no-vc3）"; return; }
-      if (!confirm(`動画 ${m.videos.join(", ")} を MOPF（${m.model}）で処理します。${m.note}。始めますか？`)) return;
+      if (!m.mopf_ready) { $("mopf-proc-msg").textContent = tr("MOPF が動いていない（cd ~/MOPF_ALL_video && ./start_ampb.sh --gpu N --no-llm --no-vc3）", "MOPF is not running (cd ~/MOPF_ALL_video && ./start_ampb.sh --gpu N --no-llm --no-vc3)"); return; }
+      if (!confirm(tr(`動画 ${m.videos.join(", ")} を MOPF（${m.model}）で処理します。${m.note}。始めますか？`,
+        `Process the videos ${m.videos.join(", ")} with MOPF (${m.model}). ${m.note_en || m.note}. Start?`))) return;
       await post(`/api/runs/${id}/mopf/process`, { confirm: true });
-      $("mopf-proc-msg").textContent = "MOPF: 実行中（終わったら結果を開き直す）";
+      $("mopf-proc-msg").textContent = tr("MOPF: 実行中（終わったら結果を開き直す）", "MOPF: running (reopen the result when it finishes)");
     } catch (err) { $("mopf-proc-msg").textContent = String(err); }
   });
   $("mopf-sync").addEventListener("click", async () => {
     try {
       await post(`/api/runs/${id}/mopf/sync`, {});
-      $("sync-msg").textContent = "並べた動画: 作っている（3〜4 分。終わったら結果を開き直す）";
+      $("sync-msg").textContent = tr("並べた動画: 作っている（3〜4 分。終わったら結果を開き直す）", "Side-by-side video: in progress (3–4 min; reopen the result when it finishes)");
     } catch (err) { $("sync-msg").textContent = String(err); }
   });
   if (r.files.includes("mopf_eval/identities.json")) renderIdTable(id);
   $("mopf-overlay").addEventListener("click", async () => {
     try {
       await post(`/api/runs/${id}/mopf/overlay`, {});
-      $("overlay-msg").textContent = "重ねた動画: 作っている（終わったら結果を開き直す）";
+      $("overlay-msg").textContent = tr("重ねた動画: 作っている（終わったら結果を開き直す）", "Overlay video: in progress (reopen the result when it finishes)");
     } catch (err) { $("overlay-msg").textContent = String(err); }
   });
   $("mopf-eval").addEventListener("click", async () => {
@@ -497,9 +510,10 @@ async function showRun(id) {
     try {
       const m = await post(`/api/runs/${id}/mopf`, { camera: b.dataset.mopf });
       const ex = m.expected;
-      $("mopf-msg").textContent = `線 ${m.config.lines.length}・エリア ${m.config.zones.map((z) => z.name).join(", ") || "なし"}・対応の点 ${m.info.points}（${m.out}）。` +
-        `正解なら（${ex.seconds} 秒）: ` + ex.lines.map((l) => `${l.name} ${l.pos_label} ${l.to_pos}・${l.neg_label} ${l.to_neg}`).join("、") +
-        "、" + ex.zones.map((z) => `${z.name} に入った ${z.people_entered} 人`).join("、");
+      $("mopf-msg").textContent = tr(`線 ${m.config.lines.length}・エリア ${m.config.zones.map((z) => z.name).join(", ") || "なし"}・対応の点 ${m.info.points}（${m.out}）。`,
+        `Lines ${m.config.lines.length}, areas ${m.config.zones.map((z) => z.name).join(", ") || "none"}, correspondence points ${m.info.points} (${m.out}). `) +
+        tr(`正解なら（${ex.seconds} 秒）: `, `Ground truth (${ex.seconds} s): `) + ex.lines.map((l) => `${l.name} ${l.pos_label} ${l.to_pos}${tr("・", ", ")}${l.neg_label} ${l.to_neg}`).join(tr("、", "; ")) +
+        tr("、", "; ") + ex.zones.map((z) => tr(`${z.name} に入った ${z.people_entered} 人`, `${z.people_entered} people entered ${z.name}`)).join(tr("、", "; "));
     } catch (e) { $("mopf-msg").innerHTML = `<span class="err">${e.message}</span>`; }
   }));
   if (ren && ren.status === "running") pollRender(id);
@@ -507,11 +521,16 @@ async function showRun(id) {
 async function doRender(id, body) {
   try {
     const est = (await post(`/api/runs/${id}/render`, body)).estimate;
-    if (!est.isaac_ready) { $("render-msg").innerHTML = `<span class="err">Isaac Sim が動いていません。ampb で cd ~/twinsim && ./isaac_up.sh <空いている GPU の番号> を実行し、1 分ほど待ってからもう一度押してください（終わったら isim down）</span>`; return; }
+    if (!est.isaac_ready) {
+      $("render-msg").innerHTML = `<span class="err">${tr("Isaac Sim が動いていません。ampb で cd ~/twinsim && ./isaac_up.sh <空いている GPU の番号> を実行し、1 分ほど待ってからもう一度押してください（終わったら isim down）",
+        "Isaac Sim is not running. On ampb, run cd ~/twinsim && ./isaac_up.sh &lt;free GPU number&gt;, wait about 1 minute and press again (run isim down when finished)")}</span>`;
+      return;
+    }
     const min = Math.ceil(est.estimate_s / 60);
-    if (!confirm(`${est.frames} コマ（${est.range[0]}〜${est.range[1]}）を描画します。目安 ${min} 分、GPU ${est.gpu}。共用の GPU なので、空きを確かめてから始めてください。始めますか？`)) return;
+    if (!confirm(tr(`${est.frames} コマ（${est.range[0]}〜${est.range[1]}）を描画します。目安 ${min} 分、GPU ${est.gpu}。共用の GPU なので、空きを確かめてから始めてください。始めますか？`,
+      `Render ${est.frames} frames (${est.range[0]}–${est.range[1]}). About ${min} min, GPU ${est.gpu}. The GPUs are shared, so check that one is free before starting. Start?`))) return;
     await post(`/api/runs/${id}/render`, { ...body, confirm: true });
-    $("render-msg").textContent = `描画中（目安 ${min} 分）…`;
+    $("render-msg").textContent = tr(`描画中（目安 ${min} 分）…`, `Rendering (about ${min} min)…`);
     pollRender(id);
   } catch (e) { $("render-msg").innerHTML = `<span class="err">${e.message}</span>`; }
 }
@@ -534,10 +553,10 @@ document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("cli
 
 (async function init() {
   const tpls = await api("/api/templates");
-  $("template").innerHTML = tpls.map((t) => `<option value="${t.name}">${t.name}（${t.space}）${t.title ? "— " + t.title : ""}</option>`).join("");
+  $("template").innerHTML = tpls.map((t) => `<option value="${t.name}">${tr(`${t.name}（${t.space}）`, `${t.name} (${t.space}) `)}${t.title ? "— " + tr(t.title, t.title_en || t.title) : ""}</option>`).join("");
   $("template").addEventListener("change", (e) => loadTemplate(e.target.value));
   const isaac = await api("/api/isaac");
-  $("isaac").textContent = `Isaac Sim: ${isaac.ready ? "受け付け中" : "止まっている"}`;
+  $("isaac").textContent = `Isaac Sim: ${isaac.ready ? tr("受け付け中", "ready") : tr("止まっている", "stopped")}`;
   $("isaac").classList.toggle("ok", isaac.ready);
   await loadTemplate(tpls.find((t) => t.name === "office_gate_ev") ? "office_gate_ev" : tpls[0].name);
   $("template").value = S.spec.name;

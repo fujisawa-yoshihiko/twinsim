@@ -3,6 +3,7 @@
 # グループは入れない（1 人ずつ）。速さは Weidmann 1993 の分布（既定）。
 name: verify_fundamental_diagram
 title: "確かめ: 密度ごとの速さ（一方向の流れ、出口で混む）"
+title_en: "Check: speed by density (one-way flow, crowding at the exit)"
 space: corridor
 seed: 3
 duration_s: 360

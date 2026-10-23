@@ -9,122 +9,124 @@
 <body>
 <header>
   <h1>twinsim</h1>
-  <label>テンプレート <select id="template"></select></label>
+  <label><span data-en="Template">テンプレート</span> <select id="template"></select></label>
   <span id="space-name" class="muted"></span>
-  <span id="isaac" class="pill">Isaac Sim: 確認中</span>
+  <span id="isaac" class="pill" data-en="Isaac Sim: checking">Isaac Sim: 確認中</span>
+  <select id="lang" title="言語" data-en-title="Language"><option value="ja">日本語</option><option value="en">English</option></select>
 </header>
 <main>
   <section id="map-pane">
     <div class="map-tools">
-      <label><input type="checkbox" id="show-zones" checked> ゾーン</label>
-      <label><input type="checkbox" id="show-pois" checked> 場所</label>
-      <label><input type="checkbox" id="show-frustum" checked> カメラの映る範囲</label>
-      <span class="muted">カメラの● = 位置、■ = 見る点（ドラッグで動かせる）</span>
+      <label><input type="checkbox" id="show-zones" checked> <span data-en="Zones">ゾーン</span></label>
+      <label><input type="checkbox" id="show-pois" checked> <span data-en="Places">場所</span></label>
+      <label><input type="checkbox" id="show-frustum" checked> <span data-en="Camera fields of view">カメラの映る範囲</span></label>
+      <span class="muted" data-en="Camera ● = position, ■ = look-at point (drag to move)">カメラの● = 位置、■ = 見る点（ドラッグで動かせる）</span>
     </div>
     <canvas id="map"></canvas>
     <div id="cursor" class="muted">x —, y —</div>
   </section>
   <section id="side">
     <nav class="tabs">
-      <button data-tab="settings" class="active">設定</button>
-      <button data-tab="results">結果</button>
+      <button data-tab="settings" class="active" data-en="Settings">設定</button>
+      <button data-tab="results" data-en="Results">結果</button>
       <button data-tab="mopf">MOPF</button>
     </nav>
     <div id="tab-settings" class="tab">
       <fieldset>
-        <legend>基本</legend>
-        <label>長さ（秒）<input type="number" id="duration" min="10" step="10"></label>
-        <label>乱数の種 <input type="number" id="seed" step="1"></label>
+        <legend data-en="Basic">基本</legend>
+        <label><span data-en="Duration (s)">長さ（秒）</span><input type="number" id="duration" min="10" step="10"></label>
+        <label><span data-en="Random seed">乱数の種</span> <input type="number" id="seed" step="1"></label>
       </fieldset>
       <fieldset id="people-box">
-        <legend>人の分布（文献）</legend>
-        <label class="block">文献の値の組<select id="profile"></select></label>
+        <legend data-en="Distribution of people (literature)">人の分布（文献）</legend>
+        <label class="block"><span data-en="Literature profile">文献の値の組</span><select id="profile"></select></label>
         <div class="muted" id="profile-note"></div>
         <div class="row" id="demand-row">
-          <label>建物にいる人数 <input type="number" id="demand-pop" min="1" step="10"></label>
-          <label>時間帯 <select id="demand-period"><option value="morning">朝（入る 85%・出る 10%）</option><option value="lunch">昼（入る 45%・出る 45%）</option></select></label>
-          <label>混む 5 分の割合（%）<input type="number" id="demand-pct" min="1" max="30" step="0.5"></label>
+          <label><span data-en="Building population">建物にいる人数</span> <input type="number" id="demand-pop" min="1" step="10"></label>
+          <label><span data-en="Time of day">時間帯</span> <select id="demand-period"><option value="morning" data-en="Morning (in 85%, out 10%)">朝（入る 85%・出る 10%）</option><option value="lunch" data-en="Lunch (in 45%, out 45%)">昼（入る 45%・出る 45%）</option></select></label>
+          <label><span data-en="Share in the busiest 5 min (%)">混む 5 分の割合（%）</span><input type="number" id="demand-pct" min="1" max="30" step="0.5"></label>
         </div>
-        <div class="muted">EV を使う人の量 = 人数 × 割合 ÷ 5 分（Peters ら 2011。観測の最大 12〜13%）。到着が「建物の人数から」の流れに効く。</div>
+        <div class="muted" data-en="EV users = population × share ÷ 5 min (Peters et al. 2011; the observed maximum is 12–13%). Applies to streams whose arrivals come &quot;from the building population&quot;.">EV を使う人の量 = 人数 × 割合 ÷ 5 分（Peters ら 2011。観測の最大 12〜13%）。到着が「建物の人数から」の流れに効く。</div>
       </fieldset>
       <fieldset>
-        <legend>人の流れ</legend>
+        <legend data-en="Streams of people">人の流れ</legend>
         <div id="streams"></div>
       </fieldset>
       <fieldset id="ev-box">
-        <legend>エレベーター</legend>
+        <legend data-en="Elevator">エレベーター</legend>
         <div class="row">
-          <label>着く間隔の最小（秒）<input type="number" id="ev-min" step="1"></label>
-          <label>最大 <input type="number" id="ev-max" step="1"></label>
+          <label><span data-en="Min. arrival interval (s)">着く間隔の最小（秒）</span><input type="number" id="ev-min" step="1"></label>
+          <label><span data-en="Max.">最大</span> <input type="number" id="ev-max" step="1"></label>
         </div>
         <div class="row">
-          <label>定員 <input type="number" id="ev-cap" step="1" min="1"></label>
-          <label>降りる人（平均）<input type="number" id="ev-alight" step="0.1" min="0"></label>
+          <label><span data-en="Capacity">定員</span> <input type="number" id="ev-cap" step="1" min="1"></label>
+          <label><span data-en="People alighting (mean)">降りる人（平均）</span><input type="number" id="ev-alight" step="0.1" min="0"></label>
         </div>
       </fieldset>
       <fieldset id="gate-box">
-        <legend>ゲート</legend>
+        <legend data-en="Gates">ゲート</legend>
         <div id="gates"></div>
       </fieldset>
       <fieldset>
-        <legend>カメラ</legend>
+        <legend data-en="Cameras">カメラ</legend>
         <div id="cameras"></div>
       </fieldset>
       <fieldset id="props-box">
-        <legend>置く物</legend>
+        <legend data-en="Placed objects">置く物</legend>
         <div id="props"></div>
       </fieldset>
       <details>
-        <summary>詳しい設定（シナリオの全部、JSON）</summary>
+        <summary data-en="Advanced settings (the whole scenario, JSON)">詳しい設定（シナリオの全部、JSON）</summary>
         <textarea id="spec-json" spellcheck="false"></textarea>
-        <button id="apply-json" class="secondary">この JSON を反映</button>
+        <button id="apply-json" class="secondary" data-en="Apply this JSON">この JSON を反映</button>
       </details>
       <div class="actions">
-        <button id="run" class="primary">計算する（CPU）</button>
-        <button id="download" class="secondary">設定を書き出す</button>
+        <button id="run" class="primary" data-en="Run simulation (CPU)">計算する（CPU）</button>
+        <button id="download" class="secondary" data-en="Export settings">設定を書き出す</button>
       </div>
       <p id="run-msg" class="muted"></p>
     </div>
     <div id="tab-mopf" class="tab hidden">
       <fieldset>
-        <legend>MOPF の状態</legend>
-        <div id="mopf-state" class="muted">確認中…</div>
-        <div class="row"><button id="mopf-refresh" class="secondary">更新</button>
-          <a id="mopf-open" target="_blank" rel="noopener">MOPF の画面を開く</a></div>
-        <div class="muted">MOPF の画面は、手元の PC で <code>ssh -N -L 5174:localhost:5174 ampb</code> を実行してから開く。</div>
+        <legend data-en="MOPF status">MOPF の状態</legend>
+        <div id="mopf-state" class="muted" data-en="Checking…">確認中…</div>
+        <div class="row"><button id="mopf-refresh" class="secondary" data-en="Refresh">更新</button>
+          <a id="mopf-open" target="_blank" rel="noopener" data-en="Open the MOPF screen">MOPF の画面を開く</a></div>
+        <div class="muted"><span data-en="To open the MOPF screen, first run">MOPF の画面は、手元の PC で</span> <code>ssh -N -L 5174:localhost:5174 ampb</code> <span data-en="on your local PC.">を実行してから開く。</span></div>
       </fieldset>
       <fieldset>
-        <legend>起動・停止（GPU を使う）</legend>
-        <div class="muted">GPU は他の利用者と共有。空いている GPU を選ぶ（同時に使うのは 2 枚まで）。</div>
+        <legend data-en="Start/stop (uses a GPU)">起動・停止（GPU を使う）</legend>
+        <div class="muted" data-en="The GPUs are shared with other users. Pick a free GPU (at most 2 GPUs at a time).">GPU は他の利用者と共有。空いている GPU を選ぶ（同時に使うのは 2 枚まで）。</div>
         <table id="gpu-table" class="dest"></table>
         <div class="row">
-          <label>ライブに流す動画 <select id="live-run"></select></label>
+          <label><span data-en="Video to stream live">ライブに流す動画</span> <select id="live-run"></select></label>
           <label><select id="live-cam"></select></label>
         </div>
         <div class="row">
-          <button id="mopf-start" class="secondary">動画の処理用に起動</button>
-          <button id="mopf-start-live" class="secondary">選んだ動画をライブで起動</button>
-          <button id="mopf-stop" class="secondary">止める</button>
+          <button id="mopf-start" class="secondary" data-en="Start for video processing">動画の処理用に起動</button>
+          <button id="mopf-start-live" class="secondary" data-en="Start live with the selected video">選んだ動画をライブで起動</button>
+          <button id="mopf-stop" class="secondary" data-en="Stop">止める</button>
         </div>
         <pre id="mopf-log" class="log"></pre>
       </fieldset>
       <fieldset>
-        <legend>ライブ（人流モニター）</legend>
+        <legend data-en="Live (flow monitor)">ライブ（人流モニター）</legend>
         <div class="row">
-          <button id="live-apply" class="secondary">選んだ結果の設定（線・エリア・床の図）を送る</button>
-          <button id="live-reset" class="secondary">集計をリセット</button>
+          <button id="live-apply" class="secondary" data-en="Send the selected result's settings (lines, areas, floor map)">選んだ結果の設定（線・エリア・床の図）を送る</button>
+          <button id="live-reset" class="secondary" data-en="Reset the counts">集計をリセット</button>
         </div>
-        <img id="live-img" alt="MOPF のライブの映像（ライブで起動しているとき）">
+        <img id="live-img" alt="MOPF のライブの映像（ライブで起動しているとき）" data-en-alt="MOPF live video (when started live)">
         <div id="live-summary" class="muted"></div>
       </fieldset>
     </div>
     <div id="tab-results" class="tab hidden">
-      <div class="row"><button id="refresh" class="secondary">一覧を更新</button></div>
+      <div class="row"><button id="refresh" class="secondary" data-en="Refresh the list">一覧を更新</button></div>
       <ul id="runs"></ul>
       <div id="run-detail"></div>
     </div>
   </section>
 </main>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 <script src="mopf.js"></script>
 </body>

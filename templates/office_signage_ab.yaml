@@ -3,6 +3,7 @@
 # 使い方: python -m twinsim run office_signage_ab --set variant=A と --set variant=B（variant ごとに p を変える。下の variants）
 name: office_signage_ab
 title: サイネージの比較（見る人の割合を A・B で変える）
+title_en: "Signage comparison (A/B with different shares of people who look)"
 space: office
 seed: 7
 people:

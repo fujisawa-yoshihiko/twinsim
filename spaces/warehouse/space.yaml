@@ -2,8 +2,10 @@
 # 北（y 9〜25）に棚が 8 列、その間が通路。南は広い作業の床。入口・荷受け・梱包・休憩の場所は見立て（USD にその意味はない）。
 name: warehouse
 title: 倉庫（棚の通路でピッキング → 梱包 → 待ち）
+title_en: "Warehouse (picking in shelf aisles → packing → waiting)"
 usd: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Simple_Warehouse/full_warehouse.usd
 license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジットを書く）
+license_en: "CC BY 4.0 (NVIDIA Isaac Sim assets; give credit when distributing)"
 navmesh_region: [-28.0, 8.0, -41.5, 33.5, 0.0, 3.0]
 levels:
   - name: 1F
@@ -43,5 +45,5 @@ zones:
   floor:    {polygon: [[-27.5, -17.0], [5.0, -17.0], [5.0, 8.5], [-27.5, 8.5]]}
 
 cameras:
-  CamAisles: {eye: [-13.0, 4.0, 5.0], target: [-13.0, 18.0, 0.5], note: 通路を南から見下ろす}
-  CamPack:   {eye: [2.0, -9.0, 5.0], target: [-12.0, 1.0, 0.5], note: 梱包の台と待つ場所}
+  CamAisles: {eye: [-13.0, 4.0, 5.0], target: [-13.0, 18.0, 0.5], note: 通路を南から見下ろす, note_en: "Looks down the aisles from the south"}
+  CamPack:   {eye: [2.0, -9.0, 5.0], target: [-12.0, 1.0, 0.5], note: 梱包の台と待つ場所, note_en: "Packing tables and the waiting area"}

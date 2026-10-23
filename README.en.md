@@ -24,7 +24,7 @@ cd ~/twinsim
 
 To open the GUI in a browser on your local PC, keep `ssh -N -L 8770:localhost:8770 ampb` running on your local PC and open the URL printed by `./run.sh serve --url`.
 The screen has 3 tabs: "Settings" (scenario, distribution of people, cameras), "Results" (summary, check figures, comparison with the literature, videos, comparison with MOPF, downloads) and "MOPF" (start, live, stop).
-The GUI labels are in Japanese (the tabs are 設定 = Settings, 結果 = Results, MOPF).
+The display can be switched between 日本語 and English at the top right (the browser remembers the choice). Text inside the result figures and videos, and validity.md, stays in Japanese.
 The structure and the development procedure are in [docs/architecture.en.md](docs/architecture.en.md).
 
 Results go to `~/dt-data/twinsim/runs/<name>/` (the trajectories can be checked in `preview.png`). For rendering, see "Rendering" in docs/spec.en.md.

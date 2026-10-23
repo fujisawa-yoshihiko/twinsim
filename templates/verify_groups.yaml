@@ -2,6 +2,7 @@
 # 余暇のプロファイル（トゥールーズの商店街の割合、大阪 ATC の友人の 2 人連れの間隔）。validity.md の 3・4 番と 2 人連れの距離で比べる。
 name: verify_groups
 title: "確かめ: グループ（低密度の廊下）"
+title_en: "Check: groups (low-density corridor)"
 space: corridor
 seed: 5
 duration_s: 300

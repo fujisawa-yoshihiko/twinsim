@@ -1,6 +1,7 @@
 # 病院のロビー → 西の広間の EV（見立て）。hospital-sim の sim-gate と同じ配置・カメラ（前の評価のデータと比べられる）。
 name: hospital_gate_ev
 title: 病院のロビー → 西の広間の EV（sim-gate と同じ配置）
+title_en: "Hospital lobby → elevator in the west hall (same layout as sim-gate)"
 space: hospital
 seed: 11
 duration_s: 300

@@ -2,6 +2,7 @@
 # 入館の 2 レーンで運べる量（約 60 人/分）より多い 75 人/分を 3 分入れて、列ができた状態の間隔を測る。EV は使わない。
 name: verify_gate_capacity
 title: "確かめ: ゲートが混んだときの通過の間隔"
+title_en: "Check: headway at a crowded gate"
 space: office
 seed: 9
 duration_s: 180

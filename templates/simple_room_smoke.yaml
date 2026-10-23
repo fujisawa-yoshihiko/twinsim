@@ -1,6 +1,7 @@
 # 動作確認（小部屋、20 秒・数人）。床が z = -0.77 の空間の確かめも兼ねる。
 name: simple_room_smoke
 title: 動作確認（小部屋、20 秒）
+title_en: "Operation check (small room, 20 s)"
 space: simple_room
 seed: 2
 duration_s: 20
