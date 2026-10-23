@@ -20,7 +20,7 @@ cd ~/twinsim
 ./run.sh mopf-eval ~/dt-data/twinsim/runs/office_gate_ev      # compare MOPF's tracking with the ground truth; intermediate graph layer
 ./run.sh calibrate office_gate_ev --gate-log gate_log.csv --ev-log ev_log.csv   # calibrate with real data
 ./run.sh mopf-sync ~/dt-data/twinsim/runs/office_gate_ev      # video of the 2 cameras synchronized in time, and the ID correspondence table of the same person across cameras
-./run.sh mopf-link ~/dt-data/twinsim/runs/office_gate_ev      # infer cross-camera association without ground truth and score it (also the prediction video)
+./run.sh mopf-link ~/dt-data/twinsim/runs/office_gate_ev      # infer cross-camera association without ground truth and score it (also the prediction video; re-ID weights via tools/fetch_reid_weights.sh)
 ```
 
 To open the GUI in a browser on your local PC, keep `ssh -N -L 8770:localhost:8770 ampb` running on your local PC and open the URL printed by `./run.sh serve --url`.

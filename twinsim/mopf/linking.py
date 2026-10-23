@@ -41,16 +41,18 @@ MAX_COST_WITHIN = 0.0    # 費用（= −LLR）がこれ以下の組だけつな
 MAX_COST_CROSS = 0.0
 N_CROPS = 8            # 見た目に使う切り出しの数（トラックレットごと）
 MIN_BOX_H = 50         # これより小さい人は見た目に使わない（画素）
+CROP_SELECT = "spread"  # 代表の切り出しの選び方: spread（時間に等間隔）か quality（全身の縦横比・大きさを先に。office_gate_ev では差が ±0.01 で効果なし）
 BIG = 1e6
 KDE_MIN = 10           # 時間の学習に要る、確からしい組の数（カメラの組ごと。足りなければ地図からの仮定のまま）
 
 
 def parse_method(m):
-    """方式の名前 → {"time": None・"map"・"learned", "app": 見た目の種類か None}。none・within は None を返す（カメラの間をつながない）"""
+    """方式の名前 → {"time": None・"map"・"learned", "app": 見た目の種類か None, "cluster": 階層クラスタリングか}。
+    頭に "hc:" があれば、カメラの間を 1 対 1 の割り当てではなく階層クラスタリングでまとめる。none・within は None を返す"""
     if m in ("none", "within"):
         return None
-    out = {"time": None, "app": None}
-    for part in m.split("+"):
+    out = {"time": None, "app": None, "cluster": m.startswith("hc:")}
+    for part in m.removeprefix("hc:").split("+"):
         if part == "time":
             out["time"] = "map"
         elif part == "time*":
@@ -204,7 +206,11 @@ def aggregate(kind, feats, weights):
 
 
 def pick_crops(tracks):
-    """トラックレットごとに、ほかの人と重ならない大きめの枠を N_CROPS 個（時間に散らばるように）選ぶ → {(カメラ, コマ): [(トラックレット, 枠)]}"""
+    """トラックレットごとに代表の切り出しを N_CROPS 個選ぶ → {(カメラ, コマ): [(トラックレット, 枠)]}。
+    候補: ほかの人と重ならない（IoU 0.05 以下）・画面の端にかからない・高さ MIN_BOX_H 以上。
+    その中で、全身が入った縦横比（高さ ÷ 幅 1.8〜3.6）を先に、大きい枠を先にして、時間に散らばるように
+    （トラックレットを N_CROPS に区切った各区間から 1 つ）選ぶ。
+    （AI City 2024 の 1 位の手法は姿勢で代表の画像を選ぶ。ここでは姿勢のモデルを足さずに、縦横比と大きさで代える）"""
     want = defaultdict(list)
     by_cf = defaultdict(list)
     for t in tracks:
@@ -219,7 +225,18 @@ def pick_crops(tracks):
             if others and iou_matrix([b], others).max() > 0.05:
                 continue
             ok.append(i)
-        for i in ([ok[int(k)] for k in np.linspace(0, len(ok) - 1, min(N_CROPS, len(ok)))] if ok else []):
+        if not ok:
+            continue
+
+        def quality(i, boxes=t.boxes):
+            b = boxes[i]
+            h, w = b[3] - b[1], max(b[2] - b[0], 1.0)
+            return (1.8 <= h / w <= 3.6, h)
+        if CROP_SELECT == "spread":
+            chosen = [ok[int(k)] for k in np.linspace(0, len(ok) - 1, min(N_CROPS, len(ok)))]
+        else:
+            chosen = [max(part, key=quality) for part in np.array_split(np.asarray(ok), min(N_CROPS, len(ok)))]
+        for i in chosen:
             want[(t.camera, int(t.frames[i]))].append((t, t.boxes[i]))
     return want
 
@@ -529,6 +546,8 @@ def predict(tracks, geo, nulls, method, learned=None):
                 feats[k] = aggregate(k, [t.feats[k] for t in have], [t.n_crops for t in have])
         ctracks.append(CamTrack(r, ts[0].camera, ts, feats))
     cross = []
+    if opt and opt["cluster"]:
+        return _predict_cluster(tracks, ctracks, within, geo, null, opt, kind, learned)
     if opt:
         def fn(a, b):
             if a.camera == b.camera:
@@ -542,6 +561,69 @@ def predict(tracks, geo, nulls, method, learned=None):
     order = sorted({root2[t.key] for t in tracks}, key=lambda r: min(t.t0 for t in tracks if root2[t.key] == r))
     gid = {r: f"G{k + 1:03d}" for k, r in enumerate(order)}
     return {t.key: gid[root2[t.key]] for t in tracks}, within, cross
+
+
+def _predict_cluster(tracks, ctracks, within, geo, null, opt, kind, learned):
+    """カメラの追跡を、平均連結の階層クラスタリングでまとめる（後でまとめて処理する方式）。
+    2 つの追跡の点数 = 見た目の LLR ＋（別のカメラで、時間の順に窓の中なら）時間・向きの LLR ＋ 事前の対数オッズ。
+    つながない条件: 同じカメラで 0.5 秒以上同時に映る、別のカメラで同時に映る（視野が重ならない）、別のカメラで窓（90 秒）より離れている。
+    2 つのまとまりの点数 = 組の点数の平均（つながない組が 1 つでもあれば −∞）。点数が 0 より大きいあいだ、いちばん大きい組をまとめる。"""
+    n = len(ctracks)
+    S = np.full((n, n), -np.inf)
+    n_cand = []
+    for i, a in enumerate(ctracks):
+        k = 0
+        for j, b in enumerate(ctracks):
+            if i == j:
+                continue
+            if a.camera == b.camera:
+                if min(a.t1, b.t1) - max(a.t0, b.t0) >= 0.5:
+                    continue
+                if kind and null and kind in a.feats and kind in b.feats:
+                    S[i, j] = llr_app(kind, a.feats[kind], b.feats[kind], null)[0] - 3.0  # 同じカメラにまた現れる見込みは小さい
+                continue
+            first, second = (a, b) if a.t1 <= b.t1 else (b, a)
+            p = cost_cross(first.last, second.first, first.feats.get(kind), second.feats.get(kind), geo, null, opt["time"], kind, learned)
+            if p is None:
+                continue
+            S[i, j] = p["llr"]
+            k += 1
+        n_cand.append(k)
+    prior = math.log(P_HAS / max(1.0, float(np.mean([x for x in n_cand if x])) if any(n_cand) else 1.0))
+    S = np.where(np.isfinite(S), S + prior, -np.inf)
+    S = np.where(np.isfinite(S) & np.isfinite(S.T), np.maximum(S, S.T), -np.inf)  # どちらの向きから見ても同じ点数に
+    clusters = {i: [i] for i in range(n)}
+    # 平均連結（つながない組があれば −∞）。まとまりどうしの点数の表を、まとめるたびに更新する
+    C = S.copy()
+    np.fill_diagonal(C, -np.inf)
+    alive = np.ones(n, bool)
+    while True:
+        Cm = np.where(alive[:, None] & alive[None, :], C, -np.inf)
+        i, j = np.unravel_index(int(np.argmax(Cm)), Cm.shape)
+        if not np.isfinite(Cm[i, j]) or Cm[i, j] <= 0:
+            break
+        clusters[i] += clusters.pop(j)
+        alive[j] = False
+        for k in range(n):
+            if alive[k] and k != i:
+                vals = S[np.ix_(clusters[i], clusters[k])]
+                C[i, k] = C[k, i] = -np.inf if not np.all(np.isfinite(vals)) else float(vals.mean())
+    gid_of = {}
+    order = sorted(clusters.values(), key=lambda ms: min(ctracks[m].t0 for m in ms))
+    cross = []
+    for g, ms in enumerate(order):
+        members = sorted((ctracks[m] for m in ms), key=lambda c: c.t0)
+        for c in members:
+            for t in c.members:
+                gid_of[t.key] = f"G{g + 1:03d}"
+        for a, b in zip(members, members[1:]):  # 時間の順に隣り合う別のカメラの追跡を「カメラの間の組」として書く
+            if a.camera == b.camera:
+                continue
+            p = cost_cross(a.last, b.first, a.feats.get(kind), b.feats.get(kind), geo, null, opt["time"], kind, learned) or {"gap": round(b.t0 - a.t1, 2)}
+            cross.append({"from": a.last.key, "to": b.first.key, "from_track": a.key, "to_track": b.key, "from_camera": a.camera, "to_camera": b.camera,
+                          "t_from": round(a.t1, 2), "t_to": round(b.t0, 2), **p, "prior": round(prior, 2),
+                          "cost": round(-(p.get("llr", 0.0) + prior), 3), "margin": round(p.get("llr", 0.0) + prior, 2)})
+    return gid_of, within, cross
 
 
 def learn_time(cross, margin_min=2.0, app_z_max=-2.0):
@@ -636,10 +718,10 @@ def available_apps():
 
 
 def default_methods(apps):
-    """比べる方式の一覧（見た目の種類ごとに: 見た目だけ・時間＋見た目・学んだ時間＋見た目）"""
-    ms = ["none", "within", "time", "time*"]
+    """比べる方式の一覧（見た目の種類ごとに: 見た目だけ・時間＋見た目・学んだ時間＋見た目・学んだ時間＋見た目の階層クラスタリング）"""
+    ms = ["none", "within", "time"]
     for a in apps:
-        ms += [a, f"time+{a}", f"time*+{a}"]
+        ms += [a, f"time+{a}", f"time*+{a}", f"hc:time*+{a}"]
     return ms
 
 
@@ -658,7 +740,8 @@ def link(run_dir, cameras=None, tracks_dir=None, apps=None, methods=None, best=N
         timing = add_appearance(run, tracks, cams, apps)
     nulls = {a: n for a in apps if (n := app_null(tracks, a))}
     methods = [m for m in (methods or default_methods(apps)) if not (parse_method(m) or {}).get("app") or parse_method(m)["app"] in nulls]
-    best = best if best in methods else next((m for m in reversed(methods) if m.startswith("time*+")), methods[-1])
+    best = best if best in methods else next((m for m in methods if m == "time*+osnet_x0_25_msmt17"),
+                                             next((m for m in reversed(methods) if m.startswith("time*+")), methods[-1]))
     geo = Geodesic(sp)
     M = truth_labels(run, gt, cams, tracks, tdir, f0)  # 採点だけに使う（推論には渡さない）
     hand = _handovers(run, cams, tracks_dir)
@@ -667,8 +750,8 @@ def link(run_dir, cameras=None, tracks_dir=None, apps=None, methods=None, best=N
         t0 = time.perf_counter()
         opt = parse_method(m)
         learned = None
-        if opt and opt["time"] == "learned":  # 1 回目（地図からの時間）で確からしい組を選び、ずれの分布を学んで 2 回目
-            first = m.replace("time*", "time")
+        if opt and opt["time"] == "learned":  # 1 回目（地図からの時間・1 対 1 の割り当て）で確からしい組を選び、ずれの分布を学んで 2 回目
+            first = m.removeprefix("hc:").replace("time*", "time")
             _, _, cross1 = preds[first] if first in preds else predict(tracks, geo, nulls, first)
             learned = learn_time(cross1)
             learned_all[m] = {f"{a}->{b}": {"n": len(v), "median_s": round(float(np.median(v)), 2), "p10_s": round(float(np.percentile(v, 10)), 2),

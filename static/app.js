@@ -366,9 +366,10 @@ async function renderLinks(id) {
   const res = await (await fetch(fileUrl(id, "mopf_eval/links.json"))).json();
   // 方式の名前（time・time*・見た目の種類を + でつないだもの）を読める形に
   const part = (p) => ({ time: tr("時間＋向き（地図）", "Time + direction (map)"), "time*": tr("時間＋向き（学んだ）", "Time + direction (learned)"),
-    color: tr("服の色", "Clothing color"), osnet_x0_25_msmt17: "OSNet x0.25", osnet_x1_0_msmt17: "OSNet x1.0" }[p] || p);
+    color: tr("服の色", "Clothing color"), osnet_x0_25_msmt17: "OSNet x0.25", osnet_x1_0_msmt17: "OSNet x1.0", clipreid_vitb16_msmt17: "CLIP-ReID ViT-B/16" }[p] || p);
   const special = { none: tr("つながない（MOPF の ID のまま）", "No linking (MOPF IDs as is)"), within: tr("カメラの中だけ", "Within camera only") };
-  const names = new Proxy({}, { get: (_, m) => special[m] || String(m).split("+").map(part).join(" ＋ ") });
+  const names = new Proxy({}, { get: (_, m) => special[m] || (String(m).startsWith("hc:") ? tr("階層クラスタリング: ", "Hierarchical clustering: ") : "") +
+    String(m).replace(/^hc:/, "").split("+").map(part).join(" ＋ ") });
   const mrow = Object.entries(res.metrics).map(([m, x]) => `<tr${m === res.method ? ' style="font-weight:bold"' : ""}><td>${names[m] || m}</td><td>${x.idf1}</td>
     <td>${x.cross_correct}/${x.cross_links}</td><td>${x.handovers_found}/${x.handovers}</td><td>${x.global_ids}</td></tr>`).join("");
   const tm = res.timing || {};

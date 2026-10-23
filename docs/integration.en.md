@@ -168,25 +168,26 @@ MOPF results are `twinsim-<run-name>-<camera>/tracking.jsonl` under `TRACKS_DIR`
   - Outputs: `mopf_eval/links.json` and `links.csv` (predicted links and scores), `links.png` (crops of the predicted links, most confident first, with ○/×),
     `sync_pred.mp4` (the 2 cameras side by side with predicted global IDs; ○ = matches the ground-truth person, × = a different person; predicted links shown below).
 
-  office_gate_ev (5 min, MOPF yolo11m + BoostTrack, 2026-10-23):
+  office_gate_ev (5 min, MOPF yolo11m + BoostTrack, 2026-10-23). Values are "IDF1 over both cameras (cross-camera links correct/predicted)".
+  There are 78 true cross-camera transitions and 92 true people. Baselines: no linking 0.589, within camera only 0.607, time + direction only 0.617 (5/23).
 
-  | Method | IDF1 (both cameras) | Links (correct/predicted) | Found/true transitions (78) | Global IDs (92 true people) |
+  | Appearance (per crop, 8 CPU threads) | Appearance only | Time (map) + appearance | Time (learned) + appearance | Time (learned) + appearance, hierarchical clustering |
   |---|---|---|---|---|
-  | No linking (MOPF IDs as is) | 0.589 | - | 0 | 254 |
-  | Within camera only | 0.607 | - | 0 | 227 |
-  | Time + direction (from the map) | 0.617 | 5/23 | 5 | 204 |
-  | Clothing color | 0.771 | 69/84 | 69 | 112 |
-  | Time (map) + clothing color | 0.816 | 70/80 | 70 | 116 |
-  | **Time (learned) + clothing color** | **0.824** | **73/81** | **73** | 115 |
-  | OSNet x0.25 (MSMT17, the same weights as MOPF) | 0.715 | 58/82 | 58 | 113 |
-  | Time (map) + OSNet x0.25 | 0.793 | 67/78 | 67 | 117 |
-  | Time (learned) + OSNet x0.25 | 0.802 | 69/79 | 69 | 116 |
+  | Clothing color (0.37 ms) | 0.771 (69/84) | 0.816 (70/80) | 0.824 (73/81) | **0.845 (71/73)** |
+  | OSNet x0.25, MSMT17 (3.9 ms, the same weights as MOPF) | 0.715 (58/82) | 0.793 (67/78) | 0.802 (69/79) | 0.826 (66/71) |
+  | OSNet x1.0, MSMT17 (41 ms) | 0.746 (59/79) | 0.797 (64/79) | 0.805 (66/78) | 0.827 (66/71) |
+  | CLIP-ReID ViT-B/16, MSMT17 (21 ms) | 0.791 (57/64) | 0.806 (67/75) | 0.806 (68/77) | 0.816 (63/68) |
 
-  - Time to compute appearance features (8 CPU threads, per crop): clothing color 0.37 ms, OSNet x0.25 4–5 ms. The 5-minute, 2-camera run has 1,824 crops (8 s to read the videos).
-    Linking takes 2–5 s per method. Making the side-by-side video with predicted IDs takes 3–4 min.
+  - Speed: the 5-minute, 2-camera run has 1,824 crops (8 s to read the videos). Appearance features take 7 s with OSNet x0.25, 39 s with CLIP-ReID and 75 s with OSNet x1.0
+    (on the CPU, OSNet x1.0's depthwise convolutions are slow, so it is slower than the ViT-B CLIP-ReID). Linking takes 2–5 s per method. The side-by-side video with predicted IDs takes 3–4 min.
   - Learned time (time*): from the confident links of a first pass (margin ≥ 2, appearance z ≤ −2), learn the deviation from the expected time. For gate → elevator hall it learned from 45–48 links
-    that people arrive a median 1.3 s earlier than the map estimate (10–90%: −2.1 to −0.3 s), which found 2–3 more transitions. Elevator hall → gate has fewer than 10 confident links and is not learned.
-  - In this scene each person's clothing color differs, so color beats OSNet. In real video this is expected to reverse. The default in the GUI and the command is "time (learned) + OSNet x0.25".
+    that people arrive a median 1.3 s earlier than the map estimate, which found 0–3 more transitions. Elevator hall → gate has fewer than 10 confident links and is not learned.
+  - Hierarchical clustering (hc:, the idea of the AI City 2024 winner): compute scores (LLR) between all pairs of camera tracks and merge them by average linkage under cannot-link constraints.
+    IDF1 is 0.01–0.02 higher than one-to-one assignment (fewer wrong links), but slightly fewer transitions are found.
+  - Among the re-identification models, CLIP-ReID is best with appearance alone (89% of predicted links correct). Combined with time, the four differ little (IDF1 0.80–0.83).
+  - Choosing representative crops by full-body aspect ratio and size (instead of pose) differed from evenly spaced crops by only ±0.01, so it did not help (the default is evenly spaced).
+  - In this scene each person's clothing color differs, so color is strong. In real video, re-identification models are expected to matter. The default in the GUI and the command is "time (learned) + OSNet x0.25".
+  - Re-identification weights: `tools/fetch_reid_weights.sh` (OSNet x1.0 and CLIP-ReID into `~/dt-data/twinsim/models/reid/`, with sha256 checks).
   - Time alone cannot narrow down the partner because about 11 people pass per minute (almost no pairs meet the linking threshold). Clothing color is the main cue, and time narrows it down.
   - 5 of the 10 wrong links are one-by-one shifts in a crowded queue near the end (272–283 s). There are more global IDs than the 92 people because within-camera breaks remain.
   - Changing the prior (0.5), the detour share (0.2) and the direction concentration (2.0) keeps IDF1 at 0.77–0.83 and found transitions at 60–74 (some values were set after seeing

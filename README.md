@@ -20,7 +20,7 @@ cd ~/twinsim
 ./run.sh mopf-eval ~/dt-data/twinsim/runs/office_gate_ev      # MOPF の追跡を正解と比べる・中間層のグラフ
 ./run.sh calibrate office_gate_ev --gate-log gate_log.csv --ev-log ev_log.csv   # 実データで合わせる
 ./run.sh mopf-sync ~/dt-data/twinsim/runs/office_gate_ev      # 2 台を時刻でそろえた動画と、同じ人の各カメラの ID の対応表
-./run.sh mopf-link ~/dt-data/twinsim/runs/office_gate_ev      # 正解を使わずに 2 台の間の対応を推論して採点（予測の動画も）
+./run.sh mopf-link ~/dt-data/twinsim/runs/office_gate_ev      # 正解を使わずに 2 台の間の対応を推論して採点（予測の動画も。人物照合の重みは tools/fetch_reid_weights.sh）
 ```
 
 手元の PC のブラウザで GUI を開くには、手元の PC で `ssh -N -L 8770:localhost:8770 ampb` を実行したまま、`./run.sh serve --url` の URL を開く。

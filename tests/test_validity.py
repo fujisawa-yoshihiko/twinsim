@@ -119,6 +119,15 @@ def test_linking_synthetic(tmp_path):
     m = out["metrics"]
     assert m["none"]["cross_links"] == 0 and "color" not in m  # 動画がないので色の方式は除く
     assert m["time"]["idf1"] >= m["none"]["idf1"] - 1e-9
+    # 階層クラスタリング（hc:）も通る: 同じカメラで同時に映るトラックレットは同じ番号にならない
+    out2 = mopf.link(run, tracks_dir=tmp_path / "t", apps=["color"], methods=["none", "time", "hc:time"], best="hc:time")
+    assert "hc:time" in out2["metrics"]
+    by_g = {}
+    for t in out2["tracklets"]:
+        by_g.setdefault((t["global_id"], t["camera"]), []).append((t["t0"], t["t1"]))
+    for spans in by_g.values():
+        spans.sort()
+        assert all(b0 >= a1 - 0.5 for (_, a1), (b0, _) in zip(spans, spans[1:]))
     assert all(c["cost"] <= 0 for c in out["cross_links"])
     assert (run / "mopf_eval/links.json").exists() and (run / "mopf_eval/links.csv").exists()
 
@@ -139,3 +148,6 @@ def test_reid_embedder():
     f = e([red, red, blue])
     assert f.shape == (3, 512) and np.allclose(np.linalg.norm(f, axis=1), 1.0, atol=1e-4)
     assert float(f[0] @ f[1]) > 0.999 and float(f[0] @ f[2]) < float(f[0] @ f[1])
+    if MODELS["clipreid_vitb16_msmt17"]["weights"].exists():  # CLIP-ReID（1280 次元）も同じ約束
+        g = Embedder("clipreid_vitb16_msmt17", threads=2)([red, red, blue])
+        assert g.shape == (3, 1280) and float(g[0] @ g[1]) > 0.999 and float(g[0] @ g[2]) < 0.999

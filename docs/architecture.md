@@ -32,7 +32,7 @@ spaces/<名前>/   ──→ space.load_space（歩ける所の格子・意味�
 | `twinsim/outputs.py` | 正解・集計・グラフ・MOT・AI City・確認の図 | `write_all` |
 | `twinsim/validity.py`・`quality.py` | 文献との比べ・台帳／壁・近さの確かめ | `evaluate`・`check` |
 | `twinsim/calibrate.py` | 実データで合わせる・記録の形に書き出す | `calibrate`・`export_logs` |
-| `twinsim/reid.py`・`twinsim/vendor/` | 人物照合のモデル（OSNet、torchreid の定義を写したもの、MIT）で見た目の特徴（CPU、`uv` の `reid` の組） | `Embedder` |
+| `twinsim/reid.py`・`twinsim/vendor/` | 人物照合のモデル（OSNet は torchreid、CLIP-ReID は CLIP-ReID の画像の側を写したもの、どちらも MIT）で見た目の特徴（CPU、`uv` の `reid` の組。重みは `tools/fetch_reid_weights.sh`） | `Embedder` |
 | `twinsim/camera.py` | カメラ（USD の行列）・枠・見えている割合・床への写し | `Camera` |
 | `twinsim/isaac_bridge.py`・`isaac/` | Isaac Sim での描画・空間の材料（Isaac Sim の中で動くのは `isaac/`） | `render`・`finish_render`・`export_space` |
 | `twinsim/mopf/` | MOPF との連携（`__init__.py` に一覧） | `process`・`evaluate`・`graph`・`floormap`・`overlay`・`identities`・`link`・`control` |
