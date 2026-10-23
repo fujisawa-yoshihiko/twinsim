@@ -358,6 +358,35 @@ async function refreshRuns() {
 }
 $("refresh").addEventListener("click", refreshRuns);
 
+// 同じ人が各カメラでどの MOPF の ID だったかの表。ID を押すと並べた動画がその時刻へ飛ぶ
+async function renderIdTable(id) {
+  const res = await (await fetch(fileUrl(id, "mopf_eval/identities.json"))).json();
+  const cams = res.cameras;
+  const multi = {};
+  for (const c of cams) for (const [tid, segs] of Object.entries(res.mopf_ids[c] || {})) {
+    const ps = [...new Set(segs.map((x) => x.person))];
+    if (ps.length > 1) (multi[c] = multi[c] || []).push(`ID ${tid} = ${ps.join("・")}`);
+  }
+  const seek = (t) => `<a href="#" data-seek="${Math.max(0, t - 1)}">`;
+  const rows = Object.entries(res.persons).map(([n, p]) => {
+    const cells = cams.map((c) => (p.cams[c] || []).map((x) => `${seek(x.t0)}ID ${x.mopf_id}</a>（${x.t0}〜${x.t1} 秒）`).join("<br>") || "-");
+    const ho = p.handovers.map((h) => `${h.from} ID ${h.id_from ?? "なし"} → ${h.to} ID ${h.id_to ?? "なし"}（${h.dt} 秒）`).join("<br>") || "-";
+    return `<tr data-q="${n} ${cams.map((c) => (p.cams[c] || []).map((x) => "ID" + x.mopf_id).join(" ")).join(" ")}"><td>${n}</td><td>${p.type ?? ""}</td>${cells.map((x) => `<td>${x}</td>`).join("")}<td>${ho}</td></tr>`;
+  }).join("");
+  $("id-table").innerHTML = `<div class="row"><label>絞り込み <input id="id-filter" placeholder="P0012 や ID19"></label>
+      <span class="muted">${Object.keys(res.persons).length} 人・2 台に映った ${Object.values(res.persons).filter((p) => p.handovers.length).length} 人</span></div>
+    ${Object.keys(multi).length ? `<div class="muted">1 つの ID が複数の人にまたがった（取り違え）: ${Object.entries(multi).map(([c, v]) => `${c}: ${v.slice(0, 8).join("、")}${v.length > 8 ? " ほか " + (v.length - 8) : ""}`).join("／")}</div>` : ""}
+    <div style="max-height:360px;overflow:auto"><table class="dest"><tr><th>人</th><th>種類</th>${cams.map((c) => `<th>${c} の ID</th>`).join("")}<th>カメラの間</th></tr>${rows}</table></div>`;
+  $("id-table").querySelectorAll("[data-seek]").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    const v = $("sync-video");
+    if (v) { v.currentTime = Number(a.dataset.seek); v.scrollIntoView({ block: "center" }); v.play(); }
+  }));
+  $("id-filter").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toUpperCase().replace(/\s+/g, "");
+    $("id-table").querySelectorAll("tr[data-q]").forEach((tr) => { tr.style.display = !q || tr.dataset.q.toUpperCase().replace(/\s+/g, "").includes(q) ? "" : "none"; });
+  });
+}
 function mopfCrossHtml(c) {
   if (!c || !Object.keys(c).length) return "";
   return `<div class="muted">通過線（人流モニターと同じ数え方）: ` + Object.entries(c).map(([cam, x]) =>
@@ -415,6 +444,14 @@ async function showRun(id) {
     ${mopfCrossHtml(r.mopf_crossings)}
     ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_floor.png")).map((v) => `<div class="muted">${v}（MOPF の足元を床に写した軌跡と正解）${dlLink(id, v)}</div>
       <img src="${fileUrl(id, v)}" alt="床に写した図">`).join("")}
+    <h3>2 台を時刻で並べる（同じ人が各カメラでどの ID か）</h3>
+    <div class="row"><button class="secondary" id="mopf-sync" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>並べた動画と対応表を作る（CPU、3〜4 分）</button></div>
+    <div id="sync-msg" class="muted">${r.sync_job ? `並べた動画: ${r.sync_job.status}${r.sync_job.error ? "・" + r.sync_job.error : ""}` : ""}</div>
+    ${r.files.includes("mopf_eval/sync.mp4") ? `<div class="muted">mopf_eval/sync.mp4 <a class="dl" href="${fileUrl(id, "mopf_eval/sync.mp4")}" target="_blank" rel="noopener">別のタブで大きく開く</a>
+      ${dlLink(id, "mopf_eval/sync.mp4")}・${dlLink(id, "mopf_eval/identities.csv", "対応表（CSV）")}<br>
+      細い枠 = 正解（人ごとの色、2 台で同じ色）・太い枠 = MOPF（「人 / ID」）・赤 = 見逃し・灰 = 対応する人のいない MOPF の枠</div>
+      <video id="sync-video" src="${fileUrl(id, "mopf_eval/sync.mp4")}" controls muted preload="metadata"></video>` : ""}
+    <div id="id-table"></div>
     <div class="row"><button class="secondary" id="mopf-overlay" ${r.files.some((f) => f.startsWith("mopf_tracks/")) ? "" : "disabled"}>正解と MOPF の枠を重ねた動画を作る（CPU、1 本 2〜3 分）</button></div>
     <div id="overlay-msg" class="muted">${r.overlay_job ? `重ねた動画: ${r.overlay_job.status}${r.overlay_job.error ? "・" + r.overlay_job.error : ""}` : ""}</div>
     ${r.files.filter((f) => f.startsWith("mopf_eval/") && f.endsWith("_overlay.mp4")).map((v) => `<div class="muted">${v} ${dlLink(id, v)}<br>
@@ -435,6 +472,13 @@ async function showRun(id) {
       $("mopf-proc-msg").textContent = "MOPF: 実行中（終わったら結果を開き直す）";
     } catch (err) { $("mopf-proc-msg").textContent = String(err); }
   });
+  $("mopf-sync").addEventListener("click", async () => {
+    try {
+      await post(`/api/runs/${id}/mopf/sync`, {});
+      $("sync-msg").textContent = "並べた動画: 作っている（3〜4 分。終わったら結果を開き直す）";
+    } catch (err) { $("sync-msg").textContent = String(err); }
+  });
+  if (r.files.includes("mopf_eval/identities.json")) renderIdTable(id);
   $("mopf-overlay").addEventListener("click", async () => {
     try {
       await post(`/api/runs/${id}/mopf/overlay`, {});

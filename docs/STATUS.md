@@ -7,7 +7,8 @@
 - 画面: 結果のダウンロード（ファイル・zip）、MOPF のタブ（GPU を選んで起動・ライブ・停止、ライブの映像と集計を正解と並べる）、床に写した図、重ねた動画を作るボタン
 - 保守性: pyproject（`./run.sh` は `uv run twinsim`）、config.py（置き場所・接続先）、MOPF 連携を twinsim/mopf/ に分割、ruff、読み込みのテスト、CI、docs/architecture.md
 - GitHub: 非公開の fujisawa-yoshihiko/twinsim に送った
-- 複数カメラをまたぐ追跡: MOPF にはない。研究の試作（research/multicam）を twinsim の結果で評価するのが次の候補
+- 複数カメラをまたぐ追跡: MOPF にはない。2 台を時刻でそろえた動画と、同じ人の各カメラの ID の対応表を作った（mopf-sync、画面の「2 台を時刻で並べる」）。
+  研究の試作（research/multicam）の自動のつなぎを twinsim の結果で評価するのが次の候補
 
 
 ## 2026-10-22 深夜（残りと、ほかのアプリとの連携）

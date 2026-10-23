@@ -92,3 +92,17 @@ def test_mopf_synthetic(tmp_path):
     e = mopf.expect(run, "CamGate")
     assert e["lines"][0]["to_pos"] > 0
     assert (run / "aicity/gt.txt").read_text().split("\n")[0].count(" ") == 8
+
+
+def test_identities_synthetic(tmp_path):
+    # 正解から作った追跡（誤りなし）では、2 台に映った人はどちらのカメラでも ID が 1 本で、カメラの間の移動が出る
+    from twinsim import mopf
+    run = tmp_path / "r"
+    api.run("office_gate_ev", run, overrides={"duration_s": 90, "outputs": ["ground_truth", "graph", "mot"]})
+    for cam in ("CamGate", "CamEV"):
+        mopf.synthetic_tracks(run, cam, tmp_path / "t", jitter_px=1.0, miss=0.0)
+    res, _ = mopf.identities(run, tracks_dir=tmp_path / "t")
+    both = [p for p in res["persons"].values() if p["handovers"]]
+    assert both and all(len({s["mopf_id"] for s in p["cams"][c]}) == 1 for p in both for c in p["cams"])
+    assert all(len({s["person"] for s in segs}) == 1 for c in res["cameras"] for segs in res["mopf_ids"][c].values())
+    assert (run / "mopf_eval/identities.csv").exists()
