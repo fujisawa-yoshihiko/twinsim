@@ -364,22 +364,29 @@ $("refresh").addEventListener("click", refreshRuns);
 // 2 台の間の対応の予測: 方式ごとの採点と、予測した組（○・×）の表。行の時刻を押すと予測の動画がその時刻へ飛ぶ
 async function renderLinks(id) {
   const res = await (await fetch(fileUrl(id, "mopf_eval/links.json"))).json();
-  const names = { none: tr("つながない（MOPF の ID のまま）", "No linking (MOPF IDs as is)"), within: tr("カメラの中だけ", "Within camera only"),
-    time: tr("時間＋向き", "Time + direction"), color: tr("服の色", "Clothing color"), "time+color": tr("時間＋向き＋服の色", "Time + direction + clothing color") };
+  // 方式の名前（time・time*・見た目の種類を + でつないだもの）を読める形に
+  const part = (p) => ({ time: tr("時間＋向き（地図）", "Time + direction (map)"), "time*": tr("時間＋向き（学んだ）", "Time + direction (learned)"),
+    color: tr("服の色", "Clothing color"), osnet_x0_25_msmt17: "OSNet x0.25", osnet_x1_0_msmt17: "OSNet x1.0" }[p] || p);
+  const special = { none: tr("つながない（MOPF の ID のまま）", "No linking (MOPF IDs as is)"), within: tr("カメラの中だけ", "Within camera only") };
+  const names = new Proxy({}, { get: (_, m) => special[m] || String(m).split("+").map(part).join(" ＋ ") });
   const mrow = Object.entries(res.metrics).map(([m, x]) => `<tr${m === res.method ? ' style="font-weight:bold"' : ""}><td>${names[m] || m}</td><td>${x.idf1}</td>
     <td>${x.cross_correct}/${x.cross_links}</td><td>${x.handovers_found}/${x.handovers}</td><td>${x.global_ids}</td></tr>`).join("");
+  const tm = res.timing || {};
+  const speed = Object.entries(tm).filter(([k]) => k.endsWith("_ms_per_crop")).map(([k, v]) => `${part(k.replace("_ms_per_crop", ""))} ${v} ms`).join(tr("、", ", "));
   const seek = (t) => `<a href="#" data-pseek="${Math.max(0, t - 2)}">`;
   const rows = res.cross_links.map((c) => `<tr data-q="${c.global_id} ID${c.mopf_id_from} ID${c.mopf_id_to} ${c.person_from || ""} ${c.person_to || ""} ${c.correct ? "OK" : "NG"}">
     <td style="color:${c.correct ? "#1e8c3c" : "#c82828"}">${c.correct ? "○" : "×"}</td><td>${seek(c.t_to)}${c.global_id}</a></td>
     <td>${c.from_camera} ID ${c.mopf_id_from} → ${c.to_camera} ID ${c.mopf_id_to}</td><td>${c.t_from}→${c.t_to}</td>
-    <td>${c.gap}${c.expected_s != null ? ` / ${c.expected_s}` : ""}</td><td>${c.color_z ?? "-"}</td><td>${c.margin}</td>
+    <td>${c.gap}${c.expected_s != null ? ` / ${c.expected_s}` : ""}</td><td>${c.app_z ?? "-"}</td><td>${c.margin}</td>
     <td>${c.person_from || "-"}${c.correct ? "" : ` → ${c.person_to || "-"}`}</td></tr>`).join("");
   const missed = res.missed_handovers.map((h) => tr(`${h.person}（${h.from} → ${h.to}、${h.t_to} 秒）`, `${h.person} (${h.from} → ${h.to}, ${h.t_to} s)`)).join(tr("、", ", "));
   $("link-box").innerHTML = `<table class="dest"><tr><th>${tr("方式", "Method")}</th><th>IDF1${tr("（2 台を合わせて）", " (both cameras)")}</th>
       <th>${tr("組（正しい/予測）", "Links (correct/predicted)")}</th><th>${tr("見つけた/本当の組", "Found/true transitions")}</th><th>${tr("全体の番号", "Global IDs")}</th></tr>${mrow}</table>
+    <div class="muted">${tr(`動画・下の表の方式: ${names[res.method]}。見た目の特徴を出す時間（切り出し 1 枚あたり、CPU）: ${speed || "-"}（切り出し ${tm.crops ?? "-"} 枚）`,
+      `Method used for the video and the table below: ${names[res.method]}. Time to compute appearance features (per crop, CPU): ${speed || "-"} (${tm.crops ?? "-"} crops)`)}</div>
     <div class="row"><label>${tr("絞り込み", "Filter")} <input id="link-filter" placeholder="${tr("G012・ID19・P0030・NG", "e.g. G012, ID19, P0030, NG")}"></label></div>
     <div style="max-height:360px;overflow:auto"><table class="dest"><tr><th></th><th>${tr("番号", "ID")}</th><th>${tr("予測した組", "Predicted link")}</th>
-      <th>${tr("時刻（秒）", "Time (s)")}</th><th>${tr("間 / 来るはずの時間（秒）", "Gap / expected (s)")}</th><th>${tr("色の z", "Color z")}</th>
+      <th>${tr("時刻（秒）", "Time (s)")}</th><th>${tr("間 / 来るはずの時間（秒）", "Gap / expected (s)")}</th><th>${tr("見た目の z", "Appearance z")}</th>
       <th>${tr("余裕", "Margin")}</th><th>${tr("正解の人", "Ground-truth person")}</th></tr>${rows}</table></div>
     ${missed ? `<div class="muted">${tr("つなげなかった本当の組", "True transitions not linked")}: ${missed}</div>` : ""}`;
   $("link-box").querySelectorAll("[data-pseek]").forEach((a) => a.addEventListener("click", (e) => {

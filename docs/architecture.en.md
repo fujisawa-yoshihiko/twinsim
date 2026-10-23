@@ -32,6 +32,7 @@ spaces/<name>/   ──→ space.load_space (grid of the walkable area, semantic
 | `twinsim/outputs.py` | Ground truth, aggregates, graphs, MOT, AI City, check figures | `write_all` |
 | `twinsim/validity.py`, `quality.py` | Comparison with the literature, ledger / wall and proximity checks | `evaluate`, `check` |
 | `twinsim/calibrate.py` | Calibration with real data, writing out in the log format | `calibrate`, `export_logs` |
+| `twinsim/reid.py`, `twinsim/vendor/` | Appearance features from a person re-identification model (OSNet; definition copied from torchreid, MIT) on the CPU (the `reid` uv group) | `Embedder` |
 | `twinsim/camera.py` | Cameras (USD matrices), bounding boxes, visible fraction, projection onto the floor | `Camera` |
 | `twinsim/isaac_bridge.py`, `isaac/` | Rendering in Isaac Sim, space assets (what runs inside Isaac Sim is `isaac/`) | `render`, `finish_render`, `export_space` |
 | `twinsim/mopf/` | Integration with MOPF (listed in `__init__.py`) | `process`, `evaluate`, `graph`, `floormap`, `overlay`, `identities`, `link`, `control` |

@@ -121,3 +121,21 @@ def test_linking_synthetic(tmp_path):
     assert m["time"]["idf1"] >= m["none"]["idf1"] - 1e-9
     assert all(c["cost"] <= 0 for c in out["cross_links"])
     assert (run / "mopf_eval/links.json").exists() and (run / "mopf_eval/links.csv").exists()
+
+
+def test_reid_embedder():
+    # OSNet x0.25（MOPF と同じ重み）の特徴: L2 で正規化され、同じ画像は同じ特徴、違う色の画像は離れる。重みがなければ飛ばす
+    pytest.importorskip("torch")
+    import numpy as np
+
+    from twinsim.reid import MODELS, Embedder
+    if not MODELS["osnet_x0_25_msmt17"]["weights"].exists():
+        pytest.skip("OSNet の重みがない")
+    e = Embedder("osnet_x0_25_msmt17", threads=2)
+    red = np.zeros((160, 64, 3), np.uint8)
+    red[..., 2] = 220
+    blue = np.zeros((160, 64, 3), np.uint8)
+    blue[..., 0] = 220
+    f = e([red, red, blue])
+    assert f.shape == (3, 512) and np.allclose(np.linalg.norm(f, axis=1), 1.0, atol=1e-4)
+    assert float(f[0] @ f[1]) > 0.999 and float(f[0] @ f[2]) < float(f[0] @ f[1])

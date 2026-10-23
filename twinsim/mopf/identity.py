@@ -182,7 +182,7 @@ def sync_video(run_dir, cameras=None, tracks_dir=None, width=800, pred=None):
     if pred:
         for c in pred["cross_links"]:
             tail = "○ 正解と同じ人" if c["correct"] else f"× 正解は {c['person_from']} → {c['person_to']}"
-            cz = f"・色の z {c['color_z']}" if c.get("color_z") is not None else ""
+            cz = f"・見た目の z {c['app_z']}" if c.get("app_z") is not None else ""
             notices.append((c["t_to"], f"予測 {c['global_id']}: {c['from_camera']} ID {c['mopf_id_from']} → {c['to_camera']} ID {c['mopf_id_to']}"
                                        f"（間 {c['gap']} 秒{cz}）{tail}", (30, 140, 60) if c["correct"] else (200, 40, 40)))
     else:

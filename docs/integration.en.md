@@ -158,7 +158,7 @@ MOPF results are `twinsim-<run-name>-<camera>/tracking.jsonl` under `TRACKS_DIR`
   The table in the GUI can be filtered by person or ID, and clicking an ID jumps the video to that time.
   office_gate_ev (5 minutes): of the 92 ground-truth people, 78 appeared in both cameras; the gate → elevator hall movement took a median of 6.6 s.
   IDs that spanned 2 or more people (ID switches): 11 tracks at the gate, 10 at the elevator hall.
-- Linking inference without ground truth (`./run.sh mopf-link <run>`, "Predicted cross-camera association" in the GUI, `twinsim/mopf/linking.py`):
+- Linking inference without ground truth (`./run.sh mopf-link <run> [--apps color osnet_x0_25_msmt17] [--method <method>]`, "Predicted cross-camera association" in the GUI, `twinsim/mopf/linking.py`):
   1. Project the foot points of tracklets (continuous runs of a MOPF ID) onto the floor. 2. Link gaps of up to 3 s within a camera using predicted position and clothing color.
   3. Link the end of a camera track → the start of a camera track in another camera (within 90 s) using time, walking direction and clothing color. 4. Follow the links to assign global IDs (G001…).
   - Time: deviation from the "expected time", the shortest walking distance over the walkable area of the space divided by walking speed (20% of people are assumed to be delayed by detours).
@@ -174,10 +174,19 @@ MOPF results are `twinsim-<run-name>-<camera>/tracking.jsonl` under `TRACKS_DIR`
   |---|---|---|---|---|
   | No linking (MOPF IDs as is) | 0.589 | - | 0 | 254 |
   | Within camera only | 0.607 | - | 0 | 227 |
-  | Time + direction | 0.617 | 5/23 | 5 | 204 |
+  | Time + direction (from the map) | 0.617 | 5/23 | 5 | 204 |
   | Clothing color | 0.771 | 69/84 | 69 | 112 |
-  | **Time + direction + clothing color** | **0.816** | **70/80** | **70** | 116 |
+  | Time (map) + clothing color | 0.816 | 70/80 | 70 | 116 |
+  | **Time (learned) + clothing color** | **0.824** | **73/81** | **73** | 115 |
+  | OSNet x0.25 (MSMT17, the same weights as MOPF) | 0.715 | 58/82 | 58 | 113 |
+  | Time (map) + OSNet x0.25 | 0.793 | 67/78 | 67 | 117 |
+  | Time (learned) + OSNet x0.25 | 0.802 | 69/79 | 69 | 116 |
 
+  - Time to compute appearance features (8 CPU threads, per crop): clothing color 0.37 ms, OSNet x0.25 4–5 ms. The 5-minute, 2-camera run has 1,824 crops (8 s to read the videos).
+    Linking takes 2–5 s per method. Making the side-by-side video with predicted IDs takes 3–4 min.
+  - Learned time (time*): from the confident links of a first pass (margin ≥ 2, appearance z ≤ −2), learn the deviation from the expected time. For gate → elevator hall it learned from 45–48 links
+    that people arrive a median 1.3 s earlier than the map estimate (10–90%: −2.1 to −0.3 s), which found 2–3 more transitions. Elevator hall → gate has fewer than 10 confident links and is not learned.
+  - In this scene each person's clothing color differs, so color beats OSNet. In real video this is expected to reverse. The default in the GUI and the command is "time (learned) + OSNet x0.25".
   - Time alone cannot narrow down the partner because about 11 people pass per minute (almost no pairs meet the linking threshold). Clothing color is the main cue, and time narrows it down.
   - 5 of the 10 wrong links are one-by-one shifts in a crowded queue near the end (272–283 s). There are more global IDs than the 92 people because within-camera breaks remain.
   - Changing the prior (0.5), the detour share (0.2) and the direction concentration (2.0) keeps IDF1 at 0.77–0.83 and found transitions at 60–74 (some values were set after seeing

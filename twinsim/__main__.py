@@ -87,6 +87,8 @@ def main(argv=None):
     mli.add_argument("run_dir")
     mli.add_argument("--cameras", nargs="*")
     mli.add_argument("--no-video", action="store_true", help="予測の番号で並べた動画を作らない")
+    mli.add_argument("--apps", nargs="*", help="見た目の種類（color、osnet_x0_25_msmt17 など。既定は使えるものすべて）")
+    mli.add_argument("--method", help="動画・links.json に使う方式（既定は time*+<最後の見た目>）")
     me = sub.add_parser("mopf-eval")
     me.add_argument("run_dir")
     me.add_argument("--tracks", help="tracking.jsonl の置き場所（既定 <結果>/mopf_tracks）")
@@ -156,11 +158,12 @@ def main(argv=None):
             print(json.dumps(sync_video(a.run_dir, a.cameras), ensure_ascii=False))
     elif a.cmd == "mopf-link":
         from .mopf import link, link_video
-        out = link(a.run_dir, a.cameras)
-        print(f"{'方式':12s} {'IDF1':>6s} {'組（正しい/予測）':>16s} {'見つけた/本当の組':>16s} {'全体の番号':>8s}")
+        out = link(a.run_dir, a.cameras, apps=a.apps, best=a.method)
+        print("見た目の特徴を出す時間:", json.dumps(out["timing"], ensure_ascii=False), " 動画・links.json の方式:", out["method"])
+        print(f"{'方式':28s} {'IDF1':>6s} {'組（正しい/予測）':>16s} {'見つけた/本当の組':>16s} {'全体の番号':>8s}")
         for m, r in out["metrics"].items():
             pairs = f"{r['cross_correct']:>8d}/{r['cross_links']:<7d} {r['handovers_found']:>8d}/{r['handovers']:<7d}"
-            print(f"{m:12s} {r['idf1']:6.3f} {pairs} {r['global_ids']:>8d}")
+            print(f"{m:28s} {r['idf1']:6.3f} {pairs} {r['global_ids']:>8d}")
         if not a.no_video:
             print(json.dumps(link_video(a.run_dir), ensure_ascii=False))
     elif a.cmd == "mopf-eval":

@@ -4,8 +4,10 @@
   時間    a の終わりの床の位置から b の始まりの床の位置までの道のり（空間の歩ける所の上の最短の道）を、歩く速さで割った「来るはずの時間」と、
           実際の間の時間のずれ。早すぎる（来るはずの時間より短い）ほど強く、遅い（受付・待ち合わせへの立ち寄り）ほど弱く罰する
   向き    a の終わりの歩く向きが b の方を向いているか、b の始まりの歩く向きが a の方から来ているか
-  見た目  動画から切り出した服の色（上半分・下半分の色相・彩度のヒストグラム）の似ていなさ。同じカメラに同じ時刻に映る 2 人
-          （必ず別の人）の似ていなさの分布で標準化する（正解を使わない）
+  見た目  動画から切り出した人の見た目の似ていなさ。服の色（上半分・下半分の色相・彩度のヒストグラム）か、人物照合のモデル
+          （OSNet など、twinsim/reid.py）の特徴。同じカメラに同じ時刻に映る 2 人（必ず別の人）の似ていなさの分布で標準化する（正解を使わない）
+  時間の学習（time*）  1 回目の推論の確からしい組（余裕が大きく、見た目もよく似ている）から、来るはずの時間とのずれの分布を
+          カメラの組ごとに学び（カーネル密度推定）、2 回目の推論に使う（正解を使わない）
 段:
   1. トラックレット: MOPF の ID のひと続き（0.5 秒より長い途切れで分ける）。足元を床に写す
   2. カメラの中: 3 秒以内の途切れを、位置の予測と見た目でつなぐ → カメラの追跡
@@ -13,7 +15,8 @@
   2・3 とも、各端のつながりは 1 つまで（ハンガリー法）。費用が上限を超える組はつながない
   4. つながりをたどって全体の番号
 採点（正解を使う）: トラックレットの人（コマごとの対応で多い人）、カメラの間の組の適合率・再現率、2 台を合わせた IDF1（AI City の MTMC と同じ考え方）。
-方式: time（時間＋向き）・color（見た目）・time+color、と比べのための none（つながない）・within（カメラの中だけ）。
+方式の名前: 手がかりを + でつなぐ。time（時間＋向き、来るはずの時間は地図から）・time*（時間＋向き、ずれの分布を学ぶ）・
+color・osnet_x0_25_msmt17 など（見た目）。例 time+color、time*+osnet_x0_25_msmt17。比べのための none（つながない）・within（カメラの中だけ）。
 """
 
 import json
@@ -39,7 +42,22 @@ MAX_COST_CROSS = 0.0
 N_CROPS = 8            # 見た目に使う切り出しの数（トラックレットごと）
 MIN_BOX_H = 50         # これより小さい人は見た目に使わない（画素）
 BIG = 1e6
-METHODS = {"time": {"time": True, "color": False}, "color": {"time": False, "color": True}, "time+color": {"time": True, "color": True}}
+KDE_MIN = 10           # 時間の学習に要る、確からしい組の数（カメラの組ごと。足りなければ地図からの仮定のまま）
+
+
+def parse_method(m):
+    """方式の名前 → {"time": None・"map"・"learned", "app": 見た目の種類か None}。none・within は None を返す（カメラの間をつながない）"""
+    if m in ("none", "within"):
+        return None
+    out = {"time": None, "app": None}
+    for part in m.split("+"):
+        if part == "time":
+            out["time"] = "map"
+        elif part == "time*":
+            out["time"] = "learned"
+        else:
+            out["app"] = part
+    return out
 
 
 @dataclass
@@ -51,7 +69,7 @@ class Tracklet:
     boxes: np.ndarray             # (n, 4) 画素
     floor: np.ndarray             # (n, 2) 足元の床の上の位置（m）
     fps: int
-    color: np.ndarray | None = None
+    feats: dict = field(default_factory=dict)  # 見た目の種類 → 特徴（服の色のヒストグラムか、人物照合のモデルのベクトル）
     n_crops: int = 0
     thumb: object = None          # 見た目の見本（PIL の画像）
     extra: dict = field(default_factory=dict)
@@ -107,7 +125,7 @@ class CamTrack:
     key: str
     camera: str
     members: list
-    color: np.ndarray | None
+    feats: dict
 
     @property
     def first(self):
@@ -157,7 +175,7 @@ def build_tracklets(run, gt, cams, tdir, f0, sp):
     return out
 
 
-# ---- 見た目（服の色） ----
+# ---- 見た目 ----
 def _hist(crop_hsv):
     h = crop_hsv.shape[0]
     feats = []
@@ -172,11 +190,22 @@ def color_distance(a, b):
     return float(np.mean([math.sqrt(max(0.0, 1.0 - float(np.sum(np.sqrt(a[i] * b[i]))))) for i in range(2)]))
 
 
-def add_color(run, tracks, cams):
-    """動画を 1 回ずつ読み、トラックレットごとに、ほかの人と重ならない大きめの枠を N_CROPS 個切り出して色のヒストグラムを作る。"""
-    import cv2
-    from PIL import Image
-    want = defaultdict(list)  # (カメラ, コマ) → [(トラックレット, 枠)]
+def app_distance(kind, a, b):
+    """見た目の似ていなさ。服の色はバタチャリヤ距離、人物照合のモデルはコサイン距離（1 − 内積）"""
+    return color_distance(a, b) if kind == "color" else float(1.0 - float(a @ b))
+
+
+def aggregate(kind, feats, weights):
+    """いくつかの特徴（切り出しごと・トラックレットごと）を 1 つにまとめる"""
+    m = np.sum([f * w for f, w in zip(feats, weights)], axis=0)
+    if kind == "color":
+        return m / np.maximum(m.sum(axis=1, keepdims=True), 1e-12)
+    return m / max(float(np.linalg.norm(m)), 1e-12)
+
+
+def pick_crops(tracks):
+    """トラックレットごとに、ほかの人と重ならない大きめの枠を N_CROPS 個（時間に散らばるように）選ぶ → {(カメラ, コマ): [(トラックレット, 枠)]}"""
+    want = defaultdict(list)
     by_cf = defaultdict(list)
     for t in tracks:
         for f, b in zip(t.frames, t.boxes):
@@ -192,10 +221,21 @@ def add_color(run, tracks, cams):
             ok.append(i)
         for i in ([ok[int(k)] for k in np.linspace(0, len(ok) - 1, min(N_CROPS, len(ok)))] if ok else []):
             want[(t.camera, int(t.frames[i]))].append((t, t.boxes[i]))
-    feats = defaultdict(list)
+    return want
+
+
+def add_appearance(run, tracks, cams, kinds=("color",)):
+    """動画を 1 回ずつ読んで切り出し、見た目の特徴を種類ごとに作る（t.feats[種類]）。返り値: かかった時間（切り出し 1 枚あたり ms）"""
+    import time
+
+    import cv2
+    from PIL import Image
+    want = pick_crops(tracks)
+    crops = defaultdict(list)
     thumbs = {}
     rl = run / "render_log.json"
     v0 = json.loads(rl.read_text())["frames"][0] if rl.exists() else 0
+    t_read = time.perf_counter()
     for cam in cams:
         frames = sorted(f for c, f in want if c == cam)
         if not frames:
@@ -212,31 +252,49 @@ def add_color(run, tracks, cams):
                     crop = img[max(0, y0):y1, max(0, x0):x1]
                     if crop.size == 0:
                         continue
-                    feats[t.key].append(_hist(cv2.cvtColor(crop, cv2.COLOR_BGR2HSV).astype(float)))
-                    if t.key not in thumbs or len(feats[t.key]) == (N_CROPS + 1) // 2:
+                    crops[t.key].append(crop.copy())
+                    if t.key not in thumbs or len(crops[t.key]) == (N_CROPS + 1) // 2:
                         thumbs[t.key] = Image.fromarray(cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)).resize((48, 120))
                 fi += 1
             elif not cap.grab():
                 break
             k += 1
         cap.release()
-    for t in tracks:
-        if feats.get(t.key):
-            m = np.mean(feats[t.key], axis=0)
-            t.color = m / np.maximum(m.sum(axis=1, keepdims=True), 1e-12)
-            t.n_crops = len(feats[t.key])
-            t.thumb = thumbs.get(t.key)
+    timing = {"read_s": round(time.perf_counter() - t_read, 1), "crops": sum(len(v) for v in crops.values())}
+    by = {t.key: t for t in tracks}
+    for key, cs in crops.items():
+        by[key].n_crops = len(cs)
+        by[key].thumb = thumbs.get(key)
+    for kind in kinds:
+        t0 = time.perf_counter()
+        if kind == "color":
+            for key, cs in crops.items():
+                by[key].feats["color"] = aggregate("color", [_hist(cv2.cvtColor(c, cv2.COLOR_BGR2HSV).astype(float)) for c in cs], [1.0] * len(cs))
+            timing["color_ms_per_crop"] = round(1000 * (time.perf_counter() - t0) / max(timing["crops"], 1), 2)
+        else:
+            from ..reid import Embedder
+            emb = Embedder(kind)
+            keys = list(crops)
+            flat = [c for k in keys for c in crops[k]]
+            f = emb(flat)
+            i = 0
+            for key in keys:
+                n = len(crops[key])
+                by[key].feats[kind] = aggregate(kind, list(f[i:i + n]), [1.0] * n)
+                i += n
+            timing[f"{kind}_ms_per_crop"] = emb.ms_per_crop
+    return timing
 
 
-def color_null(tracks):
-    """同じカメラに 1 秒以上同じ時刻に映る 2 つ（必ず別の人）の色の距離の平均と標準偏差 → 見た目の標準化に使う"""
+def app_null(tracks, kind):
+    """同じカメラに 1 秒以上同じ時刻に映る 2 つ（必ず別の人）の見た目の距離の平均と標準偏差 → 見た目の標準化に使う"""
     d = []
     for i, a in enumerate(tracks):
         for b in tracks[i + 1:]:
-            if a.camera != b.camera or a.color is None or b.color is None:
+            if a.camera != b.camera or kind not in a.feats or kind not in b.feats:
                 continue
             if min(a.t1, b.t1) - max(a.t0, b.t0) >= 1.0:
-                d.append(color_distance(a.color, b.color))
+                d.append(app_distance(kind, a.feats[kind], b.feats[kind]))
     if len(d) < 10:
         return None
     return {"mean": float(np.mean(d)), "sd": float(max(np.std(d), 0.02)), "n": len(d)}
@@ -296,11 +354,17 @@ def _unit(v):
     return v / n if n > 1e-9 else None
 
 
-def llr_time(gap, exp, window):
+def llr_time(gap, exp, window, learned=None):
     """同じ人: 来るはずの時間のまわりの正規分布（1 − DETOUR_P）＋来るはずの時間から窓の終わりまでの一様（寄り道、DETOUR_P）。
-    別の人: 窓の中の一様。"""
+    learned（学んだずれ gap − exp の列）があれば、正規分布の代わりにそのカーネル密度推定。別の人: 窓の中の一様。"""
     sig = 0.8 + 0.15 * exp
-    same = (1 - DETOUR_P) * math.exp(-0.5 * ((gap - exp) / sig) ** 2) / (sig * math.sqrt(2 * math.pi))
+    if learned is not None:
+        r = np.asarray(learned, float)
+        h = max(0.3, 1.06 * float(np.std(r)) * len(r) ** -0.2)  # シルバーマンの目安
+        dens = float(np.mean(np.exp(-0.5 * ((gap - exp - r) / h) ** 2))) / (h * math.sqrt(2 * math.pi))
+        same = (1 - DETOUR_P) * dens
+    else:
+        same = (1 - DETOUR_P) * math.exp(-0.5 * ((gap - exp) / sig) ** 2) / (sig * math.sqrt(2 * math.pi))
     if gap >= exp:
         same += DETOUR_P / max(window - exp, 1.0)
     return float(np.clip(math.log(max(same, 1e-12) * window), -LLR_MAX, LLR_MAX)), (gap - exp) / sig
@@ -311,14 +375,14 @@ def llr_dir(cos):
     return math.log(KAPPA / math.sinh(KAPPA)) + KAPPA * cos
 
 
-def llr_color(ca, cb, cnull):
-    """別の人の色の距離（同じ時刻に同じカメラに映る 2 人から求めた分布）より似ているほど大きく。z ≥ 0（別の人より似ていない）は −z"""
-    z = (color_distance(ca, cb) - cnull["mean"]) / cnull["sd"]
+def llr_app(kind, fa, fb, null):
+    """別の人の見た目の距離（同じ時刻に同じカメラに映る 2 人から求めた分布）より似ているほど大きく。z ≥ 0（別の人より似ていない）は −z"""
+    z = (app_distance(kind, fa, fb) - null["mean"]) / null["sd"]
     v = -math.log(max(2 * 0.5 * math.erfc(-z / math.sqrt(2)), 1e-12)) if z < 0 else -z
     return float(np.clip(v, -LLR_MAX, LLR_MAX)), z
 
 
-def cost_within(a, b, cnull, use_color):
+def cost_within(a, b, null, kind):
     """同じカメラの中の途切れ: 位置の予測（a の終わりの位置と速度から）のずれ。別の人は 30 m² の中のどこか（一様）とみる"""
     gap = b.t0 - a.t1
     if gap < -0.2 or gap > GAP_WITHIN_S:
@@ -330,17 +394,18 @@ def cost_within(a, b, cnull, use_color):
     lp = float(np.clip(math.log(math.exp(-0.5 * (r / sig) ** 2) / (2 * math.pi * sig ** 2) * 30.0 + 1e-12), -LLR_MAX, LLR_MAX))
     parts = {"gap": round(gap, 2), "pos_err_m": round(r, 2), "llr_pos": round(lp, 2)}
     s = lp
-    if use_color and cnull and a.color is not None and b.color is not None:
-        lc, z = llr_color(a.color, b.color, cnull)
-        parts.update({"color_z": round(z, 2), "llr_color": round(lc, 2)})
+    if kind and null and kind in a.feats and kind in b.feats:
+        lc, z = llr_app(kind, a.feats[kind], b.feats[kind], null)
+        parts.update({"app_z": round(z, 2), "llr_app": round(lc, 2)})
         s += lc
     parts["llr"] = round(s, 3)
     parts["cost"] = round(-s, 3)
     return parts
 
 
-def cost_cross(a, b, color_a, color_b, geo, cnull, use_time, use_color):
-    """a（前のカメラの追跡の最後のトラックレット）の終わり → b（次のカメラの追跡の最初）の始まり。色はカメラの追跡全体の色"""
+def cost_cross(a, b, fa, fb, geo, null, use_time, kind, learned=None):
+    """a（前のカメラの追跡の最後のトラックレット）の終わり → b（次のカメラの追跡の最初）の始まり。fa・fb はカメラの追跡全体の見た目。
+    use_time: None（時間を使わない）・"map"・"learned"。learned: カメラの組（a, b）ごとの学んだずれの列"""
     gap = b.t0 - a.t1
     if gap < -OVERLAP_S or gap > GAP_CROSS_S:
         return None
@@ -352,7 +417,8 @@ def cost_cross(a, b, color_a, color_b, geo, cnull, use_time, use_color):
             return None
         v = max(a.speed, b.speed)  # 止まっている間を含むと遅く出るので、速い方（歩いている方）を使う
         exp = d / v
-        lt, z = llr_time(gap, exp, GAP_CROSS_S + OVERLAP_S)
+        lr = (learned or {}).get((a.camera, b.camera)) if use_time == "learned" else None
+        lt, z = llr_time(gap, exp, GAP_CROSS_S + OVERLAP_S, lr)
         to_b = _unit(b.start - a.end)
         ld, ca, cb = 0.0, None, None
         if to_b is not None:
@@ -366,10 +432,10 @@ def cost_cross(a, b, color_a, color_b, geo, cnull, use_time, use_color):
         parts.update({"dist_m": round(d, 1), "expected_s": round(exp, 1), "time_z": round(z, 2), "llr_time": round(lt, 2),
                       "cos_end": None if ca is None else round(ca, 2), "cos_start": None if cb is None else round(cb, 2), "llr_dir": round(ld, 2)})
         s += lt + ld
-    if use_color:
-        if cnull and color_a is not None and color_b is not None:
-            lc, z = llr_color(color_a, color_b, cnull)
-            parts.update({"color_z": round(z, 2), "llr_color": round(lc, 2)})
+    if kind:
+        if null and fa is not None and fb is not None:
+            lc, z = llr_app(kind, fa, fb, null)
+            parts.update({"app_z": round(z, 2), "llr_app": round(lc, 2)})
             s += lc
         elif not use_time:
             return None
@@ -436,14 +502,17 @@ def chains(tracks, links):
     return {t.key: g.find(t.key) for t in tracks}
 
 
-def predict(tracks, geo, cnull, method):
-    """方式ごとに、カメラの中 → カメラの間の順につなぐ。返り値: (番号 {キー: G…}, カメラの中のつながり, カメラの間のつながり)"""
-    opt = METHODS.get(method, {"time": False, "color": False})
+def predict(tracks, geo, nulls, method, learned=None):
+    """方式ごとに、カメラの中 → カメラの間の順につなぐ。nulls: 見た目の種類 → 別の人の距離の分布。
+    返り値: (番号 {キー: G…}, カメラの中のつながり, カメラの間のつながり)"""
+    opt = parse_method(method)
+    kind = opt["app"] if opt else None
+    null = nulls.get(kind) if kind else None
     within = []
     if method != "none":
         for cam in sorted({t.camera for t in tracks}):
             ts = sorted([t for t in tracks if t.camera == cam], key=lambda t: t.t0)
-            for i, j, p, mg in assign(ts, ts, lambda a, b: cost_within(a, b, cnull, use_color=opt["color"]), MAX_COST_WITHIN):
+            for i, j, p, mg in assign(ts, ts, lambda a, b: cost_within(a, b, null, kind), MAX_COST_WITHIN):
                 within.append({"from": ts[i].key, "to": ts[j].key, **p, "margin": mg})
     root = chains(tracks, [(w["from"], w["to"]) for w in within])
     # カメラの追跡: 同じ根のトラックレットをまとめる（見た目は切り出しの数で重みをつけた平均）
@@ -453,18 +522,18 @@ def predict(tracks, geo, cnull, method):
     ctracks = []
     for r, ts in groups.items():
         ts.sort(key=lambda t: t.t0)
-        col = [t.color * t.n_crops for t in ts if t.color is not None and t.n_crops]
-        color = None
-        if col:
-            m = np.sum(col, axis=0)
-            color = m / np.maximum(m.sum(axis=1, keepdims=True), 1e-12)
-        ctracks.append(CamTrack(r, ts[0].camera, ts, color))
+        feats = {}
+        for k in {k for t in ts for k in t.feats}:
+            have = [t for t in ts if k in t.feats and t.n_crops]
+            if have:
+                feats[k] = aggregate(k, [t.feats[k] for t in have], [t.n_crops for t in have])
+        ctracks.append(CamTrack(r, ts[0].camera, ts, feats))
     cross = []
-    if method in METHODS:
+    if opt:
         def fn(a, b):
             if a.camera == b.camera:
                 return None
-            return cost_cross(a.last, b.first, a.color, b.color, geo, cnull, opt["time"], opt["color"])
+            return cost_cross(a.last, b.first, a.feats.get(kind), b.feats.get(kind), geo, null, opt["time"], kind, learned)
         for i, j, p, mg in assign(ctracks, ctracks, fn, MAX_COST_CROSS):
             a, b = ctracks[i], ctracks[j]
             cross.append({"from": a.last.key, "to": b.first.key, "from_track": a.key, "to_track": b.key,
@@ -473,6 +542,17 @@ def predict(tracks, geo, cnull, method):
     order = sorted({root2[t.key] for t in tracks}, key=lambda r: min(t.t0 for t in tracks if root2[t.key] == r))
     gid = {r: f"G{k + 1:03d}" for k, r in enumerate(order)}
     return {t.key: gid[root2[t.key]] for t in tracks}, within, cross
+
+
+def learn_time(cross, margin_min=2.0, app_z_max=-2.0):
+    """1 回目の推論の確からしい組（余裕 ≥ margin_min、見た目の z ≤ app_z_max）から、カメラの組ごとに来るはずの時間とのずれ（gap − 来るはずの時間）を集める。
+    KDE_MIN 組に満たないカメラの組は学ばない（地図からの仮定のまま）。正解は使わない。"""
+    res = defaultdict(list)
+    for c in cross:
+        if c.get("expected_s") is None or c["margin"] < margin_min or c.get("app_z", -99) > app_z_max:
+            continue
+        res[(c["from_camera"], c["to_camera"])].append(c["gap"] - c["expected_s"])
+    return {k: v for k, v in res.items() if len(v) >= KDE_MIN}
 
 
 # ---- 採点（正解を使う） ----
@@ -542,33 +622,67 @@ def _handovers(run, cams, tracks_dir=None):
 
 
 # ---- まとめ ----
-def link(run_dir, cameras=None, tracks_dir=None, methods=("none", "within", "time", "color", "time+color"), best="time+color", with_color=True):
-    """推論して採点し、mopf_eval/links.json・links.csv・links.png（予測した組の切り出しの一覧）を書く。返り値: 結果の dict"""
+def available_apps():
+    """使える見た目の種類: 服の色と、torch と重みがそろっている人物照合のモデル"""
+    out = ["color"]
+    try:
+        import torch  # noqa: F401
+
+        from ..reid import MODELS
+        out += [k for k, m in MODELS.items() if m["weights"].exists()]
+    except ImportError:
+        pass
+    return out
+
+
+def default_methods(apps):
+    """比べる方式の一覧（見た目の種類ごとに: 見た目だけ・時間＋見た目・学んだ時間＋見た目）"""
+    ms = ["none", "within", "time", "time*"]
+    for a in apps:
+        ms += [a, f"time+{a}", f"time*+{a}"]
+    return ms
+
+
+def link(run_dir, cameras=None, tracks_dir=None, apps=None, methods=None, best=None):
+    """推論して採点し、mopf_eval/links.json・links.csv・links.png（best の方式の予測した組の切り出しの一覧）を書く。
+    apps: 使う見た目の種類（"color"、twinsim.reid.MODELS の名前）。人物照合のモデルは torch が要る（uv run --group reid）。返り値: 結果の dict"""
+    import time
+    apps = tuple(apps or available_apps())
     run, gt, f0 = open_run(run_dir)
     tdir, f0 = tracks_dir_and_offset(run, tracks_dir, f0)
     cams = cameras or [c for c in gt["cameras"] if (tdir / f"{c}.jsonl").exists()]
     sp = load_space(gt["space"])
     tracks = build_tracklets(run, gt, cams, tdir, f0, sp)
-    if with_color and all((run / "video" / f"{c}.mp4").exists() for c in cams):
-        add_color(run, tracks, cams)
-    cnull = color_null(tracks)
-    if cnull is None:
-        methods = [m for m in methods if m not in ("color",)]
-        best = "time" if best == "time+color" else best
+    timing = {}
+    if apps and all((run / "video" / f"{c}.mp4").exists() for c in cams):
+        timing = add_appearance(run, tracks, cams, apps)
+    nulls = {a: n for a in apps if (n := app_null(tracks, a))}
+    methods = [m for m in (methods or default_methods(apps)) if not (parse_method(m) or {}).get("app") or parse_method(m)["app"] in nulls]
+    best = best if best in methods else next((m for m in reversed(methods) if m.startswith("time*+")), methods[-1])
     geo = Geodesic(sp)
     M = truth_labels(run, gt, cams, tracks, tdir, f0)  # 採点だけに使う（推論には渡さない）
     hand = _handovers(run, cams, tracks_dir)
-    results, preds = {}, {}
+    results, preds, learned_all = {}, {}, {}
     for m in methods:
-        gids, within, cross = predict(tracks, geo, cnull, m)
+        t0 = time.perf_counter()
+        opt = parse_method(m)
+        learned = None
+        if opt and opt["time"] == "learned":  # 1 回目（地図からの時間）で確からしい組を選び、ずれの分布を学んで 2 回目
+            first = m.replace("time*", "time")
+            _, _, cross1 = preds[first] if first in preds else predict(tracks, geo, nulls, first)
+            learned = learn_time(cross1)
+            learned_all[m] = {f"{a}->{b}": {"n": len(v), "median_s": round(float(np.median(v)), 2), "p10_s": round(float(np.percentile(v, 10)), 2),
+                                            "p90_s": round(float(np.percentile(v, 90)), 2)} for (a, b), v in learned.items()}
+        gids, within, cross = predict(tracks, geo, nulls, m, learned)
         results[m] = score(run, gt, cams, tracks, gids, cross, M, hand)
         results[m]["within_links"] = len(within)
+        results[m]["seconds"] = round(time.perf_counter() - t0, 1)
         preds[m] = (gids, within, cross)
     gids, within, cross = preds[best]
     by = {t.key: t for t in tracks}
-    out = {"cameras": cams, "method": best, "color_null": cnull,
+    out = {"cameras": cams, "method": best, "apps": list(apps), "app_null": nulls, "learned_time": learned_all, "timing": timing,
            "params": {"split_frames": SPLIT_FRAMES, "gap_within_s": GAP_WITHIN_S, "gap_cross_s": GAP_CROSS_S, "max_cost_within": MAX_COST_WITHIN,
-                      "max_cost_cross": MAX_COST_CROSS, "n_crops": N_CROPS},
+                      "max_cost_cross": MAX_COST_CROSS, "n_crops": N_CROPS, "p_has": P_HAS, "detour_p": DETOUR_P, "kappa": KAPPA},
            "metrics": results,
            "tracklets": [{"key": t.key, "camera": t.camera, "mopf_id": t.mopf_id, "t0": round(t.t0, 2), "t1": round(t.t1, 2), "global_id": gids[t.key],
                           "speed": round(t.speed, 2), "n_crops": t.n_crops, "person": t.extra.get("person"), "purity": t.extra.get("purity")}
@@ -585,11 +699,11 @@ def link(run_dir, cameras=None, tracks_dir=None, methods=("none", "within", "tim
     import csv
     with open(ev / "links.csv", "w", newline="", encoding="utf-8-sig") as fh:
         w = csv.writer(fh)
-        w.writerow(["global_id", "from_camera", "mopf_id_from", "t_from", "to_camera", "mopf_id_to", "t_to", "gap_s", "expected_s", "color_z",
+        w.writerow(["global_id", "from_camera", "mopf_id_from", "t_from", "to_camera", "mopf_id_to", "t_to", "gap_s", "expected_s", "app_z",
                     "cost", "margin", "correct", "person_from", "person_to"])
         for c in out["cross_links"]:
             w.writerow([c["global_id"], c["from_camera"], c["mopf_id_from"], c["t_from"], c["to_camera"], c["mopf_id_to"], c["t_to"], c["gap"],
-                        c.get("expected_s", ""), c.get("color_z", ""), c["cost"], c["margin"], c["correct"], c["person_from"], c["person_to"]])
+                        c.get("expected_s", ""), c.get("app_z", ""), c["cost"], c["margin"], c["correct"], c["person_from"], c["person_to"]])
     if any(t.thumb is not None for t in tracks):
         _sheet(ev / "links.png", out["cross_links"], by)
     return out
