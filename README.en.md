@@ -60,7 +60,7 @@ The GPUs are shared with other users, so stop things when you are done. After st
 | MOPF (uses 1 GPU) | "Stop" on the "MOPF" tab of the GUI, or `./stop.sh mopf` (= `~/MOPF_ALL_video/stop_ampb.sh`) | The data and the images are kept |
 | Isaac Sim (rendering, uses 1 GPU) | `./stop.sh isaac` (= `isim down`) | If a render is in progress, it stops too. To render next time, `./isaac_up.sh <GPU>` |
 | Overnight rendering and comparison processing (`tools/night_b.sh`) | Look up the process ID with `pgrep -af night_b` and run `kill <PID>` | Rendering (inside Isaac Sim) keeps going, so to stop it also run `./stop.sh isaac`. If rendering has finished, `tools/night_b.sh --resume` continues from where it left off |
-| Everything at once | `./stop.sh` (GUI and MOPF), `./stop.sh all` (Isaac Sim too) | |
+| Everything at once | `./stop.sh` (GUI and MOPF), `./stop.sh all` (Isaac Sim too) | Check the state before and after with `./status.sh` |
 
 ## Time needed to produce video (measured on 2026-10-23, one RTX PRO 6000 GPU)
 
