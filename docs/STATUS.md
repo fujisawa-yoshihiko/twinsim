@@ -1,5 +1,11 @@
 # 作業の状態（再開用）
 
+## 2026-10-24（進捗の報告のページ）
+
+- `docs/report/2026-10-24/`（日本語・英語）: 画面のキャプチャ（`tools/capture_gui.py`、playwright の Firefox）と、結果の切り出しの GIF・mp4・画像（`tools/report_media.sh`）つきの報告。
+  検証の環境としての進捗の表（計画書の評価指標ごと）も載せた。
+- 評価仕様の案と評価の道具は研究のフォルダ（`~/MOPF_ALL_video/research/spec/`、手元の git だけ）。twinsim の正解を状態ラベルの形に書き出す道具もそこ（`kit/from_twinsim.py`）。
+
 ## 2026-10-23 午後（2 台の間の対応の推論）
 
 - 正解を使わずに 2 台の間をつなぐ推論（twinsim/mopf/linking.py、`./run.sh mopf-link`、画面の「2 台の間の対応の予測」）。時間・向き・服の色の LLR の和で 1 対 1 に。
