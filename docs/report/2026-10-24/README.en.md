@@ -56,7 +56,7 @@ Gate camera. Green = ground truth (visible people), thin colored boxes = MOPF, y
 
 ## 4. Linking the same person across the two cameras (inference without ground truth)
 
-MOPF assigns IDs per camera, so the gate ID and the elevator-hall ID are not linked. We infer the same person across the cameras from the expected travel time
+A detailed explanation with figures and formulas is in [docs/methods.en.md](../../methods.en.md). MOPF assigns IDs per camera, so the gate ID and the elevator-hall ID are not linked. We infer the same person across the cameras from the expected travel time
 (shortest walkable path ÷ walking speed), walking direction and appearance (clothing color, person re-identification models), and assign global IDs (M…).
 The ground truth is used only for scoring.
 
