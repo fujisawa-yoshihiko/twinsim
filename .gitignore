@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 runs/
 *.mp4
+!docs/report/*/media/*.mp4
 spaces/*/annotate.png
 .venv/
 uv.lock.bak
