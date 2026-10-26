@@ -176,3 +176,13 @@ def test_output_formats_match_docs(tmp_path):
     assert {"1_count", "2_direction", "3_dwell", "4_group", "5_congestion", "6_trend", "elevator"} <= set(tasks)
     assert (run / "graph/zone_counts.csv").read_text().startswith("t,")
     assert (run / "graph/zone_flows.csv").read_text().startswith("minute,source,target,count")
+
+
+def test_ward_layout_matches_docs():
+    # docs/formats.md の 10（病棟の配置と道のり）のキーと、道のりの行列の大きさ
+    from twinsim.ward import ward_layout
+    w = ward_layout("hospital")
+    assert {"space", "beds", "layouts", "points", "names", "dist_m", "source", "note"} <= set(w)
+    n = len(w["names"])
+    assert len(w["dist_m"]) == n and all(len(r) == n for r in w["dist_m"])
+    assert all(w["dist_m"][i][i] == 0 for i in range(n)) and all(d >= 0 for r in w["dist_m"] for d in r)

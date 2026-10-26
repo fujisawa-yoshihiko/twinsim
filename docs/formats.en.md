@@ -160,6 +160,19 @@ while (ok := cap.read())[0]:
 
 **State classification (VLM, etc.)**: match `people[name].states` with the boxes (`mot`) in the same video frames.
 
+## 10. Ward layout and walking distances (`ward_layout.json`)
+
+`./run.sh ward-layout [--space hospital]` → `~/dt-data/twinsim/ward/hospital_ward_layout.json`. From the space's `ward.yaml` (beds and nurse-station layouts),
+it computes the shortest walkable distances. The "ward execution delays" of the workbench in `~/digitaltwin` (`workbench/bridge/ward.py`) use them for nurses' walking times.
+
+| Key | Contents |
+|---|---|
+| `space`, `source`, `note` | Space name, source of the layout, description |
+| `beds` | `[{name, ward, xy}]`. The walkable point nearest to each bed (the corridor in front of the room) |
+| `layouts` | `{layout: {station: [x, y]}}` (e.g. `reception`, `best1`, `best2`) |
+| `points`, `names` | `{name: [x, y]}` (bed names and `layout:station`) and their order |
+| `dist_m` | `dist_m[i][j]` = shortest walkable distance from `names[i]` to `names[j]` (m, Dijkstra on a 0.25 m grid) |
+
 ## 9. Caveats for training (limitations of the current version)
 
 - The boxes are approximations obtained by projecting a box enclosing the person, and are not tight to the rendered outline. Visibility is also approximate (no depth or masks are output). Training a detector requires outputting tight boxes, masks, and depth with Isaac Sim's Replicator at rendering time (not implemented).

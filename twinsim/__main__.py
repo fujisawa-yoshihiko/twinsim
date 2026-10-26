@@ -10,6 +10,7 @@
   python -m twinsim mopf-sync <結果の場所> [--table-only]   カメラを時刻でそろえ、同じ人の各カメラの MOPF の ID（対応表・並べた動画）
   python -m twinsim mopf-link <結果の場所> [--no-video]   正解を使わずに 2 台の間の対応を推論し、採点する（links.json・links.png・sync_pred.mp4）
   python -m twinsim export-logs <結果の場所>         ゲートの通過記録・EV の運行記録の形で書き出す（実データの形の見本・往復の確かめ）
+  python -m twinsim ward-layout [--space hospital] [--out 場所]   病棟のベッド・ナースステーションの置き方と、その間の道のり
   python -m twinsim calibrate <元のシナリオ> --gate-log a.csv --ev-log b.csv [--ev-mode replay]   記録で値を合わせたシナリオを作る
   python -m twinsim render <結果の場所> [--frames 始まり 終わり] [--cameras A,B]   Isaac Sim で描画して video/<カメラ>.mp4 を作る（GPU）
   python -m twinsim export-space <名前> --usd URL --region x0 x1 y0 y1 z0 z1 [--res 0.25]   USD から空間の材料を作る（GPU）
@@ -95,6 +96,9 @@ def main(argv=None):
     el = sub.add_parser("export-logs")
     el.add_argument("run_dir")
     el.add_argument("--out")
+    wl = sub.add_parser("ward-layout")
+    wl.add_argument("--space", default="hospital")
+    wl.add_argument("--out")
     ca = sub.add_parser("calibrate")
     ca.add_argument("base", help="元のシナリオ（テンプレートの名前かファイル）")
     ca.add_argument("--gate-log")
@@ -177,6 +181,9 @@ def main(argv=None):
     elif a.cmd == "export-logs":
         from .calibrate import export_logs
         print("logs:", export_logs(a.run_dir, a.out))
+    elif a.cmd == "ward-layout":
+        from .ward import write
+        print("ward layout:", write(a.space, a.out))
     elif a.cmd == "calibrate":
         from .calibrate import calibrate
         path, rep = calibrate(a.base, a.gate_log, a.ev_log, a.out, a.ev_mode, cid=a.id)

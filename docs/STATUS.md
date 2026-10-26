@@ -1,5 +1,10 @@
 # 作業の状態（再開用）
 
+## 2026-10-26（病棟の配置と道のり）
+
+- `spaces/hospital/ward.yaml`（ベッド 8 台・ナースステーションの置き方 3 案。仮想病院の配置の比較から写した）と `twinsim ward-layout`（歩ける所の上の道のり → `~/dt-data/twinsim/ward/hospital_ward_layout.json`、形は docs/formats.md の 10）。
+- 使うのは `~/digitaltwin/workbench/bridge/ward.py`（病棟の実施の遅れの試作。看護師の順番待ち × MedGym）。結果は `~/digitaltwin/workbench/README.md` の「病棟の実施の遅れ」。
+
 ## 2026-10-24（進捗の報告のページ）
 
 - `docs/report/2026-10-24/`（日本語・英語）: 画面のキャプチャ（`tools/capture_gui.py`、playwright の Firefox）と、結果の切り出しの GIF・mp4・画像（`tools/report_media.sh`）つきの報告。

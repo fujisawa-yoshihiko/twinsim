@@ -1,0 +1,23 @@
+# 病棟の配置: ベッド（病室のドアの前の歩ける点）と、ナースステーションの置き方の案。twinsim ward-layout が歩ける所の上の道のりを出し、
+# ~/digitaltwin のワークベンチの「病棟の実施の遅れ」（workbench/bridge/ward.py）が読む。
+# 位置は Isaac Sim の病院のシーン（hospital.usd）での仮想病院の配置の比較（~/digitaltwin/hospital-sim の s20_layout.py、
+# ~/isaac-sim-work/hospital-demo/layout.json、2026-10-16）から写した。病室の中は歩ける範囲にならないので、ベッドに最も近い歩ける点（多くは病室の前の廊下）。
+source: "~/digitaltwin/hospital-sim scripts/s20_layout.py → ~/isaac-sim-work/hospital-demo/layout.json（ナビメッシュ、2026-10-16）"
+source_en: "Copied from the layout comparison of the virtual hospital (~/digitaltwin/hospital-sim, s20_layout.py, navmesh, 2026-10-16)"
+beds:
+  - {name: SM_HospitalBed_01b_141, ward: east, xy: [-13.34, 10.88]}
+  - {name: SM_HospitalBed_02d4, ward: west, xy: [-46.06, 18.18]}
+  - {name: SM_HospitalBed_02d5, ward: west, xy: [-46.66, 21.63]}
+  - {name: SM_HospitalBed_02d7, ward: west, xy: [-30.78, 23.22]}
+  - {name: SM_HospitalBed_02d8, ward: west, xy: [-34.00, 14.33]}
+  - {name: SM_HospitalBed_02d11, ward: east, xy: [11.04, 14.83]}
+  - {name: SM_HospitalBed_02d12, ward: east, xy: [11.04, 18.48]}
+  - {name: SM_HospitalBed_02d15, ward: east, xy: [20.71, 12.97]}
+layouts:          # ナースステーションの置き方（名前 → ステーション → 位置）
+  reception:      # 今: ロビーの受付に 1 か所
+    S1: [2.0, 4.0]
+  best1:          # 1 か所にするなら 8 台までの道のりの合計が最も短い所（300 の候補から）
+    S1: [-13.76, 10.53]
+  best2:          # 病棟ごとに 2 か所（東・西）
+    S1: [11.04, 14.33]
+    S2: [-30.98, 14.79]

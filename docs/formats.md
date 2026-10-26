@@ -160,6 +160,19 @@ while (ok := cap.read())[0]:
 
 **状態の判別（VLM など）**: `people[名前].states` を、動画の同じコマの枠（`mot`）と合わせる。
 
+## 10. 病棟の配置と道のり（`ward_layout.json`）
+
+`./run.sh ward-layout [--space hospital]` → `~/dt-data/twinsim/ward/hospital_ward_layout.json`。空間の `ward.yaml`（ベッドとナースステーションの置き方）から、
+歩ける所の上の最短の道のりを出す。`~/digitaltwin` のワークベンチの「病棟の実施の遅れ」（`workbench/bridge/ward.py`）が看護師の歩く時間に使う。
+
+| キー | 中身 |
+|---|---|
+| `space`・`source`・`note` | 空間の名前、配置の出典、説明 |
+| `beds` | `[{name, ward, xy}]`。ベッドに最も近い歩ける点（病室の前の廊下） |
+| `layouts` | `{置き方: {ステーション: [x, y]}}`（例 `reception`・`best1`・`best2`） |
+| `points`・`names` | `{名前: [x, y]}`（ベッドの名前と `置き方:ステーション`）と、その並び |
+| `dist_m` | `dist_m[i][j]` = `names[i]` から `names[j]` までの道のり（m、0.25 m の格子のダイクストラ法） |
+
 ## 9. 学習に使うときの注意（今の版の限界）
 
 - 枠は人を囲む箱を映した近似で、描かれた輪郭にぴったりではない。見えている割合も近似（深度・マスクは出していない）。検出器の学習には、描画のときに Isaac Sim の Replicator でぴったりの枠・マスク・深度を出すのが要る（未実装）。

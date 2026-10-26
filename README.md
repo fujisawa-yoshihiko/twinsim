@@ -48,6 +48,7 @@ cd ~/twinsim
 | `tasks.json` | JSON | 計画書 p7 の 6 タスクの正解（人数・ゲートの通過・滞留・グループ・混雑・行き先、EV の待ち） |
 | `graph/` | JSON・CSV・NPZ・GraphML | ゾーンのグラフ・2 m の格子のグラフ、秒ごとの人数・1 分ごとの流れ、カメラから見える所 |
 | `logs/` | CSV | ゲートの通過記録・EV の運行記録（実データと同じ形） |
+| `~/dt-data/twinsim/ward/<空間>_ward_layout.json` | JSON | 病棟のベッド・ナースステーションの置き方と、その間の歩ける所の上の道のり（`./run.sh ward-layout`。MedGym ワークベンチの病棟の実施の遅れが使う） |
 
 状態: `pass`・`gate_queue`・`ev_approach`・`ev_wait`・`alight`・`reception`・`dwell`・`sign_check`・`companion_wait`（倉庫は `work`・`wait`）。
 注意: 枠は人を囲む箱を映した近似（輪郭にぴったりではない）、見えている割合も近似。人物モデルは 10 種類で、服の色を人ごとに変えている。
