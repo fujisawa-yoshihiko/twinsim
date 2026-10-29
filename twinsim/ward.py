@@ -21,8 +21,13 @@ def ward_layout(space="hospital"):
     names = list(points)
     geo = Geodesic(sp)  # 歩ける所の格子の上のダイクストラ法（歩けない点は近くの歩ける点に寄せる）
     dist = [[round(geo.dist(points[a], points[b]), 2) for b in names] for a in names]
+    # ステーションからベッドまでの道の点の列（看護師の動きを画面に描くため。戻りは逆順）
+    paths = {f"{lay}:{st}|{b['name']}": [[round(x, 2), round(y, 2)] for x, y in geo.path(points[f"{lay}:{st}"], points[b["name"]])]
+             for lay, stations in spec["layouts"].items() for st in stations for b in spec["beds"]}
     return {"space": sp.name, "beds": spec["beds"], "layouts": spec["layouts"], "points": points, "names": names, "dist_m": dist,
-            "source": spec.get("source"), "note": "dist_m[i][j] = names[i] から names[j] までの歩ける所の上の最短の道のり（m、0.25 m の格子）"}
+            "paths": paths, "source": spec.get("source"),
+            "note": "dist_m[i][j] = names[i] から names[j] までの歩ける所の上の最短の道のり（m、0.25 m の格子）。"
+                    "paths[\"置き方:ステーション|ベッド\"] = その間の道の点の列（0.2 m の幅で間引いたもの）"}
 
 
 def write(space="hospital", out=None):

@@ -342,6 +342,8 @@ class Geodesic:
         n = int(g.sum())
         self.graph = coo_matrix((np.r_[ww, ww], (np.r_[r, c], np.r_[c, r])), shape=(n, n)).tocsr()
         self.cache = {}
+        self.ij = np.argwhere(g)   # 点の番号 → 格子の (i, j)（idx と同じ並び）
+        self.pred = {}
 
     def node(self, xy):
         x, y = self.sp.snap(*xy) if not self.sp.walkable(*xy) else xy
@@ -357,6 +359,39 @@ class Geodesic:
             self.cache[nb] = dijkstra(self.graph, directed=False, indices=nb)
         d = float(self.cache[nb][na])
         return d if np.isfinite(d) else float("inf")
+
+    def path(self, a, b, tol=0.2):
+        """a から b への最短の道の点の列 [(x, y)]。格子の点の列を tol m の幅で間引く（両端は a と b）。つながらなければ直線。"""
+        from scipy.sparse.csgraph import dijkstra
+        na, nb = self.node(a), self.node(b)
+        if na < 0 or nb < 0:
+            return [tuple(map(float, a)), tuple(map(float, b))]
+        if na not in self.pred:
+            self.pred[na] = dijkstra(self.graph, directed=False, indices=na, return_predecessors=True)[1]
+        pred, nodes = self.pred[na], [nb]
+        while nodes[-1] != na:
+            k = int(pred[nodes[-1]])
+            if k < 0:
+                return [tuple(map(float, a)), tuple(map(float, b))]
+            nodes.append(k)
+        pts = [self.sp.center(*self.ij[k]) for k in reversed(nodes)]
+        pts[0], pts[-1] = tuple(map(float, a)), tuple(map(float, b))
+        return _simplify(pts, tol)
+
+
+def _simplify(pts, tol):
+    """折れ線の間引き（Ramer–Douglas–Peucker 法）。両端を結ぶ線から tol より離れた点だけを残す。"""
+    if len(pts) < 3:
+        return pts
+    p = np.asarray(pts, float)
+    d = p[-1] - p[0]
+    n = float(np.hypot(*d))
+    q = p - p[0]
+    off = np.abs(d[0] * q[:, 1] - d[1] * q[:, 0]) / n if n > 1e-9 else np.hypot(q[:, 0], q[:, 1])
+    k = int(off.argmax())
+    if off[k] <= tol:
+        return [pts[0], pts[-1]]
+    return _simplify(pts[:k + 1], tol)[:-1] + _simplify(pts[k:], tol)
 
 
 # ---- 費用: 「同じ人」と「別の人」の尤もらしさの比の対数（LLR）の和の符号を変えたもの。0 より小さい（同じ人のほうが尤もらしい）組だけつなぐ ----

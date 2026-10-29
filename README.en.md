@@ -48,7 +48,7 @@ Files are under `~/dt-data/twinsim/runs/<run-name>/`. Coordinates are world mete
 | `tasks.json` | JSON | Ground truth for the six tasks on p. 7 of the research plan (counts, gate crossings, dwelling, groups, congestion, destinations, elevator waits) |
 | `graph/` | JSON, CSV, NPZ, GraphML | Zone graph and 2 m grid graph, per-second counts, per-minute flows, what each camera sees |
 | `logs/` | CSV | Gate crossing logs and elevator operation logs (the same format as real data) |
-| `~/dt-data/twinsim/ward/<space>_ward_layout.json` | JSON | Ward beds, nurse-station layouts and the walkable distances between them (`./run.sh ward-layout`; used by the ward execution delays of the MedGym workbench) |
+| `~/dt-data/twinsim/ward/<space>_ward_layout.json` | JSON | Ward beds, nurse-station layouts, and the walkable distances and paths between them (`./run.sh ward-layout`; used by the ward execution delays of the MedGym workbench) |
 
 States: `pass`, `gate_queue`, `ev_approach`, `ev_wait`, `alight`, `reception`, `dwell`, `sign_check`, `companion_wait` (warehouse: `work`, `wait`).
 Notes: boxes are approximate projections of a box around the person (not tight to the silhouette), and visibility is approximate too. There are 10 character models, and each person's clothing color is varied.

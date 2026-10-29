@@ -172,6 +172,7 @@ it computes the shortest walkable distances. The "ward execution delays" of the 
 | `layouts` | `{layout: {station: [x, y]}}` (e.g. `reception`, `best1`, `best2`) |
 | `points`, `names` | `{name: [x, y]}` (bed names and `layout:station`) and their order |
 | `dist_m` | `dist_m[i][j]` = shortest walkable distance from `names[i]` to `names[j]` (m, Dijkstra on a 0.25 m grid) |
+| `paths` | `{"layout:station|bed": [[x, y], ...]}`. Points of the shortest walkable path from the station to the bed (the grid path thinned to a 0.2 m tolerance; the way back is the reverse). The workbench uses them to draw the nurses' movements |
 
 ## 9. Caveats for training (limitations of the current version)
 

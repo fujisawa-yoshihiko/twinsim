@@ -186,3 +186,11 @@ def test_ward_layout_matches_docs():
     n = len(w["names"])
     assert len(w["dist_m"]) == n and all(len(r) == n for r in w["dist_m"])
     assert all(w["dist_m"][i][i] == 0 for i in range(n)) and all(d >= 0 for r in w["dist_m"] for d in r)
+    # 道の点の列: 両端がステーションとベッドで、長さは道のりと大きくは変わらない（間引いた分だけ短く、両端の分だけ長い）
+    i = {k: x for x, k in enumerate(w["names"])}
+    assert len(w["paths"]) == sum(len(s) for s in w["layouts"].values()) * len(w["beds"])
+    for key, pts in w["paths"].items():
+        st, bed = key.split("|")
+        assert pts[0] == [round(v, 2) for v in w["points"][st]] and pts[-1] == [round(v, 2) for v in w["points"][bed]]
+        length = sum(math.dist(p, q) for p, q in zip(pts, pts[1:]))
+        assert 0.85 * w["dist_m"][i[st]][i[bed]] - 0.5 <= length <= w["dist_m"][i[st]][i[bed]] + 0.5  # 両端は格子に寄せる前の点
