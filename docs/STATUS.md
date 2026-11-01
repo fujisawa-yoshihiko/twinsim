@@ -1,5 +1,11 @@
 # 作業の状態（再開用）
 
+## 2026-11-01（竹芝の進捗の報告のページ）
+
+- `docs/report/2026-11-01/`（日本語・英語、10 ページ）: 目次・「知りたいことから探す」・用語集・ページの前後の移動つき。VLM の方式の比べと、根拠の区間の時刻、計算量、言えないこと。
+- ページは手書きではなく、研究のフォルダの `~/MOPF_ALL_video/research/slides/partner_update_2026-11-01/build_github_report.py` が原稿 `github_src/` と結果のファイルから作る。直すときは原稿を直して作り直す（リンクと飛び先も確かめる）。
+- 人物モデルは Isaac Sim の Additional Software and Materials License の対象（フォルダに LICENSE はない）。確かめた範囲は報告の「素材と出典」。法務の確認ではない。
+
 ## 2026-10-26（病棟の配置と道のり）
 
 - `spaces/hospital/ward.yaml`（ベッド 8 台・ナースステーションの置き方 3 案。仮想病院の配置の比較から写した）と `twinsim ward-layout`（歩ける所の上の道のり → `~/dt-data/twinsim/ward/hospital_ward_layout.json`、形は docs/formats.md の 10）。

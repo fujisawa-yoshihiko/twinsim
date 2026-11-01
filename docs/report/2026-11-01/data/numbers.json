@@ -1,0 +1,1792 @@
+{
+ "scenes": {
+  "sim-hall": {
+   "rule_online": {
+    "macro_f1": 0.434,
+    "ci95": [
+     0.407,
+     0.447
+    ],
+    "accept": 0.999,
+    "f1": {
+     "ev_wait": 0.895,
+     "companion_wait": 0.0,
+     "sign_check": 0.646,
+     "pass": 0.605,
+     "other": 0.025
+    },
+    "pr": {
+     "ev_wait": {
+      "precision": 0.998,
+      "recall": 0.812
+     },
+     "companion_wait": {
+      "precision": null,
+      "recall": 0.0
+     },
+     "sign_check": {
+      "precision": 0.8,
+      "recall": 0.542
+     },
+     "pass": {
+      "precision": 0.452,
+      "recall": 0.917
+     },
+     "other": {
+      "precision": 0.014,
+      "recall": 0.091
+     }
+    },
+    "n_steps": 4284,
+    "latency": {
+     "companion_wait": null,
+     "ev_wait": 1.5,
+     "other": 3.0,
+     "sign_check": 3.0
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 2570,
+      "companion_wait": 0,
+      "sign_check": 1,
+      "pass": 587,
+      "other": 8,
+      "unknown": 0
+     },
+     "companion_wait": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 57,
+      "other": 236,
+      "unknown": 0
+     },
+     "sign_check": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 64,
+      "pass": 54,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 4,
+      "companion_wait": 0,
+      "sign_check": 15,
+      "pass": 608,
+      "other": 31,
+      "unknown": 5
+     },
+     "other": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 40,
+      "other": 4,
+      "unknown": 0
+     }
+    },
+    "count_mae": 3.97,
+    "gt_mean_count": 10.83,
+    "hidden_mean": 4.47,
+    "ev_wait_count_mae": 1.04,
+    "seconds": 360.0,
+    "match_rate": 0.95,
+    "pairs": {
+     "precision": null,
+     "recall": 0.0,
+     "f1": 0.0,
+     "tp": 0,
+     "n_pred": 0,
+     "n_gt": 26
+    },
+    "group_kinds": {
+     "move_together": 20,
+     "join": 6
+    },
+    "vlm": {},
+    "performance": {
+     "note": "方式の出力の meta.json に performance がない（オフラインの処理）"
+    }
+   },
+   "rule_elsewhere": {
+    "macro_f1": 0.594,
+    "ci95": [
+     0.565,
+     0.611
+    ],
+    "accept": 0.999,
+    "f1": {
+     "ev_wait": 0.895,
+     "companion_wait": 0.825,
+     "sign_check": 0.646,
+     "pass": 0.605,
+     "other": 0.0
+    },
+    "pr": {
+     "ev_wait": {
+      "precision": 0.998,
+      "recall": 0.812
+     },
+     "companion_wait": {
+      "precision": 0.846,
+      "recall": 0.805
+     },
+     "sign_check": {
+      "precision": 0.8,
+      "recall": 0.542
+     },
+     "pass": {
+      "precision": 0.452,
+      "recall": 0.917
+     },
+     "other": {
+      "precision": null,
+      "recall": 0.0
+     }
+    },
+    "n_steps": 4284,
+    "latency": {
+     "companion_wait": 3.0,
+     "ev_wait": 1.5,
+     "other": null,
+     "sign_check": 3.0
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 2570,
+      "companion_wait": 8,
+      "sign_check": 1,
+      "pass": 587,
+      "other": 0,
+      "unknown": 0
+     },
+     "companion_wait": {
+      "ev_wait": 0,
+      "companion_wait": 236,
+      "sign_check": 0,
+      "pass": 57,
+      "other": 0,
+      "unknown": 0
+     },
+     "sign_check": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 64,
+      "pass": 54,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 4,
+      "companion_wait": 31,
+      "sign_check": 15,
+      "pass": 608,
+      "other": 0,
+      "unknown": 5
+     },
+     "other": {
+      "ev_wait": 0,
+      "companion_wait": 4,
+      "sign_check": 0,
+      "pass": 40,
+      "other": 0,
+      "unknown": 0
+     }
+    },
+    "count_mae": 3.97,
+    "gt_mean_count": 10.83,
+    "hidden_mean": 4.47,
+    "ev_wait_count_mae": 1.04,
+    "seconds": 360.0,
+    "match_rate": 0.95,
+    "pairs": {
+     "precision": null,
+     "recall": 0.0,
+     "f1": 0.0,
+     "tp": 0,
+     "n_pred": 0,
+     "n_gt": 26
+    },
+    "group_kinds": {
+     "move_together": 20,
+     "join": 6
+    },
+    "vlm": {},
+    "performance": {
+     "note": "方式の出力の meta.json に performance がない（オフラインの処理）"
+    }
+   },
+   "vlm_state_q3track": {
+    "macro_f1": 0.403,
+    "ci95": [
+     0.388,
+     0.423
+    ],
+    "accept": 0.993,
+    "f1": {
+     "ev_wait": 0.899,
+     "companion_wait": 0.0,
+     "sign_check": 0.5,
+     "pass": 0.617,
+     "other": 0.0
+    },
+    "pr": {
+     "ev_wait": {
+      "precision": 0.946,
+      "recall": 0.856
+     },
+     "companion_wait": {
+      "precision": null,
+      "recall": 0.0
+     },
+     "sign_check": {
+      "precision": 0.428,
+      "recall": 0.602
+     },
+     "pass": {
+      "precision": 0.477,
+      "recall": 0.872
+     },
+     "other": {
+      "precision": 0.0,
+      "recall": 0.0
+     }
+    },
+    "n_steps": 4284,
+    "latency": {
+     "companion_wait": null,
+     "ev_wait": 1.0,
+     "other": 3.0,
+     "sign_check": 3.0
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 2711,
+      "companion_wait": 0,
+      "sign_check": 34,
+      "pass": 420,
+      "other": 1,
+      "unknown": 0
+     },
+     "companion_wait": {
+      "ev_wait": 140,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 122,
+      "other": 4,
+      "unknown": 27
+     },
+     "sign_check": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 71,
+      "pass": 47,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 16,
+      "companion_wait": 0,
+      "sign_check": 61,
+      "pass": 578,
+      "other": 4,
+      "unknown": 4
+     },
+     "other": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 44,
+      "other": 0,
+      "unknown": 0
+     }
+    },
+    "count_mae": 3.97,
+    "gt_mean_count": 10.83,
+    "hidden_mean": 4.47,
+    "ev_wait_count_mae": 0.93,
+    "seconds": 360.0,
+    "match_rate": 0.95,
+    "pairs": {
+     "precision": null,
+     "recall": 0.0,
+     "f1": 0.0,
+     "tp": 0,
+     "n_pred": 0,
+     "n_gt": 26
+    },
+    "group_kinds": {
+     "move_together": 20,
+     "join": 6
+    },
+    "vlm": {
+     "mode": "state",
+     "ttl_s": 8.0,
+     "rejected": {},
+     "answers": 692,
+     "accepted": 692,
+     "coverage": 0.7
+    },
+    "performance": {
+     "fps": null,
+     "p95_latency_s": 1.51,
+     "vlm_calls_per_min": 115.3,
+     "gpu_s_per_video_h": 9286.0,
+     "gpu": "RTX PRO 6000（1 枚）",
+     "note": "VLM の部分だけ（検出・追跡は含まない）。遅れは答えの latency_s（まとめて処理したときは 1 本あたり）"
+    }
+   },
+   "vlm_combine_q3track": {
+    "macro_f1": 0.421,
+    "ci95": [
+     0.4,
+     0.439
+    ],
+    "accept": 0.992,
+    "f1": {
+     "ev_wait": 0.873,
+     "companion_wait": 0.0,
+     "sign_check": 0.593,
+     "pass": 0.59,
+     "other": 0.049
+    },
+    "pr": {
+     "ev_wait": {
+      "precision": 0.949,
+      "recall": 0.808
+     },
+     "companion_wait": {
+      "precision": null,
+      "recall": 0.0
+     },
+     "sign_check": {
+      "precision": 0.653,
+      "recall": 0.542
+     },
+     "pass": {
+      "precision": 0.432,
+      "recall": 0.928
+     },
+     "other": {
+      "precision": 0.053,
+      "recall": 0.045
+     }
+    },
+    "n_steps": 4284,
+    "latency": {
+     "companion_wait": null,
+     "ev_wait": 3.0,
+     "other": 3.0,
+     "sign_check": 3.0
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 2557,
+      "companion_wait": 0,
+      "sign_check": 15,
+      "pass": 593,
+      "other": 1,
+      "unknown": 0
+     },
+     "companion_wait": {
+      "ev_wait": 128,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 118,
+      "other": 20,
+      "unknown": 27
+     },
+     "sign_check": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 64,
+      "pass": 54,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 8,
+      "companion_wait": 0,
+      "sign_check": 19,
+      "pass": 615,
+      "other": 15,
+      "unknown": 6
+     },
+     "other": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 42,
+      "other": 2,
+      "unknown": 0
+     }
+    },
+    "count_mae": 3.97,
+    "gt_mean_count": 10.83,
+    "hidden_mean": 4.47,
+    "ev_wait_count_mae": 1.07,
+    "seconds": 360.0,
+    "match_rate": 0.95,
+    "pairs": {
+     "precision": null,
+     "recall": 0.0,
+     "f1": 0.0,
+     "tp": 0,
+     "n_pred": 0,
+     "n_gt": 26
+    },
+    "group_kinds": {
+     "move_together": 20,
+     "join": 6
+    },
+    "vlm": {
+     "mode": "combine",
+     "ttl_s": 8.0,
+     "rejected": {},
+     "answers": 692,
+     "accepted": 692,
+     "coverage": 0.7
+    },
+    "performance": {
+     "fps": null,
+     "p95_latency_s": 1.51,
+     "vlm_calls_per_min": 115.3,
+     "gpu_s_per_video_h": 9286.0,
+     "gpu": "RTX PRO 6000（1 枚）",
+     "note": "VLM の部分だけ（検出・追跡は含まない）。遅れは答えの latency_s（まとめて処理したときは 1 本あたり）"
+    }
+   },
+   "vlm_observe_q3track": {
+    "macro_f1": 0.533,
+    "ci95": [
+     0.513,
+     0.552
+    ],
+    "accept": 0.999,
+    "f1": {
+     "ev_wait": 0.859,
+     "companion_wait": 0.616,
+     "sign_check": 0.586,
+     "pass": 0.605,
+     "other": 0.0
+    },
+    "pr": {
+     "ev_wait": {
+      "precision": 0.979,
+      "recall": 0.766
+     },
+     "companion_wait": {
+      "precision": 0.566,
+      "recall": 0.676
+     },
+     "sign_check": {
+      "precision": 0.649,
+      "recall": 0.534
+     },
+     "pass": {
+      "precision": 0.452,
+      "recall": 0.917
+     },
+     "other": {
+      "precision": 0.0,
+      "recall": 0.0
+     }
+    },
+    "n_steps": 4284,
+    "latency": {
+     "companion_wait": 4.5,
+     "ev_wait": 3.5,
+     "other": 3.0,
+     "sign_check": 3.0
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 2425,
+      "companion_wait": 138,
+      "sign_check": 15,
+      "pass": 587,
+      "other": 1,
+      "unknown": 0
+     },
+     "companion_wait": {
+      "ev_wait": 34,
+      "companion_wait": 198,
+      "sign_check": 0,
+      "pass": 57,
+      "other": 4,
+      "unknown": 0
+     },
+     "sign_check": {
+      "ev_wait": 1,
+      "companion_wait": 0,
+      "sign_check": 63,
+      "pass": 54,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 15,
+      "companion_wait": 12,
+      "sign_check": 19,
+      "pass": 608,
+      "other": 4,
+      "unknown": 5
+     },
+     "other": {
+      "ev_wait": 2,
+      "companion_wait": 2,
+      "sign_check": 0,
+      "pass": 40,
+      "other": 0,
+      "unknown": 0
+     }
+    },
+    "count_mae": 3.97,
+    "gt_mean_count": 10.83,
+    "hidden_mean": 4.47,
+    "ev_wait_count_mae": 1.19,
+    "seconds": 360.0,
+    "match_rate": 0.95,
+    "pairs": {
+     "precision": null,
+     "recall": 0.0,
+     "f1": 0.0,
+     "tp": 0,
+     "n_pred": 0,
+     "n_gt": 26
+    },
+    "group_kinds": {
+     "move_together": 20,
+     "join": 6
+    },
+    "vlm": {
+     "mode": "observe",
+     "ttl_s": 8.0,
+     "rejected": {},
+     "answers": 692,
+     "accepted": 692,
+     "coverage": 0.7
+    },
+    "performance": {
+     "fps": null,
+     "p95_latency_s": 1.51,
+     "vlm_calls_per_min": 115.3,
+     "gpu_s_per_video_h": 9286.0,
+     "gpu": "RTX PRO 6000（1 枚）",
+     "note": "VLM の部分だけ（検出・追跡は含まない）。遅れは答えの latency_s（まとめて処理したときは 1 本あたり）"
+    }
+   },
+   "vlm_observe_q3": {
+    "macro_f1": 0.499,
+    "ci95": [
+     0.467,
+     0.525
+    ],
+    "accept": 0.995,
+    "f1": {
+     "ev_wait": 0.845,
+     "companion_wait": 0.429,
+     "sign_check": 0.618,
+     "pass": 0.605,
+     "other": 0.0
+    },
+    "pr": {
+     "ev_wait": {
+      "precision": 0.95,
+      "recall": 0.762
+     },
+     "companion_wait": {
+      "precision": 0.439,
+      "recall": 0.42
+     },
+     "sign_check": {
+      "precision": 0.733,
+      "recall": 0.534
+     },
+     "pass": {
+      "precision": 0.452,
+      "recall": 0.917
+     },
+     "other": {
+      "precision": 0.0,
+      "recall": 0.0
+     }
+    },
+    "n_steps": 4284,
+    "latency": {
+     "companion_wait": 4.25,
+     "ev_wait": 3.25,
+     "other": 3.0,
+     "sign_check": 3.0
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 2412,
+      "companion_wait": 142,
+      "sign_check": 6,
+      "pass": 587,
+      "other": 1,
+      "unknown": 18
+     },
+     "companion_wait": {
+      "ev_wait": 109,
+      "companion_wait": 123,
+      "sign_check": 0,
+      "pass": 57,
+      "other": 4,
+      "unknown": 0
+     },
+     "sign_check": {
+      "ev_wait": 1,
+      "companion_wait": 0,
+      "sign_check": 63,
+      "pass": 54,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 17,
+      "companion_wait": 12,
+      "sign_check": 17,
+      "pass": 608,
+      "other": 4,
+      "unknown": 5
+     },
+     "other": {
+      "ev_wait": 1,
+      "companion_wait": 3,
+      "sign_check": 0,
+      "pass": 40,
+      "other": 0,
+      "unknown": 0
+     }
+    },
+    "count_mae": 3.97,
+    "gt_mean_count": 10.83,
+    "hidden_mean": 4.47,
+    "ev_wait_count_mae": 1.19,
+    "seconds": 360.0,
+    "match_rate": 0.95,
+    "pairs": {
+     "precision": null,
+     "recall": 0.0,
+     "f1": 0.0,
+     "tp": 0,
+     "n_pred": 0,
+     "n_gt": 26
+    },
+    "group_kinds": {
+     "move_together": 20,
+     "join": 6
+    },
+    "vlm": {
+     "mode": "observe",
+     "ttl_s": 8.0,
+     "rejected": {
+      "parse": 8
+     },
+     "answers": 692,
+     "accepted": 684,
+     "coverage": 0.7
+    },
+    "performance": {
+     "fps": null,
+     "p95_latency_s": 1.22,
+     "vlm_calls_per_min": 115.3,
+     "gpu_s_per_video_h": 6842.4,
+     "gpu": "RTX PRO 6000（1 枚）",
+     "note": "VLM の部分だけ（検出・追跡は含まない）。遅れは答えの latency_s（まとめて処理したときは 1 本あたり）"
+    }
+   },
+   "_people": 94
+  },
+  "sim-hall2": {
+   "rule_online": {
+    "macro_f1": 0.298,
+    "ci95": [
+     0.285,
+     0.311
+    ],
+    "accept": 0.996,
+    "f1": {
+     "ev_wait": 0.836,
+     "companion_wait": 0.0,
+     "sign_check": 0.0,
+     "pass": 0.644,
+     "other": 0.009
+    },
+    "pr": {
+     "ev_wait": {
+      "precision": 0.904,
+      "recall": 0.777
+     },
+     "companion_wait": {
+      "precision": null,
+      "recall": 0.0
+     },
+     "sign_check": {
+      "precision": 0.0,
+      "recall": 0.0
+     },
+     "pass": {
+      "precision": 0.496,
+      "recall": 0.918
+     },
+     "other": {
+      "precision": 0.005,
+      "recall": 0.03
+     }
+    },
+    "n_steps": 3313,
+    "latency": {
+     "companion_wait": null,
+     "ev_wait": 3.0,
+     "other": 3.5,
+     "sign_check": null
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 1680,
+      "companion_wait": 0,
+      "sign_check": 1,
+      "pass": 472,
+      "other": 8,
+      "unknown": 0
+     },
+     "companion_wait": {
+      "ev_wait": 103,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 65,
+      "other": 150,
+      "unknown": 0
+     },
+     "sign_check": {
+      "ev_wait": 70,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 59,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 6,
+      "companion_wait": 0,
+      "sign_check": 7,
+      "pass": 617,
+      "other": 29,
+      "unknown": 13
+     },
+     "other": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 32,
+      "other": 1,
+      "unknown": 0
+     }
+    },
+    "count_mae": 2.09,
+    "gt_mean_count": 7.05,
+    "hidden_mean": 2.11,
+    "ev_wait_count_mae": 0.78,
+    "seconds": 360.0,
+    "match_rate": 0.94,
+    "pairs": {
+     "precision": 0.0,
+     "recall": 0.0,
+     "f1": 0.0,
+     "tp": 0,
+     "n_pred": 3,
+     "n_gt": 29
+    },
+    "group_kinds": {
+     "join": 10,
+     "move_together": 19
+    },
+    "vlm": {},
+    "performance": {
+     "note": "方式の出力の meta.json に performance がない（オフラインの処理）"
+    }
+   },
+   "rule_elsewhere": {
+    "macro_f1": 0.415,
+    "ci95": [
+     0.385,
+     0.435
+    ],
+    "accept": 0.996,
+    "f1": {
+     "ev_wait": 0.836,
+     "companion_wait": 0.593,
+     "sign_check": 0.0,
+     "pass": 0.644,
+     "other": 0.0
+    },
+    "pr": {
+     "ev_wait": {
+      "precision": 0.904,
+      "recall": 0.777
+     },
+     "companion_wait": {
+      "precision": 0.798,
+      "recall": 0.472
+     },
+     "sign_check": {
+      "precision": 0.0,
+      "recall": 0.0
+     },
+     "pass": {
+      "precision": 0.496,
+      "recall": 0.918
+     },
+     "other": {
+      "precision": null,
+      "recall": 0.0
+     }
+    },
+    "n_steps": 3313,
+    "latency": {
+     "companion_wait": 3.0,
+     "ev_wait": 3.0,
+     "other": null,
+     "sign_check": null
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 1680,
+      "companion_wait": 8,
+      "sign_check": 1,
+      "pass": 472,
+      "other": 0,
+      "unknown": 0
+     },
+     "companion_wait": {
+      "ev_wait": 103,
+      "companion_wait": 150,
+      "sign_check": 0,
+      "pass": 65,
+      "other": 0,
+      "unknown": 0
+     },
+     "sign_check": {
+      "ev_wait": 70,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 59,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 6,
+      "companion_wait": 29,
+      "sign_check": 7,
+      "pass": 617,
+      "other": 0,
+      "unknown": 13
+     },
+     "other": {
+      "ev_wait": 0,
+      "companion_wait": 1,
+      "sign_check": 0,
+      "pass": 32,
+      "other": 0,
+      "unknown": 0
+     }
+    },
+    "count_mae": 2.09,
+    "gt_mean_count": 7.05,
+    "hidden_mean": 2.11,
+    "ev_wait_count_mae": 0.78,
+    "seconds": 360.0,
+    "match_rate": 0.94,
+    "pairs": {
+     "precision": 0.0,
+     "recall": 0.0,
+     "f1": 0.0,
+     "tp": 0,
+     "n_pred": 3,
+     "n_gt": 29
+    },
+    "group_kinds": {
+     "join": 10,
+     "move_together": 19
+    },
+    "vlm": {},
+    "performance": {
+     "note": "方式の出力の meta.json に performance がない（オフラインの処理）"
+    }
+   },
+   "vlm_state_q3track": {
+    "macro_f1": 0.359,
+    "ci95": [
+     0.33,
+     0.381
+    ],
+    "accept": 0.988,
+    "f1": {
+     "ev_wait": 0.848,
+     "companion_wait": 0.0,
+     "sign_check": 0.241,
+     "pass": 0.655,
+     "other": 0.053
+    },
+    "pr": {
+     "ev_wait": {
+      "precision": 0.881,
+      "recall": 0.818
+     },
+     "companion_wait": {
+      "precision": null,
+      "recall": 0.0
+     },
+     "sign_check": {
+      "precision": 0.259,
+      "recall": 0.225
+     },
+     "pass": {
+      "precision": 0.519,
+      "recall": 0.887
+     },
+     "other": {
+      "precision": 0.2,
+      "recall": 0.03
+     }
+    },
+    "n_steps": 3313,
+    "latency": {
+     "companion_wait": null,
+     "ev_wait": 1.0,
+     "other": null,
+     "sign_check": 4.5
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 1767,
+      "companion_wait": 0,
+      "sign_check": 36,
+      "pass": 351,
+      "other": 0,
+      "unknown": 7
+     },
+     "companion_wait": {
+      "ev_wait": 158,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 138,
+      "other": 4,
+      "unknown": 18
+     },
+     "sign_check": {
+      "ev_wait": 68,
+      "companion_wait": 0,
+      "sign_check": 29,
+      "pass": 32,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 13,
+      "companion_wait": 0,
+      "sign_check": 47,
+      "pass": 596,
+      "other": 0,
+      "unknown": 16
+     },
+     "other": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 32,
+      "other": 1,
+      "unknown": 0
+     }
+    },
+    "count_mae": 2.09,
+    "gt_mean_count": 7.05,
+    "hidden_mean": 2.11,
+    "ev_wait_count_mae": 0.74,
+    "seconds": 360.0,
+    "match_rate": 0.94,
+    "pairs": {
+     "precision": 0.0,
+     "recall": 0.0,
+     "f1": 0.0,
+     "tp": 0,
+     "n_pred": 3,
+     "n_gt": 29
+    },
+    "group_kinds": {
+     "join": 10,
+     "move_together": 19
+    },
+    "vlm": {
+     "mode": "state",
+     "ttl_s": 8.0,
+     "rejected": {
+      "parse": 3
+     },
+     "answers": 481,
+     "accepted": 478,
+     "coverage": 0.659
+    },
+    "performance": {
+     "fps": null,
+     "p95_latency_s": 2.11,
+     "vlm_calls_per_min": 80.2,
+     "gpu_s_per_video_h": 7210.9,
+     "gpu": "RTX PRO 6000（1 枚）",
+     "note": "VLM の部分だけ（検出・追跡は含まない）。遅れは答えの latency_s（まとめて処理したときは 1 本あたり）"
+    }
+   },
+   "vlm_combine_q3track": {
+    "macro_f1": 0.354,
+    "ci95": [
+     0.328,
+     0.381
+    ],
+    "accept": 0.987,
+    "f1": {
+     "ev_wait": 0.823,
+     "companion_wait": 0.0,
+     "sign_check": 0.284,
+     "pass": 0.621,
+     "other": 0.042
+    },
+    "pr": {
+     "ev_wait": {
+      "precision": 0.897,
+      "recall": 0.76
+     },
+     "companion_wait": {
+      "precision": null,
+      "recall": 0.0
+     },
+     "sign_check": {
+      "precision": 0.387,
+      "recall": 0.225
+     },
+     "pass": {
+      "precision": 0.465,
+      "recall": 0.935
+     },
+     "other": {
+      "precision": 0.067,
+      "recall": 0.03
+     }
+    },
+    "n_steps": 3313,
+    "latency": {
+     "companion_wait": null,
+     "ev_wait": 3.25,
+     "other": null,
+     "sign_check": 4.5
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 1642,
+      "companion_wait": 0,
+      "sign_check": 33,
+      "pass": 478,
+      "other": 1,
+      "unknown": 7
+     },
+     "companion_wait": {
+      "ev_wait": 139,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 153,
+      "other": 8,
+      "unknown": 18
+     },
+     "sign_check": {
+      "ev_wait": 41,
+      "companion_wait": 0,
+      "sign_check": 29,
+      "pass": 59,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 9,
+      "companion_wait": 0,
+      "sign_check": 13,
+      "pass": 628,
+      "other": 5,
+      "unknown": 17
+     },
+     "other": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 32,
+      "other": 1,
+      "unknown": 0
+     }
+    },
+    "count_mae": 2.09,
+    "gt_mean_count": 7.05,
+    "hidden_mean": 2.11,
+    "ev_wait_count_mae": 0.78,
+    "seconds": 360.0,
+    "match_rate": 0.94,
+    "pairs": {
+     "precision": 0.0,
+     "recall": 0.0,
+     "f1": 0.0,
+     "tp": 0,
+     "n_pred": 3,
+     "n_gt": 29
+    },
+    "group_kinds": {
+     "join": 10,
+     "move_together": 19
+    },
+    "vlm": {
+     "mode": "combine",
+     "ttl_s": 8.0,
+     "rejected": {
+      "parse": 3
+     },
+     "answers": 481,
+     "accepted": 478,
+     "coverage": 0.659
+    },
+    "performance": {
+     "fps": null,
+     "p95_latency_s": 2.11,
+     "vlm_calls_per_min": 80.2,
+     "gpu_s_per_video_h": 7210.9,
+     "gpu": "RTX PRO 6000（1 枚）",
+     "note": "VLM の部分だけ（検出・追跡は含まない）。遅れは答えの latency_s（まとめて処理したときは 1 本あたり）"
+    }
+   },
+   "vlm_observe_q3track": {
+    "macro_f1": 0.487,
+    "ci95": [
+     0.422,
+     0.525
+    ],
+    "accept": 0.994,
+    "f1": {
+     "ev_wait": 0.83,
+     "companion_wait": 0.62,
+     "sign_check": 0.286,
+     "pass": 0.644,
+     "other": 0.053
+    },
+    "pr": {
+     "ev_wait": {
+      "precision": 0.922,
+      "recall": 0.755
+     },
+     "companion_wait": {
+      "precision": 0.801,
+      "recall": 0.506
+     },
+     "sign_check": {
+      "precision": 0.392,
+      "recall": 0.225
+     },
+     "pass": {
+      "precision": 0.496,
+      "recall": 0.918
+     },
+     "other": {
+      "precision": 0.2,
+      "recall": 0.03
+     }
+    },
+    "n_steps": 3313,
+    "latency": {
+     "companion_wait": 4.75,
+     "ev_wait": 3.25,
+     "other": null,
+     "sign_check": 4.5
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 1631,
+      "companion_wait": 19,
+      "sign_check": 33,
+      "pass": 472,
+      "other": 0,
+      "unknown": 6
+     },
+     "companion_wait": {
+      "ev_wait": 88,
+      "companion_wait": 161,
+      "sign_check": 0,
+      "pass": 65,
+      "other": 4,
+      "unknown": 0
+     },
+     "sign_check": {
+      "ev_wait": 41,
+      "companion_wait": 0,
+      "sign_check": 29,
+      "pass": 59,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 9,
+      "companion_wait": 21,
+      "sign_check": 12,
+      "pass": 617,
+      "other": 0,
+      "unknown": 13
+     },
+     "other": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 32,
+      "other": 1,
+      "unknown": 0
+     }
+    },
+    "count_mae": 2.09,
+    "gt_mean_count": 7.05,
+    "hidden_mean": 2.11,
+    "ev_wait_count_mae": 0.82,
+    "seconds": 360.0,
+    "match_rate": 0.94,
+    "pairs": {
+     "precision": 0.0,
+     "recall": 0.0,
+     "f1": 0.0,
+     "tp": 0,
+     "n_pred": 3,
+     "n_gt": 29
+    },
+    "group_kinds": {
+     "join": 10,
+     "move_together": 19
+    },
+    "vlm": {
+     "mode": "observe",
+     "ttl_s": 8.0,
+     "rejected": {
+      "parse": 3
+     },
+     "answers": 481,
+     "accepted": 478,
+     "coverage": 0.659
+    },
+    "performance": {
+     "fps": null,
+     "p95_latency_s": 2.11,
+     "vlm_calls_per_min": 80.2,
+     "gpu_s_per_video_h": 7210.9,
+     "gpu": "RTX PRO 6000（1 枚）",
+     "note": "VLM の部分だけ（検出・追跡は含まない）。遅れは答えの latency_s（まとめて処理したときは 1 本あたり）"
+    }
+   },
+   "_people": 92
+  }
+ },
+ "evidence_timing": {
+  "_tr_q3track_short": {
+   "clips": 50,
+   "evidence_whole_clip": 44,
+   "vlm_evidence": {
+    "n": 50,
+    "with_boundary": 6,
+    "share_with_boundary": 0.12,
+    "abs_err_median_s": 1.15,
+    "within_1s": 2,
+    "share_within_1s_of_all": 0.04
+   },
+   "vlm_motion": null,
+   "vlm_motion_frame_accuracy": null,
+   "vlm_motion_frames": 0,
+   "tracker_speed_cross": {
+    "n": 50,
+    "with_boundary": 49,
+    "share_with_boundary": 0.98,
+    "abs_err_median_s": 0.83,
+    "within_1s": 39,
+    "share_within_1s_of_all": 0.78
+   },
+   "rule_confirmed": {
+    "n": 50,
+    "with_boundary": 26,
+    "share_with_boundary": 0.52,
+    "abs_err_median_s": 2.9,
+    "within_1s": 0,
+    "share_within_1s_of_all": 0.0
+   },
+   "rule_confirmed_lag_median_s": 2.9,
+   "state_accuracy": 0.56
+  },
+  "_tr_q3track_frames": {
+   "clips": 50,
+   "evidence_whole_clip": 43,
+   "vlm_evidence": {
+    "n": 50,
+    "with_boundary": 7,
+    "share_with_boundary": 0.14,
+    "abs_err_median_s": 1.03,
+    "within_1s": 3,
+    "share_within_1s_of_all": 0.06
+   },
+   "vlm_motion": {
+    "n": 50,
+    "with_boundary": 1,
+    "share_with_boundary": 0.02,
+    "abs_err_median_s": 0.72,
+    "within_1s": 1,
+    "share_within_1s_of_all": 0.02
+   },
+   "vlm_motion_frame_accuracy": 0.535,
+   "vlm_motion_frames": 536,
+   "tracker_speed_cross": {
+    "n": 50,
+    "with_boundary": 49,
+    "share_with_boundary": 0.98,
+    "abs_err_median_s": 0.83,
+    "within_1s": 39,
+    "share_within_1s_of_all": 0.78
+   },
+   "rule_confirmed": {
+    "n": 50,
+    "with_boundary": 26,
+    "share_with_boundary": 0.52,
+    "abs_err_median_s": 2.9,
+    "within_1s": 0,
+    "share_within_1s_of_all": 0.0
+   },
+   "rule_confirmed_lag_median_s": 2.9,
+   "state_accuracy": 0.58
+  }
+ },
+ "twinsim": {
+  "CamGate": {
+   "5.1_counts": {
+    "count_mae": 0.63,
+    "count_bias": -0.56,
+    "gt_mean_count": 2.31,
+    "state_count_mae": {
+     "ev_wait": 0.0,
+     "companion_wait": 0.0,
+     "sign_check": 0.0,
+     "pass": 0.3,
+     "other": 0.0
+    },
+    "ev_wait_count_mae": 0.0,
+    "gt_state_mean": {
+     "ev_wait": 0.0,
+     "companion_wait": 0.0,
+     "sign_check": 0.0,
+     "pass": 1.82,
+     "other": 0.0
+    },
+    "unknown_count_mean": {
+     "gt": 0.42,
+     "pred": 0.04
+    }
+   },
+   "5.1_direction": {
+    "direction": {
+     "precision": 0.959,
+     "recall": 0.91,
+     "f1": 0.934,
+     "tp": 71,
+     "n_pred": 74,
+     "n_gt": 78
+    },
+    "by_line": {
+     "gate:in": {
+      "gt": 71,
+      "pred": 66
+     },
+     "gate:out": {
+      "gt": 7,
+      "pred": 8
+     }
+    },
+    "after_entry": {
+     "n": 66,
+     "accuracy": 1.0,
+     "f1": {
+      "pass": {
+       "precision": 1.0,
+       "recall": 1.0,
+       "f1": 1.0,
+       "tp": 66,
+       "n_pred": 66,
+       "n_gt": 66
+      }
+     },
+     "macro_f1": 1.0,
+     "gt_counts": {
+      "pass": 66
+     }
+    }
+   },
+   "5.2_states": {
+    "n_steps": 947,
+    "accept_rate": 0.992,
+    "error_rate_accepted": 0.0,
+    "macro_f1_all": 0.996,
+    "macro_f1_accepted": 1.0,
+    "f1_all": {
+     "pass": {
+      "precision": 1.0,
+      "recall": 0.992,
+      "f1": 0.996,
+      "tp": 939,
+      "n_pred": 939,
+      "n_gt": 947
+     }
+    },
+    "f1_accepted": {
+     "pass": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "tp": 939,
+      "n_pred": 939,
+      "n_gt": 939
+     }
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 0,
+      "other": 0,
+      "unknown": 0
+     },
+     "companion_wait": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 0,
+      "other": 0,
+      "unknown": 0
+     },
+     "sign_check": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 0,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 939,
+      "other": 0,
+      "unknown": 8
+     },
+     "other": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 0,
+      "other": 0,
+      "unknown": 0
+     }
+    },
+    "by_condition": {
+     "occluded": {
+      "n_steps": 300,
+      "accept_rate": 0.997,
+      "error_rate_accepted": 0.0
+     },
+     "lighting": {
+      "n_steps": 0,
+      "accept_rate": null,
+      "error_rate_accepted": null
+     },
+     "crowd": {
+      "n_steps": 47,
+      "accept_rate": 1.0,
+      "error_rate_accepted": 0.0
+     }
+    },
+    "gt_unknown_answered": {
+     "pass": 11,
+     "unknown": 1
+    },
+    "latency": {}
+   },
+   "seconds": 300.0
+  },
+  "CamEV": {
+   "5.1_counts": {
+    "count_mae": 0.6,
+    "count_bias": -0.55,
+    "gt_mean_count": 4.46,
+    "state_count_mae": {
+     "ev_wait": 1.03,
+     "companion_wait": 0.0,
+     "sign_check": 0.0,
+     "pass": 1.32,
+     "other": 0.03
+    },
+    "ev_wait_count_mae": 1.03,
+    "gt_state_mean": {
+     "ev_wait": 2.8,
+     "companion_wait": 0.0,
+     "sign_check": 0.0,
+     "pass": 0.68,
+     "other": 0.0
+    },
+    "unknown_count_mean": {
+     "gt": 0.93,
+     "pred": 0.0
+    }
+   },
+   "5.1_direction": {
+    "direction": {
+     "precision": null,
+     "recall": null,
+     "f1": null,
+     "tp": 0,
+     "n_pred": 0,
+     "n_gt": 0
+    },
+    "by_line": {},
+    "after_entry": {
+     "n": 0,
+     "accuracy": null,
+     "f1": {},
+     "macro_f1": null,
+     "gt_counts": {}
+    }
+   },
+   "5.2_states": {
+    "n_steps": 2030,
+    "accept_rate": 1.0,
+    "error_rate_accepted": 0.335,
+    "macro_f1_all": 0.637,
+    "macro_f1_accepted": 0.637,
+    "f1_all": {
+     "ev_wait": {
+      "precision": 0.992,
+      "recall": 0.59,
+      "f1": 0.74,
+      "tp": 963,
+      "n_pred": 971,
+      "n_gt": 1633
+     },
+     "pass": {
+      "precision": 0.368,
+      "recall": 0.972,
+      "f1": 0.534,
+      "tp": 386,
+      "n_pred": 1049,
+      "n_gt": 397
+     }
+    },
+    "f1_accepted": {
+     "ev_wait": {
+      "precision": 0.992,
+      "recall": 0.59,
+      "f1": 0.74,
+      "tp": 963,
+      "n_pred": 971,
+      "n_gt": 1633
+     },
+     "pass": {
+      "precision": 0.368,
+      "recall": 0.972,
+      "f1": 0.534,
+      "tp": 386,
+      "n_pred": 1049,
+      "n_gt": 397
+     }
+    },
+    "confusion": {
+     "ev_wait": {
+      "ev_wait": 963,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 663,
+      "other": 7,
+      "unknown": 0
+     },
+     "companion_wait": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 0,
+      "other": 0,
+      "unknown": 0
+     },
+     "sign_check": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 0,
+      "other": 0,
+      "unknown": 0
+     },
+     "pass": {
+      "ev_wait": 8,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 386,
+      "other": 3,
+      "unknown": 0
+     },
+     "other": {
+      "ev_wait": 0,
+      "companion_wait": 0,
+      "sign_check": 0,
+      "pass": 0,
+      "other": 0,
+      "unknown": 0
+     }
+    },
+    "by_condition": {
+     "occluded": {
+      "n_steps": 739,
+      "accept_rate": 1.0,
+      "error_rate_accepted": 0.342
+     },
+     "lighting": {
+      "n_steps": 0,
+      "accept_rate": null,
+      "error_rate_accepted": null
+     },
+     "crowd": {
+      "n_steps": 0,
+      "accept_rate": null,
+      "error_rate_accepted": null
+     }
+    },
+    "gt_unknown_answered": {
+     "pass": 16,
+     "ev_wait": 5,
+     "other": 1
+    },
+    "latency": {
+     "ev_wait": {
+      "n": 84,
+      "mean": 2.76,
+      "median": 2.5,
+      "p95": 6.5,
+      "never": 35
+     }
+    }
+   },
+   "seconds": 300.0
+  }
+ },
+ "twinsim_flow": {
+  "from": "CamGate",
+  "to": "CamEV",
+  "method_links": "time*+osnet_x0_25_msmt17",
+  "max_s": 300.0,
+  "bin_s": 15.0,
+  "entries": {
+   "gt": 71,
+   "pred": 66
+  },
+  "arrived": {
+   "gt": {
+    "n": 64,
+    "median_s": 12.4,
+    "p90_s": 16.8
+   },
+   "pred": {
+    "n": 56,
+    "median_s": 12.4,
+    "p90_s": 18.4
+   }
+  },
+  "share_arrived": {
+   "gt": 0.901,
+   "pred": 0.848
+  },
+  "hist": {
+   "edges_s": [
+    0.0,
+    15.0,
+    30.0,
+    45.0,
+    60.0,
+    75.0,
+    90.0,
+    105.0,
+    120.0,
+    135.0,
+    150.0,
+    165.0,
+    180.0,
+    195.0,
+    210.0,
+    225.0,
+    240.0,
+    255.0,
+    270.0,
+    285.0,
+    300.0
+   ],
+   "gt": [
+    52,
+    6,
+    3,
+    2,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   "pred": [
+    47,
+    6,
+    2,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  "hist_mae_per_bin": 0.4,
+  "idf1_cross_camera": 0.8024
+ },
+ "prelim": {
+  "sim-hall": {
+   "rule_B": 0.8,
+   "obs_q3track": 0.777
+  },
+  "sim-hall2": {
+   "rule_B": 0.641,
+   "obs_q3track": 0.704
+  }
+ }
+}
