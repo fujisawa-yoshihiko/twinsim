@@ -6,7 +6,7 @@ A 3D simulator for checking the research plan (Takeshiba VLM × QUBO, 10/4 versi
 The space (USD), the distribution of people, the cameras and the events (elevator (EV), gates) are defined in a scenario file, people's movement is computed on the CPU,
 and the ground truth, aggregates, graphs for GNNs and per-camera bounding boxes are written out. When video is needed, it is rendered with Isaac Sim. The specification is in [docs/spec.en.md](docs/spec.en.md).
 
-**Progress report (with GUI captures and videos)**: [docs/report/2026-10-24](docs/report/2026-10-24/README.en.md)　**How detection and two-point linking work (with figures)**: [docs/methods.en.md](docs/methods.en.md)
+**Latest report (2026-11-01, state judgement and the VLM for Takeshiba)**: [docs/report/2026-11-01](docs/report/2026-11-01/README.en.md)　**Progress report (with GUI captures and videos)**: [docs/report/2026-10-24](docs/report/2026-10-24/README.en.md)　**How detection and two-point linking work (with figures)**: [docs/methods.en.md](docs/methods.en.md)
 
 ## Starting
 
