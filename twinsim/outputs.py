@@ -3,7 +3,7 @@
   ground_truth.json   追跡の評価などが読める正解（tracks・moving・people・cameras）に、
                       状態・グループ・EV・ゲートの出来事を足したもの
   frames.csv.gz       1 コマ 1 人 1 行（frame, t, person, x, y, yaw, moving, state, zone, group, type）
-  tasks.json          p7 の 6 タスクの正解の集計（ゾーンの人数・ゲートの通過・滞留・グループ・混み具合・行き先）と EV の待ち時間
+  tasks.json          6 つのタスクの正解の集計（ゾーンの人数・ゲートの通過・滞留・グループ・混み具合・行き先）と EV の待ち時間
   graph/              GNN 向け: ゾーンのグラフと 2 m の格子のグラフ、ノードの人数の時系列、辺の流れ、行き先の表、カメラから見えるノード
   mot/<カメラ>.txt     MOTChallenge の形式の枠（frame, id, x, y, w, h, 1, 1, 見えている割合）。見えている割合は近似（camera.py）
   preview.png         真上の図に、人の軌跡・ゾーン・カメラの向きを重ねた確認の図

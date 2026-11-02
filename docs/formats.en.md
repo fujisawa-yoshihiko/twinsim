@@ -44,7 +44,7 @@ No lens distortion (pinhole). Other values: `eye` and `target` (world coordinate
 | `mot/<camera>.txt` and `mot/ids.json` | Per-camera person boxes (MOTChallenge format) | Training and evaluating detection and single-camera tracking |
 | `aicity/gt.txt` and `aicity/cameras.json` | Multi-camera boxes and world positions (AI City Challenge MTMC format) | Multi-camera tracking, person re-identification |
 | `video/<camera>.mp4` and `render_log.json` | Rendered videos (H.264, same fps as the ground truth) and the rendered range | Image-based training together with the boxes above |
-| `tasks.json` | Ground-truth aggregates for the six tasks on p. 7 of the research plan | Evaluating counts, flows, dwelling, and congestion |
+| `tasks.json` | Ground-truth aggregates for the six tasks | Evaluating counts, flows, dwelling, and congestion |
 | `graph/` | Zone graph and grid graph, and time series of counts and flows | GNN and time-series prediction |
 | `logs/` | Gate passage logs and elevator operation logs (same format as real data). Made with `twinsim export-logs <run>` | Example for calibrating with real data (`calibrate`) |
 | `summary.json`, `scenario_resolved.json` and `.yaml` | Summary, and the scenario with defaults filled in (including the random seed) | Regeneration, logging |
@@ -105,7 +105,7 @@ Every person with at least 20% of their box inside the image is written, even if
 `aicity/gt.txt` (same as AI City Challenge MTMC, space-separated): `camera_id obj_id frame_id xmin ymin width height xworld yworld`.
 `camera_id` comes from `aicity/cameras.json` (`{"CamEV": 1, …}`), `obj_id` is the same as in `mot/ids.json`, `frame_id` is 1-based, and `xworld yworld` are the world coordinates of the feet (m).
 
-## 5. `tasks.json` (the six tasks on p. 7 of the research plan)
+## 5. `tasks.json` (the six tasks)
 
 | Key | Contents |
 |---|---|
@@ -165,7 +165,7 @@ while (ok := cap.read())[0]:
 - Distortion, noise, compression, lighting changes, camera clock offsets, and frame drops are not included (`clock_offset_s` and `drop_rate` are only recorded).
 - There are no 3D boxes, poses (keypoints), faces, etc. Only a single floor.
 - Asset license terms: the spaces (office, hospital, warehouse) are CC BY 4.0 (NVIDIA Isaac Sim assets; give credit). The terms for the character models have not been confirmed, so check them before releasing generated data outside.
-  Anything made from the actual Takeshiba video or floor plans is kept separate from this data location (NDA).
+  Anything made from the video or floor plans of a real building is kept separate from this data location.
 
 ## 10. Ward layout and walking distances (`ward_layout.json`)
 

@@ -9,7 +9,7 @@
     result = twinsim.open_result("runs/test")                          # 計算済みの結果を開く
 
 overrides はシナリオの一部を上書きする dict（GUI・ほかの道具から値を変えて回すとき）。
-elevator_policy(sim, t) を渡すと、EV の運行を差し替えられる（毎秒呼ばれ、car.arrivals に着く時刻を足す。UC2 の最適化の差し込み口）。
+elevator_policy(sim, t) を渡すと、EV の運行を差し替えられる（毎秒呼ばれ、car.arrivals に着く時刻を足す。運行の最適化の差し込み口）。
 """
 
 import csv

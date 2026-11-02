@@ -134,7 +134,7 @@ def _wrap(d):
 class Sim:
     """sim = Sim(space, fps, total_frames, gates, cars, spots); sim.add(agent); sim.run()。
     on_arrival(sim, car, t) は EV が着いたときに呼ばれ、降りる人を足すのに使う（scenario.py が入れる）。
-    elevator_policy(sim, t) は毎秒呼ばれ、EV の到着を足してよい（UC2 の運行の最適化を差し込む所）。"""
+    elevator_policy(sim, t) は毎秒呼ばれ、EV の到着を足してよい（運行の最適化を差し込む所）。"""
 
     def __init__(self, space, fps, total_frames, gates=None, cars=None, spots=None, lmax=0.6, on_arrival=None, elevator_policy=None,
                  speed_density=None, ev_timing=None):

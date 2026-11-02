@@ -2,7 +2,7 @@
 
 [日本語](spec.md)
 
-A simulator for people-flow digital twins of buildings and factories. It is an environment for checking the research plan (Takeshiba VLM × QUBO, 10/4 version) and the digital-twin concept diagram (Observe → Understand → Predict & simulate → Optimize).
+A simulator for people-flow digital twins of buildings and factories. It is an environment for checking people-flow analysis methods and the digital-twin concept diagram (Observe → Understand → Predict & simulate → Optimize).
 People's movement is computed on the CPU (a few seconds to a few tens of seconds), and Isaac Sim renders it only when video is needed (GPU, a few minutes to a few hours).
 
 ```
@@ -94,7 +94,7 @@ Elevator operation (`elevator.schedule`):
 - `{type: interval, offset: distribution, interval: distribution}` each car arrives at intervals drawn from the distribution
 - `{type: times, times: {EV1: [s, ...]}}` specifies the arrival times
 - `{type: on_demand, travel_s: distribution, max_wait_s: 60}` calls a car when someone is waiting and none is scheduled (a simple example)
-- Your own operation can be plugged in through the API's `elevator_policy(sim, t)` (optimization for UC2)
+- Your own operation can be plugged in through the API's `elevator_policy(sim, t)` (optimizing the operation)
 
 ## 3. Writing distributions (twinsim/dists.py)
 
@@ -124,7 +124,7 @@ Arrival rates (`per_min` is groups per minute; with `unit: persons` it is person
 |---|---|
 | `ground_truth.json` | Ground truth that tracking evaluation and similar tools can read (`tracks`, `moving`, `people`, `cameras`), plus state intervals (`people[].states`), groups, elevator and gate events, and zones |
 | `frames.csv.gz` | One row per person per frame (frame, t, person, x, y, yaw, moving, state, zone, group, type) |
-| `tasks.json` | Ground-truth aggregates for the 6 tasks on p7 of the research plan: 1 people count (per second, per zone, per state), 2 gate passages (per minute, by direction), 3 lingering (intervals stopped for 3 s or more), 4 groups, 5 congestion (zone density and level), 6 origin → destination (per minute), and elevator waiting time |
+| `tasks.json` | Ground-truth aggregates for the 6 tasks: 1 people count (per second, per zone, per state), 2 gate passages (per minute, by direction), 3 lingering (intervals stopped for 3 s or more), 4 groups, 5 congestion (zone density and level), 6 origin → destination (per minute), and elevator waiting time |
 | `graph/` | For GNNs: `graph.json` (zone graph, 2 m grid graph, nodes visible from each camera), `zone_counts.csv` (people per zone per second), `zone_flows.csv` (movement between zones per minute), `grid_counts.npz` (counts[second, cell]), `zone_graph.graphml` |
 | `mot/<camera>.txt` | Bounding boxes in MOTChallenge format (frame, id, x, y, w, h, 1, 1, visible fraction). The visible fraction is approximate (walls are counted as lines on the floor, people by overlap with the boxes in front of them) |
 | `preview.png` | Check image overlaying people's trajectories (colored by stream), zones and camera directions on the top-down image |

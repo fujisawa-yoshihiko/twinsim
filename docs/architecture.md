@@ -47,4 +47,4 @@ uv run --group gui-test python tools/gui_shot.py [出力] [ポート]   # 画面
 
 - 依存は `pyproject.toml`（`uv.lock` で固定）。`./run.sh` は `uv run twinsim`。
 - GitHub（非公開 `fujisawa-yoshihiko/twinsim`）に送ると、`.github/workflows/ci.yml` が ruff と pytest を回す（GPU は使わない）。
-- 決まり（GPU の使い方・データを git に入れない・NDA）は `CLAUDE.md`。
+- 決まり（GPU の使い方・データを git に入れない）は `CLAUDE.md`。

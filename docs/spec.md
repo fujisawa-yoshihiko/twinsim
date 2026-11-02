@@ -2,7 +2,7 @@
 
 [English](spec.en.md)
 
-建物・工場の人流のデジタルツインのシミュレータ。研究計画（竹芝 VLM × QUBO、10/4 版）と、デジタルツインの構想の図（Observe → Understand → Predict & simulate → Optimize）を確かめるための環境。
+建物・工場の人流のデジタルツインのシミュレータ。人流の解析の方式と、デジタルツインの構想の図（Observe → Understand → Predict & simulate → Optimize）を確かめるための環境。
 人の動きは CPU で計算し（数秒〜数十秒）、映像が要るときだけ Isaac Sim で描く（GPU、数分〜数時間）。
 
 ```
@@ -94,7 +94,7 @@ EV の運行（`elevator.schedule`）:
 - `{type: interval, offset: 分布, interval: 分布}` 号機ごとに、間隔の分布で着く
 - `{type: times, times: {EV1: [秒, ...]}}` 着く時刻を指定
 - `{type: on_demand, travel_s: 分布, max_wait_s: 60}` 待つ人がいて、予定がなければ呼ぶ（簡単な例）
-- API の `elevator_policy(sim, t)` で自分の運行を差し込める（UC2 の最適化）
+- API の `elevator_policy(sim, t)` で自分の運行を差し込める（運行の最適化）
 
 ## 3. 分布の書き方（twinsim/dists.py）
 
@@ -124,7 +124,7 @@ EV の運行（`elevator.schedule`）:
 |---|---|
 | `ground_truth.json` | 追跡の評価などが読める正解（`tracks`・`moving`・`people`・`cameras`）に、状態の区間（`people[].states`）・グループ・EV とゲートの出来事・ゾーンを足したもの |
 | `frames.csv.gz` | 1 コマ 1 人 1 行（frame, t, person, x, y, yaw, moving, state, zone, group, type） |
-| `tasks.json` | 計画書 p7 の 6 タスクの正解の集計: 1 人数（秒ごと・ゾーンごと・状態ごと）、2 ゲートの通過（1 分ごと・向き）、3 滞留（3 秒以上止まった区間）、4 グループ、5 混み具合（ゾーンの密度と段階）、6 出発地 → 行き先（1 分ごと）、EV の待ち時間 |
+| `tasks.json` | 6 つのタスクの正解の集計: 1 人数（秒ごと・ゾーンごと・状態ごと）、2 ゲートの通過（1 分ごと・向き）、3 滞留（3 秒以上止まった区間）、4 グループ、5 混み具合（ゾーンの密度と段階）、6 出発地 → 行き先（1 分ごと）、EV の待ち時間 |
 | `graph/` | GNN 向け: `graph.json`（ゾーンのグラフ・2 m の格子のグラフ・カメラから見えるノード）、`zone_counts.csv`（秒ごとのゾーンの人数）、`zone_flows.csv`（1 分ごとのゾーン間の移動）、`grid_counts.npz`（counts[秒, 格子]）、`zone_graph.graphml` |
 | `mot/<カメラ>.txt` | MOTChallenge の形式の枠（frame, id, x, y, w, h, 1, 1, 見えている割合）。見えている割合は近似（壁は床の上の線で、人は手前の枠との重なりで数える） |
 | `preview.png` | 真上の図に、人の軌跡（流れごとの色）・ゾーン・カメラの向きを重ねた確認の図 |

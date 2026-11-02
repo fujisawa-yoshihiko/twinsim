@@ -94,7 +94,7 @@ twinsim calibrate config.json --gate-log gate_log.csv --ev-log ev_log.csv   # �
 | `mot/<カメラ>.txt`・`mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility`（コマは 1 始まり、id はカメラをまたいで同じ） |
 | `aicity/gt.txt` | AI City の MTMC | `camera_id obj_id frame_id xmin ymin width height xworld yworld` |
 | `video/<カメラ>.mp4` | H.264 | 描いた映像（1280×720・30 fps）。k コマ目 = `render_log.json` の `frames[0]` ＋ k |
-| `tasks.json` | JSON | 計画書 p7 の 6 タスクの正解（人数・ゲートの通過・滞留・グループ・混雑・行き先、EV の待ち） |
+| `tasks.json` | JSON | 6 つのタスクの正解（人数・ゲートの通過・滞留・グループ・混雑・行き先、EV の待ち） |
 | `graph/` | JSON・CSV・NPZ・GraphML | ゾーンのグラフ・2 m の格子のグラフ、秒ごとの人数・1 分ごとの流れ、カメラから見える所 |
 | `logs/` | CSV | ゲートの通過記録・EV の運行記録（実データと同じ形）。`twinsim export-logs <結果>` で作る |
 | `<TWINSIM_DATA>/ward/<空間>_ward_layout.json` | JSON | 病棟のベッド・ナースステーションの置き方と、その間の歩ける所の上の道のりと道の点の列（`twinsim ward-layout`） |
@@ -130,9 +130,9 @@ twinsim calibrate config.json --gate-log gate_log.csv --ev-log ev_log.csv   # �
 | テンプレート | 確かめること |
 |---|---|
 | `office_smoke` | 動作確認（30 秒） |
-| `office_gate_ev` | ゲート → EV（UC1・UC2、研究 2 の 2 地点の流れ）。朝のいちばん混む 5 分（在館 600 人、人の分布は文献の値）、カメラ 2 台 |
-| `office_ev_hall` | EV 前の紛らわしい状態（研究 1 の RQ1）。EV 待ち・同行者待ち・案内確認・受付 |
-| `office_signage_ab` | サイネージの比較（UC3）。同じ到着で、見る人の割合を A・B で変える（効果を測る方法の確かめ。効果そのものは確かめられない） |
+| `office_gate_ev` | ゲート → EV の 2 地点の流れ。朝のいちばん混む 5 分（在館 600 人、人の分布は文献の値）、カメラ 2 台 |
+| `office_ev_hall` | EV 前の紛らわしい状態。EV 待ち・同行者待ち・案内確認・受付 |
+| `office_signage_ab` | サイネージの比較。同じ到着で、見る人の割合を A・B で変える（効果を測る方法の確かめ。効果そのものは確かめられない） |
 | `hospital_gate_ev` | 病院のロビー → 西の広間の EV（hospital-sim の sim-gate と同じ配置・カメラ。前の評価のデータと比べられる） |
 | `warehouse_picking` | 倉庫のピッキング（工場の図の「作業・待ち・移動」）。荷受け → 棚 → 梱包 → 待ち → 棚 → 梱包 → 帰る |
 | `simple_room_smoke` | 動作確認（小部屋、20 秒） |

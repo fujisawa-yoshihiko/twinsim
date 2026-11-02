@@ -47,4 +47,4 @@ uv run --group gui-test python tools/gui_shot.py [output] [port]   # screen chec
 
 - Dependencies are in `pyproject.toml` (pinned with `uv.lock`). `./run.sh` is `uv run twinsim`.
 - When pushed to GitHub (private `fujisawa-yoshihiko/twinsim`), `.github/workflows/ci.yml` runs ruff and pytest (no GPU is used).
-- The rules (GPU usage, keeping data out of git, NDA) are in `CLAUDE.md`.
+- The rules (GPU usage, keeping data out of git) are in `CLAUDE.md`.

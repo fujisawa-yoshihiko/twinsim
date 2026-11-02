@@ -44,7 +44,7 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `mot/<カメラ>.txt`・`mot/ids.json` | カメラごとの人の枠（MOTChallenge の形） | 検出・1 台の追跡の学習と評価 |
 | `aicity/gt.txt`・`aicity/cameras.json` | 複数カメラの枠と世界の位置（AI City Challenge の MTMC の形） | 複数カメラの追跡・人物照合 |
 | `video/<カメラ>.mp4`・`render_log.json` | 描いた動画（H.264、fps は正解と同じ）と描いた範囲 | 上の枠と合わせて画像の学習 |
-| `tasks.json` | 計画書 p7 の 6 タスクの正解の集計 | 人数・流れ・滞留・混雑の評価 |
+| `tasks.json` | 6 つのタスクの正解の集計 | 人数・流れ・滞留・混雑の評価 |
 | `graph/` | ゾーンのグラフ・格子のグラフと、人数・流れの時系列 | GNN・時系列の予測 |
 | `logs/` | ゲートの通過記録・EV の運行記録（実データと同じ形）。`twinsim export-logs <結果>` で作る | 実データで合わせる（`calibrate`）の見本 |
 | `summary.json`・`scenario_resolved.json`・`.yaml` | 要約と、既定を足したシナリオ（乱数の種を含む） | 作り直し・記録 |
@@ -105,7 +105,7 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 `aicity/gt.txt`（AI City Challenge の MTMC と同じ、空白区切り）: `camera_id obj_id frame_id xmin ymin width height xworld yworld`。
 `camera_id` は `aicity/cameras.json`（`{"CamEV": 1, …}`）、`obj_id` は `mot/ids.json` と同じ、`frame_id` は 1 始まり、`xworld yworld` は足元の世界の座標（m）。
 
-## 5. `tasks.json`（計画書 p7 の 6 タスク）
+## 5. `tasks.json`（6 つのタスク）
 
 | キー | 中身 |
 |---|---|
@@ -165,7 +165,7 @@ while (ok := cap.read())[0]:
 - ゆがみ・ノイズ・圧縮・照明の変化・カメラの時計のずれとコマ落ちは入れていない（`clock_offset_s`・`drop_rate` は記録だけ）。
 - 3D の枠・姿勢（キーポイント）・顔などはない。1 つの階だけ。
 - 素材の利用条件: 空間（オフィス・病院・倉庫）は CC BY 4.0（NVIDIA Isaac Sim の素材、クレジットを書く）。人物モデルの条件は未確認なので、作ったデータを外に出す前に確かめる。
-  竹芝の実際の映像・図面から作ったものは、このデータの置き場所とは分ける（NDA）。
+  実在の建物の映像・図面から作ったものは、このデータの置き場所とは分ける。
 
 ## 10. 病棟の配置と道のり（`ward_layout.json`）
 

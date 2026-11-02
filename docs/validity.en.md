@@ -14,7 +14,7 @@ The list of literature and the values are in `twinsim/literature.py` (`REFS`, `P
 | Emergent quantities | Whether quantities that are not fed in fall within the literature ranges (speed by density, dyad spacing, distance between waiting people) | Second half of `validity.md`, the `verify_*` templates |
 | Ledger | For each scenario value, list whether its basis is literature, literature for the shape only, or provisional | End of `validity.md` |
 
-Literature values are "values observed under similar conditions", not values for the Takeshiba building itself. Provisional values and literature values from different conditions
+Literature values are "values observed under similar conditions", not values for the target building itself. Provisional values and literature values from different conditions
 are not called "valid" until they have been fitted to real data (gate passage logs, elevator (EV) operation logs, detection and tracking trajectories) (calibration) and checked against data from another day (validation).
 
 ## 2. Literature values
@@ -112,8 +112,8 @@ Proximity between people also improved (office_gate_ev: 1st percentile of the ne
 | Building population | 600 people (provisional) | The building's population (entry logs). Elevator demand is proportional to it |
 | Split of the incoming flow (visitors 7%, meeting someone 3%) | Provisional | Reception logs; manual labels on short segments of real video |
 | Ground-floor (1F) flows that do not use the elevators, pass-through | Provisional | Difference between the gate passage logs and the number of people boarding elevators |
-| Destination shares, stopping time at reception | Provisional (the shape of the stopping time is log-normal) | Real video; flow estimation from Research 2 |
-| Elevator arrival interval, time until the doors open | Provisional | Elevator operation logs (requested from Tokyu Land) |
+| Destination shares, stopping time at reception | Provisional (the shape of the stopping time is log-normal) | Real video; flow estimation |
+| Elevator arrival interval, time until the doors open | Provisional | Elevator operation logs |
 | Variability of gate time per person | Range from the literature, shape provisional | Time intervals in the gate passage logs |
 | Shape of the time-of-day peak (how morning arrivals build up) | No literature figures obtained. Generated at the constant rate of the busiest 5 minutes | Aggregate the gate passage logs per minute |
 

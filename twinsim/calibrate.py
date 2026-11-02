@@ -9,7 +9,7 @@
   到着の量     ゲートの入る向きの 1 分ごとの人数 → ゲートを通って入る流れの rate（piecewise、人/分）。流れどうしの割合は元のシナリオのまま
   ゲートの時間  同じレーン・同じ向きで、前の人との間隔が 4 秒以下のもの（列ができていた見込みが高い）に対数正規を当てる。30 回未満なら元のまま
   EV           号機ごとの着く間隔に対数正規を当てる（または replay で時刻をそのまま使う）。降りる人の平均（ポアソン）
-実データ（竹芝の記録は NDA の対象）から作ったシナリオは git の外（既定は ~/dt-data/twinsim/calibration/<id>/）に置く。
+実データから作ったシナリオは git の外（既定は ~/dt-data/twinsim/calibration/<id>/）に置く。
 """
 
 import copy
@@ -181,7 +181,7 @@ def calibrate(base, gate_log=None, ev_log=None, out_dir=None, ev_mode="fit", bin
     path = out / "scenario.yaml"
     head = (f"# {rep['date']} に記録で合わせたシナリオ（twinsim calibrate）。元: {base}。\n"
             f"# 値の出典は source: {src}（calibration の欄に記録のファイルとハッシュ）。\n"
-            "# 竹芝の実データから作ったものは NDA の対象になりうる。git や共有の場所に置かない。\n")
+            "# 実データから作ったものは秘密保持の対象になりうる。git や共有の場所に置かない。\n")
     path.write_text(head + yaml.safe_dump(new, allow_unicode=True, sort_keys=False), encoding="utf-8")
     (out / "report.json").write_text(json.dumps(rep, ensure_ascii=False, indent=1))
     return path, rep

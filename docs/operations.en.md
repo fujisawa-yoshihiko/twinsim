@@ -8,7 +8,7 @@ How to run twinsim and Isaac Sim on ampb (the shared GPU server) and view them i
 
 - The GPUs (RTX PRO 6000 ×4) are shared with other users. Check what is free before use (`./status.sh` or `nvidia-smi`). When detection and other components run on the same machine, they share one GPU by default (`one-gpu` chooses it; GPU 3 by default). Split them only when needed, and use at most 2 GPUs.
 - Decide the expected time and the GPU before starting long jobs such as rendering. Stop things when you are done.
-- Do not put results or videos in git (they go under `~/dt-data/twinsim/`). Keep anything made from Takeshiba's real video or drawings in a separate place.
+- Do not put results or videos in git (they go under `~/dt-data/twinsim/`). Keep anything made from the video or drawings of a real building in a separate place.
 
 ## 1. Viewing from your local PC
 

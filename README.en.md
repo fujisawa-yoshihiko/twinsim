@@ -94,7 +94,7 @@ Coordinates are world meters (Z up); simulator frames start at 0 (seconds = fram
 | `mot/<camera>.txt`, `mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility` (frames start at 1; the id is the same across cameras) |
 | `aicity/gt.txt` | AI City MTMC | `camera_id obj_id frame_id xmin ymin width height xworld yworld` |
 | `video/<camera>.mp4` | H.264 | Rendered video (1280×720, 30 fps). Frame k = `frames[0]` in `render_log.json` + k |
-| `tasks.json` | JSON | Ground truth for the six tasks on p. 7 of the research plan (counts, gate crossings, dwelling, groups, congestion, destinations, elevator waits) |
+| `tasks.json` | JSON | Ground truth for the six tasks (counts, gate crossings, dwelling, groups, congestion, destinations, elevator waits) |
 | `graph/` | JSON, CSV, NPZ, GraphML | Zone graph and 2 m grid graph, per-second counts, per-minute flows, what each camera sees |
 | `logs/` | CSV | Gate crossing logs and elevator operation logs (the same format as real data). Made with `twinsim export-logs <run>` |
 | `<TWINSIM_DATA>/ward/<space>_ward_layout.json` | JSON | Ward beds, nurse-station layouts, and the walkable distances and paths between them (`twinsim ward-layout`) |
@@ -130,9 +130,9 @@ The sources, the check results and the assumed values are in [docs/validity.en.m
 | Template | What it checks |
 |---|---|
 | `office_smoke` | Operation check (30 s) |
-| `office_gate_ev` | Gate → elevator (UC1, UC2; the two-point flow of Research 2). The busiest 5 minutes of the morning (building population 600, distribution of people from literature values), 2 cameras |
-| `office_ev_hall` | Ambiguous states in the elevator hall (RQ1 of Research 1). Waiting for an elevator, waiting for companions, checking directions, reception |
-| `office_signage_ab` | Signage comparison (UC3). With the same arrivals, the share of people who look at the signage differs between A and B (verifies the method of measuring the effect; the effect itself cannot be verified) |
+| `office_gate_ev` | The two-point flow from the gate to the elevator. The busiest 5 minutes of the morning (building population 600, distribution of people from literature values), 2 cameras |
+| `office_ev_hall` | Ambiguous states in the elevator hall. Waiting for an elevator, waiting for companions, checking directions, reception |
+| `office_signage_ab` | Signage comparison. With the same arrivals, the share of people who look at the signage differs between A and B (verifies the method of measuring the effect; the effect itself cannot be verified) |
 | `hospital_gate_ev` | Hospital lobby → elevators in the west hall (same layout and cameras as hospital-sim's sim-gate; can be compared with the data of the earlier evaluation) |
 | `warehouse_picking` | Warehouse picking ("work, wait, move" in the factory diagram). Receiving → shelf → packing → wait → shelf → packing → leave |
 | `simple_room_smoke` | Operation check (small room, 20 s) |
