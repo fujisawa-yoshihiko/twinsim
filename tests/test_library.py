@@ -1,5 +1,6 @@
 """Python のライブラリとして使う入口（設定は JSON）の確かめ（CPU だけ、数秒）。"""
 
+import gzip
 import json
 import shutil
 import subprocess
@@ -20,7 +21,7 @@ CONFIG = {
 
 
 def frames_of(result):
-    return (result.out_dir / "frames.csv.gz").read_bytes()
+    return gzip.decompress((result.out_dir / "frames.csv.gz").read_bytes())  # 圧縮の見出しには時刻が入るので、中身を比べる
 
 
 def test_tie_break_does_not_depend_on_the_process():
@@ -98,6 +99,94 @@ def test_render_needs_isaac_sim(tmp_path, monkeypatch):
     monkeypatch.setattr(isaac_bridge, "ready", lambda: False)
     with pytest.raises(RuntimeError, match="isaac_up"):
         twinsim.render(tmp_path)
+
+
+def test_origin_by_coordinates(tmp_path):
+    xy = [-3.0, 20.0]
+    config = {**CONFIG, "streams": [{**CONFIG["streams"][0], "origin": {"xy": xy}}]}
+    r = twinsim.simulate(config, out_dir=tmp_path / "xy")
+    gt = r.ground_truth()
+    first = [t[0] for t in gt["tracks"].values()]  # 全員が置いた点の近くから歩き始める
+    assert first and all(np.hypot(p[0] - xy[0], p[1] - xy[1]) < 1.0 for p in first)
+    assert r.config["streams"][0]["name"] == "commuters"
+    assert {p["flow"].split("->")[0] for p in gt["people"].values()} == {"commuters"}  # 出発地の名前は流れの名前
+    again = twinsim.simulate(r.config, out_dir=tmp_path / "again")  # 書き出した設定でやり直せる
+    assert frames_of(again) == frames_of(r)
+
+
+def test_destinations_can_be_plain_names(tmp_path):
+    named = {**CONFIG, "streams": [{"name": "a", "origin": "entrance", "rate": 8, "destinations": ["south_exit"]}]}
+    written = {**CONFIG, "streams": [{"name": "a", "origin": "entrance", "rate": 8, "destinations": [{"to": "south_exit"}]}]}
+    assert frames_of(twinsim.simulate(named, out_dir=tmp_path / "a")) == frames_of(twinsim.simulate(written, out_dir=tmp_path / "b"))
+
+
+def test_origin_by_line_spreads_people_and_names_the_stream(tmp_path):
+    line = [[-4.0, 20.0], [-2.0, 20.0]]
+    stream = {k: v for k, v in CONFIG["streams"][0].items() if k != "name"}
+    config = {**CONFIG, "streams": [{**stream, "origin": {"line": line, "name": "north_door"}}]}
+    r = twinsim.simulate(config, out_dir=tmp_path / "line")
+    gt = r.ground_truth()
+    assert r.config["streams"][0]["name"] == "north_door"
+    assert {p["flow"].split("->")[0] for p in gt["people"].values()} == {"north_door"}
+    xs = [t[0][0] for t in gt["tracks"].values()]
+    assert len(xs) >= 3 and max(xs) - min(xs) > 0.4
+
+
+def test_meet_from_coordinates(tmp_path):
+    dest = {"to": "lounge_1", "dwell": 3, "meet": {"p": 1.0, "delay": 1.0, "from": {"xy": [-3.0, 20.0], "name": "friend"}}, "then": "south_exit"}
+    config = {**CONFIG, "streams": [{**CONFIG["streams"][0], "destinations": [dest]}]}
+    gt = twinsim.simulate(config, out_dir=tmp_path / "meet").ground_truth()
+    assert any(p["flow"].startswith("friend->") for p in gt["people"].values())
+
+
+@pytest.mark.parametrize("origin, message", [
+    ({"xy": [-100.0, 0.0]}, "歩ける所の外"),
+    ({"xy": [1, 2, 3]}, "座標が正しくない"),
+    ({"line": [[-4.0, 20.0]]}, "座標が正しくない"),
+    ({"xy": [-3.0, 20.0], "line": [[-4.0, 20.0], [-2.0, 20.0]]}, "形が正しくない"),
+    ({"point": [-3.0, 20.0]}, "形が正しくない"),
+    ("no_such_place", "origin no_such_place がない"),
+])
+def test_origin_errors_before_simulating(origin, message):
+    with pytest.raises(ValueError, match=message):
+        twinsim.validate({**CONFIG, "streams": [{**CONFIG["streams"][0], "origin": origin}]})
+
+
+def test_custom_camera_position_changes_the_labels(tmp_path):
+    placed = {"name": "MyCam", "eye": [-1.0, 8.0, 3.0], "target": [-3.0, 14.0, 0.8], "focal_mm": 8.0}
+    moved = {"name": "CamGate", "eye": [-1.0, 8.0, 3.0]}  # 候補の一部だけ変える
+    r = twinsim.simulate({**CONFIG, "cameras": [placed, moved]}, out_dir=tmp_path / "cam")
+    cams = r.ground_truth()["cameras"]
+    assert r.cameras == ["CamGate", "MyCam"] and len(r.mot("MyCam")) > 0
+    assert cams["MyCam"]["focal_mm"] == 8.0 and cams["MyCam"]["eye"] == placed["eye"]
+    assert cams["CamGate"]["eye"] == moved["eye"]
+
+
+@pytest.mark.parametrize("camera, message", [
+    ({"name": "MyCam", "eye": [0, 0, 3]}, "eye・target がなく"),
+    ({"name": "MyCam", "eye": [0, 0], "target": [1, 1, 1]}, r"\[x, y, z\]"),
+    ({"name": "MyCam", "eye": [1, 1, 1], "target": [1, 1, 1]}, "同じ点"),
+    ({"name": "CamGate", "eyes": [1, 1, 1]}, "知らないキー eyes"),
+    ({"eye": [1, 1, 1], "target": [2, 2, 2]}, "name がない"),
+])
+def test_camera_errors_before_simulating(camera, message):
+    with pytest.raises(ValueError, match=message):
+        twinsim.validate({**CONFIG, "cameras": [camera]})
+
+
+def test_render_tint_comes_from_the_config(tmp_path, monkeypatch):
+    from twinsim import isaac_bridge
+    r = twinsim.simulate({**CONFIG, "render": {"tint": False}}, out_dir=tmp_path / "r")
+    seen = []
+    monkeypatch.setattr(isaac_bridge, "WORK", tmp_path / "work")
+    monkeypatch.setattr(isaac_bridge, "fix_perms", lambda: None)
+    monkeypatch.setattr(isaac_bridge, "submit", lambda script, job, name: seen.append(job["tint"]) or "")
+    monkeypatch.setattr(isaac_bridge, "finish_render", lambda *a: {"log": "", "videos": {}})
+    isaac_bridge.render(r.out_dir)
+    isaac_bridge.render(r.out_dir, tint=True)  # 引数が優先
+    assert seen == [False, True]
+    with pytest.raises(ValueError, match="render.tint"):
+        twinsim.validate({**CONFIG, "render": {"tint": "blue"}})
 
 
 def test_resolved_config_is_json_and_reruns_the_same(tmp_path):

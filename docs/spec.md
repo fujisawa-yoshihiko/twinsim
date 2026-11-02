@@ -59,15 +59,19 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 | `seed`・`fps`・`duration_s` | 乱数の種（0）、1 秒のコマ数（30）、長さ（120 秒） |
 | `people` | `profile`（文献の値の組。`office_commute_jp`・`leisure_low_density`。docs/validity.md）、`speed`（歩く速さの分布、既定は 1.34 ± 0.26 m/s、Weidmann 1993）、`models`（人物モデル。`all`）、`group_size`（流れに書かないときのまとまりの人数）、`group_speed`（既定 `{model: moussaid2010, slope_m_s: 0.04}`。`{model: min}` で遅い人に合わせる）、`group_lateral_m`（2 人連れの横の間隔、既定 0.66、Zanlungo ら 2017）、`speed_density`（速さと密度の関係、既定 Weidmann 1993。`null` で切る）、`lateral_max_m`（経路から横へよけられる幅、1.0） |
 | `demand` | EV を使う人の量: `population`（建物にいる人数）、`period`（`morning`・`lunch`）、`peak_pct_5min`（混む 5 分の割合、12）。`rate: {type: lift_demand}` と `alight.count: {type: lift_demand}` が使う（Peters ら 2011） |
-| `streams[]` | 人の流れ: `origin`（現れる場所。`line` のある場所なら線の上のどこか）、`rate`（到着の率）、`group_size`、`types`、`destinations[]`、`start_s` |
+| `streams[]` | 人の流れ: `name`、`origin`（現れる場所。場所の名前か、座標の `{"xy": [x, y]}`・`{"line": [[x0, y0], [x1, y1]]}`。線なら線の上のどこか。`name` を足すと集計での呼び名になる）、`rate`（到着の率）、`group_size`、`types`、`destinations[]`、`start_s`。座標は歩ける所の中で、行き先まで歩いて行ける所に置く（外なら計算の前に誤り） |
 | `elevator` | `cars`（扉の名前）、`capacity`、`schedule`、`alight`（降りる人: `count`・`types`・`destinations`）、`transfer_s`（1 人の乗り降り、1.0 秒）、`door_open_s`（着いてから最初の人が動くまで、1.0 秒、仮） |
 | `gates` | ゲートごとの `service_s`（1 レーンで 1 人を通す間隔。秒か分布。既定 1.5 秒、`office_commute_jp` では対数正規 中央 2.0 秒） |
 | `validity` | `{speed_density: judge}` で密度ごとの速さを Weidmann の式で判定する（一方向の廊下の確かめだけ） |
-| `cameras[]` | `name`（空間の候補の名前）と、上書きする `eye`・`target`・`focal_mm`・`width`・`height`・`clock_offset_s`・`drop_rate` |
-| `render` | `width`・`height`（1280×720）、`tint`（人ごとに服の色を変える）、`props`（置く物の場所の名前） |
+| `cameras[]` | `name`（空間の候補の名前。新しい名前でもよい）と、上書きする `eye`・`target`（どちらも `[x, y, z]`）・`focal_mm`（12）・`h_aperture_mm`（20.955）・`width`・`height`・`clock_offset_s`・`drop_rate`（後ろの 2 つは記録するだけ）。新しい名前なら `eye` と `target` が必須 |
+| `render` | `width`・`height`（1280×720）、`tint`（`per_person` で人ごとに服の色を変える、`false` で変えない。`twinsim.render(tint=...)` の引数が優先）、`props`（置く物の場所の名前）、`gate_props`（ゲートの機械を置く、`true`） |
 | `outputs` | 書き出すもの（`ground_truth`・`frames`・`tasks`・`graph`・`mot`・`aicity`・`preview`・`validity`） |
 | `variants`・`variant` | A/B の比較: `variants: {A: {名前: 値}}` と、行き先の `variant_p: 名前` で `p` を差し替える |
 | `graph` | `cell_m`（格子のグラフの大きさ、2 m） |
+| `mot_stride` | MOT の枠を何コマごとに書くか（1） |
+| `congestion_levels` | 混雑の段階の境い目（人/m²、`[0.10, 0.20]`） |
+| `name`・`title`・`title_en`・`description` | 名前と説明 |
+| `calibration` | `twinsim calibrate` が書く、合わせ方の記録 |
 
 行き先（`destinations[]` の要素）:
 
@@ -79,7 +83,9 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 | `via` | 途中で通るゲート（`[gate]`）。向き（入館・退館）は位置から決まる |
 | `dwell` | 止まる時間（分布、秒） |
 | `state` | 止まる間の状態（既定: 受付 `reception`、待ち合わせ `dwell`、案内板 `sign_check`） |
-| `meet` | 待ち合わせ: `p`、`delay`（同行者が遅れて来る時間）、`from`（同行者の現れる場所）、`via`。待つ間の状態は `companion_wait` |
+| `glance` | 止まっている間に見回す幅（度） |
+| `variant_p` | A/B の比較で、`p` を差し替える名前（`variants`） |
+| `meet` | 待ち合わせ: `p`、`delay`（同行者が遅れて来る時間）、`from`（同行者の現れる場所。`origin` と同じ形）、`via`。待つ間の状態は `companion_wait` |
 | `then` | 止まったあとの行き先（同じ形） |
 
 EV の運行（`elevator.schedule`）:
@@ -144,7 +150,7 @@ Python から: `from twinsim import api; api.run("office_gate_ev", out_dir, over
 `python -m twinsim serve`（127.0.0.1:8770 だけで待ち受け。手元の PC で `ssh -N -L 8770:localhost:8770 ampb` を実行し、
 `python -m twinsim serve --url` で表示される URL を開く）。他の利用者もいるマシンなので、トークン（~/.config/twinsim/token、本人だけ読める）を確かめる。
 
-- 画面: 左に空間の真上の図（ゾーン・場所・ゲートの線・カメラの位置と見る点と映る範囲。カメラはドラッグで動かせる）、右に設定
+- 画面: 左に空間の真上の図（ゾーン・場所・ゲートの線・カメラの位置と見る点と映る範囲、人の流れの現れる所。カメラと現れる所はドラッグで動かせる）、右に設定
   （長さ・乱数の種・流れごとの到着の率とまとまりと行き先の重み・EV・ゲート・カメラ・置く物、シナリオの全部を書ける JSON の欄）と結果
   （要約・確認の図・試し撮りと描画（見積もりを見て確かめてから始める）・動画・ファイル）。
 - API（プログラムからは `Authorization: Bearer <トークン>`）: `GET /api/spaces`・`/api/spaces/<名前>`・`/api/spaces/<名前>/top`、

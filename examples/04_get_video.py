@@ -41,7 +41,7 @@ cameras = args.cameras or result.cameras
 frames = None if args.all else busiest_frames(result, cameras, args.seconds)
 print("描くコマ:", frames or "全部", "カメラ:", ", ".join(cameras))
 
-done = twinsim.render(result.out_dir, frames=frames, cameras=cameras, tint=not args.plain)  # Isaac Sim が動いていなければ RuntimeError
+done = twinsim.render(result.out_dir, frames=frames, cameras=cameras, tint=False if args.plain else None)  # Isaac Sim が動いていなければ RuntimeError
 print(f"かかった時間: {done['seconds']} 秒")
 for camera, path in result.videos.items():
     print(f"{camera}: {path}（{path.stat().st_size / 1e6:.1f} MB）")

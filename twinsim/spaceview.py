@@ -43,7 +43,7 @@ def draw(name, scale=1.0):
         major = int(round(gx)) % 10 == 0
         d.line([P(gx, y0), P(gx, y1)], fill=(255, 255, 255) if major else (200, 200, 200), width=1)
         if major:
-            d.text(P(gx, y0), f"x={int(gx)}", font=f, fill=(255, 255, 0), anchor="mt")
+            d.text((P(gx, y0)[0], H - 16), f"x={int(gx)}", font=f, fill=(255, 255, 0), anchor="mt")  # 範囲の端は図の外のことがある
     for gy in np.arange(math.ceil(y0 / 2) * 2, y1 + 0.01, 2):
         major = int(round(gy)) % 10 == 0
         d.line([P(x0, gy), P(x1, gy)], fill=(255, 255, 255) if major else (200, 200, 200), width=1)

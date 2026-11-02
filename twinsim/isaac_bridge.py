@@ -81,12 +81,15 @@ def encode(frames_dir, mp4, fps, frames=None):
     return len(pngs)
 
 
-def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=True):
-    """計算の結果（run_dir）を描画し、run_dir/video/<カメラ>.mp4 を作る。frames=(始まり, 終わり) で範囲を絞る（試し撮り）。"""
+def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None):
+    """計算の結果（run_dir）を描画し、run_dir/video/<カメラ>.mp4 を作る。frames=(始まり, 終わり) で範囲を絞る（試し撮り）。
+    tint は人ごとに服の色を変えるか。None なら設定の render.tint に従う。"""
     run = Path(run_dir).expanduser()
     gt = json.loads((run / "ground_truth.json").read_text())
     spec = yaml.safe_load((run / "scenario_resolved.yaml").read_text(encoding="utf-8"))
     sp = load_space(gt["space"])
+    if tint is None:
+        tint = bool(spec.get("render", {}).get("tint", "per_person"))
     name = run.name
     dst = WORK / "runs" / name
     dst.mkdir(parents=True, exist_ok=True)

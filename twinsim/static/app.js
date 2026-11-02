@@ -100,6 +100,15 @@ function draw() {
       ctx.fillText(name, q[0] + 6, q[1] - 4);
     }
   }
+  S.spec.streams.forEach((st, i) => {  // 人の流れの現れる所（緑の四角をドラッグして動かす）
+    const pts = originPoints(st).map((p) => W2C(p[0], p[1])).filter(Boolean);
+    ctx.strokeStyle = "#0a7a3a"; ctx.lineWidth = 3;
+    if (pts.length === 2) { ctx.beginPath(); ctx.moveTo(...pts[0]); ctx.lineTo(...pts[1]); ctx.stroke(); }
+    ctx.fillStyle = "#0a7a3a"; ctx.font = "bold 13px sans-serif";
+    pts.forEach((p) => ctx.fillRect(p[0] - 6, p[1] - 6, 12, 12));
+    if (pts.length) ctx.fillText(`S${i + 1}`, pts[0][0] + 9, pts[0][1] + 15);
+    ctx.font = "12px sans-serif";
+  });
   selectedCams().forEach((c, k) => {
     if (!c.eye || !c.target) return;
     const m = camModel(c, S.spec.render);
@@ -120,8 +129,46 @@ function draw() {
   });
 }
 
+// ---- 人の流れの現れる所 ----
+function originPoints(st) {  // 地図に描く点（線なら両端）
+  const o = st.origin;
+  if (typeof o !== "string") return o?.line || (o?.xy ? [o.xy] : []);
+  const p = S.space.pois[o];
+  return !p ? [] : p.line || (p.xy ? [p.xy] : []);
+}
+function customOrigin(st) {  // 場所の名前で書いた流れを、座標の形に直す
+  if (typeof st.origin === "string") {
+    const pts = originPoints(st).map((p) => [...p]);
+    st.origin = pts.length === 2 ? { line: pts } : { xy: pts[0] };
+  }
+  return st.origin;
+}
+function snapWalkable(x, y) {  // いちばん近い歩ける点（space.py の cell と同じ格子）
+  const g = S.space.grid, ny = g.rows.length;
+  const ok = (i, j) => g.rows[ny - 1 - i]?.[j] === ".";
+  const i0 = Math.floor((y - g.y0) / g.res + 0.5), j0 = Math.floor((x - g.x0) / g.res + 0.5);
+  if (ok(i0, j0)) return [x, y];
+  const reach = Math.max(ny, g.rows[0].length);
+  for (let r = 1; r < reach; r++) {
+    let best = null;
+    for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) {
+      if (Math.max(Math.abs(di), Math.abs(dj)) !== r || !ok(i0 + di, j0 + dj)) continue;
+      const d = Math.hypot(di, dj);
+      if (!best || d < best.d) best = { d, i: i0 + di, j: j0 + dj };
+    }
+    if (best) return [+(g.x0 + best.j * g.res).toFixed(2), +(g.y0 + best.i * g.res).toFixed(2)];
+  }
+  return [x, y];
+}
+
 function handleAt(cx, cy) {
   let best = null;
+  S.spec.streams.forEach((st, i) => originPoints(st).forEach((p, j) => {
+    const q = W2C(p[0], p[1]);
+    if (!q) return;
+    const d = Math.hypot(q[0] - cx, q[1] - cy);
+    if (d < 12 && (!best || d < best.d)) best = { stream: i, j, d };
+  }));
   selectedCams().forEach((c, k) => {
     for (const which of ["eye", "target"]) {
       if (!c[which]) continue;
@@ -141,12 +188,27 @@ canvas.addEventListener("mousemove", (ev) => {
   const w = C2W(cx, cy);
   $("cursor").textContent = `x ${w[0].toFixed(2)}, y ${w[1].toFixed(2)}`;
   if (!S.drag) { canvas.style.cursor = handleAt(cx, cy) ? "grab" : "crosshair"; return; }
+  if (S.drag.stream !== undefined) {
+    const o = customOrigin(S.spec.streams[S.drag.stream]), xy = [+w[0].toFixed(2), +w[1].toFixed(2)];
+    if (o.line) o.line[S.drag.j] = xy; else o.xy = xy;
+    draw(); syncJson();
+    return;
+  }
   const cam = S.spec.cameras[S.drag.k], r = resolveCam(cam);
   cam.eye = cam.eye || [...r.eye]; cam.target = cam.target || [...r.target];
   cam[S.drag.which] = [+w[0].toFixed(2), +w[1].toFixed(2), cam[S.drag.which][2]];
   renderCameras(); draw(); syncJson();
 });
-window.addEventListener("mouseup", () => { S.drag = null; });
+window.addEventListener("mouseup", () => {
+  if (S.drag?.stream !== undefined) {  // 壁の中に置いたら、近くの歩ける所へ寄せる
+    const o = S.spec.streams[S.drag.stream].origin;
+    if (typeof o !== "string") {
+      if (o.line) o.line[S.drag.j] = snapWalkable(...o.line[S.drag.j]); else o.xy = snapWalkable(...o.xy);
+      renderStreams(); draw(); syncJson();
+    }
+  }
+  S.drag = null;
+});
 ["show-zones", "show-pois", "show-frustum"].forEach((id) => $(id).addEventListener("change", draw));
 window.addEventListener("resize", resize);
 
@@ -181,13 +243,35 @@ function renderStreams() {
       ? `<span class="muted">${tr(`到着: 建物の人数から ${(demandPerMin(st.rate) ?? 0).toFixed(1)} 人/分（${st.rate.flow || "incoming"}・割合 ${st.rate.share ?? 1}、Peters ら 2011）`,
         `Arrivals: from the building population, ${(demandPerMin(st.rate) ?? 0).toFixed(1)} people/min (${st.rate.flow || "incoming"}, share ${st.rate.share ?? 1}; Peters et al. 2011)`)}</span>`
       : `<label>${tr(`到着（${unit}。時間帯で変えるなら 秒:率, …）`, `Arrivals (${unit}; to vary over time, s:rate, …)`)}<input type="text" data-k="rate" value="${rateText(st.rate)}" style="width:200px"></label>`;
-    d.innerHTML = `<h4>${st.name || tr("流れ ", "Stream ") + (i + 1)}${tr(`（現れる所: ${st.origin}）`, ` (appears at: ${st.origin})`)}</h4>
+    const places = Object.entries(S.space.pois).filter(([, p]) => ["spawn", "exit"].includes(p.kind)).map(([k]) => k);
+    if (typeof st.origin === "string" && !places.includes(st.origin)) places.push(st.origin);
+    const mode = typeof st.origin === "string" ? st.origin : st.origin?.line ? "__line" : "__xy";
+    const pts = typeof st.origin === "string" ? [] : originPoints(st);
+    const coords = pts.map((p, j) => `<span>${pts.length === 2 ? tr(`端 ${j + 1}`, `End ${j + 1}`) : ""} x <input class="xyz" type="number" step="0.1" data-origin="${j}" data-axis="0" value="${(+p[0]).toFixed(2)}"> y <input class="xyz" type="number" step="0.1" data-origin="${j}" data-axis="1" value="${(+p[1]).toFixed(2)}"></span>`).join(" ");
+    d.innerHTML = `<h4>S${i + 1}: ${st.name || tr("流れ ", "Stream ") + (i + 1)}</h4>
+      <label>${tr("現れる所", "Appears at")} <select data-k="origin">
+        ${places.map((k) => `<option value="${k}" ${k === mode ? "selected" : ""}>${k}</option>`).join("")}
+        <option value="__xy" ${mode === "__xy" ? "selected" : ""}>${tr("座標で指定（点）", "Coordinates (point)")}</option>
+        <option value="__line" ${mode === "__line" ? "selected" : ""}>${tr("座標で指定（線）", "Coordinates (line)")}</option>
+      </select></label>
+      ${coords ? `<div class="row">${coords}</div>` : ""}
       ${rateField}
       <label>${tr("まとまりの λ（0 を除いたポアソン）", "Group size λ (zero-truncated Poisson)")}<input type="number" step="0.05" min="0" data-k="lam" value="${lam}" placeholder="${dflt}"></label>
       <table class="dest"><tr><th>${tr("行き先", "Destination")}</th><th>${tr("重み", "Weight")}</th><th>${tr("種類", "Types")}</th></tr>
       ${(st.destinations || []).map((de, j) => `<tr><td>${typeof de === "string" ? de : de.to}${de.then ? " → …" : ""}${(de.via || []).length ? tr("（ゲート経由）", " (via gate)") : ""}</td>
         <td><input type="number" step="0.01" min="0" data-dest="${j}" value="${de.p ?? 1}"></td><td>${(de.types || []).join(",")}</td></tr>`).join("")}
       </table>`;
+    d.querySelector('[data-k="origin"]').addEventListener("change", (e) => {
+      const v = e.target.value, c = originPoints(st)[0] || [0, 0];
+      if (v === "__xy") st.origin = { xy: [+c[0], +c[1]] };
+      else if (v === "__line") st.origin = { line: [[+c[0] - 1, +c[1]], [+c[0] + 1, +c[1]]] };
+      else st.origin = v;
+      renderStreams(); draw(); syncJson();
+    });
+    d.querySelectorAll("[data-origin]").forEach((inp) => inp.addEventListener("change", (e) => {
+      const p = st.origin.line ? st.origin.line[+e.target.dataset.origin] : st.origin.xy;
+      p[+e.target.dataset.axis] = num(e.target.value); draw(); syncJson();
+    }));
     d.querySelector('[data-k="rate"]')?.addEventListener("change", (e) => { st.rate = parseRate(e.target.value, st.rate); syncJson(); });
     d.querySelector('[data-k="lam"]').addEventListener("change", (e) => {
       if (e.target.value === "") delete st.group_size; else st.group_size = { type: "zero_truncated_poisson", lam: num(e.target.value) };
@@ -263,15 +347,17 @@ function renderGates() {
 
 function renderCameras() {
   const box = $("cameras");
-  const names = Object.keys(S.space.cameras);
   const chosen = new Map(S.spec.cameras.map((c, i) => [c.name, i]));
+  const names = [...new Set([...Object.keys(S.space.cameras), ...chosen.keys()])];  // 空間の候補と、設定に書いたカメラ
   box.innerHTML = names.map((n) => {
     const i = chosen.get(n);
     const c = i !== undefined ? resolveCam(S.spec.cameras[i]) : S.space.cameras[n];
+    const cand = S.space.cameras[n] || {};
     const xyz = (k) => (c[k] || [0, 0, 0]).map((v, j) => `<input class="xyz" type="number" step="0.1" data-cam="${n}" data-k="${k}" data-j="${j}" value="${(+v).toFixed(2)}" ${i === undefined ? "disabled" : ""}>`).join("");
     return `<div class="cam"><label><input type="checkbox" data-use="${n}" ${i !== undefined ? "checked" : ""}> <b>${n}</b></label>
-      <span class="muted">${tr(S.space.cameras[n].note || "", S.space.cameras[n].note_en || S.space.cameras[n].note || "")}</span>
-      <div class="row">${tr("位置", "Position")} ${xyz("eye")}</div><div class="row">${tr("見る点", "Look-at point")} ${xyz("target")}</div></div>`;
+      <span class="muted">${tr(cand.note || "", cand.note_en || cand.note || "")}</span>
+      <div class="row">${tr("位置", "Position")} ${xyz("eye")}</div><div class="row">${tr("見る点", "Look-at point")} ${xyz("target")}</div>
+      <div class="row"><label>${tr("焦点距離（mm）", "Focal length (mm)")} <input class="xyz" type="number" step="0.5" min="1" data-focal="${n}" value="${c.focal_mm ?? 12}" ${i === undefined ? "disabled" : ""}></label></div></div>`;
   }).join("");
   box.querySelectorAll("[data-use]").forEach((cb) => cb.addEventListener("change", (e) => {
     const n = e.target.dataset.use;
@@ -285,7 +371,18 @@ function renderCameras() {
     c.eye = c.eye || [...r.eye]; c.target = c.target || [...r.target];
     c[k][+j] = num(e.target.value); draw(); syncJson();
   }));
+  box.querySelectorAll("[data-focal]").forEach((inp) => inp.addEventListener("change", (e) => {
+    const c = S.spec.cameras.find((x) => x.name === e.target.dataset.focal); if (!c) return;
+    c.focal_mm = num(e.target.value, 12); draw(); syncJson();
+  }));
 }
+$("add-camera").addEventListener("click", () => {  // 図の真ん中に新しいカメラを置く（ドラッグで動かす）
+  const [x0, x1, y0, y1] = S.space.bounds, cx = +((x0 + x1) / 2).toFixed(2), cy = +((y0 + y1) / 2).toFixed(2), z = S.space.z;
+  const used = new Set([...Object.keys(S.space.cameras), ...S.spec.cameras.map((c) => c.name)]);
+  let k = 1; while (used.has(`Cam${k}`)) k++;
+  S.spec.cameras.push({ name: `Cam${k}`, eye: [cx, cy, z + 2.7], target: [+(cx + 4).toFixed(2), cy, z + 0.8] });
+  renderCameras(); draw(); syncJson();
+});
 
 function renderProps() {
   const props = Object.entries(S.space.pois).filter(([, p]) => p.kind === "prop");

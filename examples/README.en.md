@@ -25,6 +25,7 @@ uv run python examples/06_detection_dataset.py
 | [04_get_video.py](04_get_video.py) | Render with Isaac Sim and get mp4 files. You can render only the busiest part, choose cameras, or keep the original clothing colors | 1 | 1 to 2 min for 2 s on 2 cameras |
 | [05_frames_with_boxes.py](05_frames_with_boxes.py) | Take frames from a video and draw the ground-truth boxes on them | None | A few seconds |
 | [06_detection_dataset.py](06_detection_dataset.py) | Make an object detection training set (YOLO format) from the videos and labels | None | A few seconds |
+| [07_move_origin_and_camera.py](07_move_origin_and_camera.py) | Change where people appear with coordinates, and move or add cameras | None | A few seconds |
 
 ## Frame numbers
 
@@ -45,4 +46,4 @@ Keep the three numbers apart.
 - By default, 04 gives each person different clothing colors so that people are easy to tell apart. Use `--plain` for videos used in evaluation.
 - The videos are at `runs/tutorial/video/<camera>.mp4`. Videos do not go into git.
 
-The functions are listed in [docs/library.en.md](../docs/library.en.md), and the file formats in [docs/formats.en.md](../docs/formats.en.md).
+The functions are listed in [docs/library.en.md](../docs/library.en.md), and the file formats in [docs/formats.en.md](../docs/formats.en.md). For JSON configurations, see the [tutorial](../docs/config-tutorial.en.md) and the [reference](../docs/config-reference.en.md).
