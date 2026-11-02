@@ -38,7 +38,7 @@ for row in result.frames():        # 1 コマ 1 人の行（位置・向き・�
     ...
 ```
 
-関数・`Result`・設定の書き方は **[docs/library.md](docs/library.md)**、設定の全部の項目は [docs/spec.md](docs/spec.md)。チュートリアルの例は [examples/](examples/README.md)。
+関数・`Result` は **[docs/library.md](docs/library.md)**。JSON の設定の書き方は **[チュートリアル](docs/config-tutorial.md)**、全部のキーは **[リファレンス](docs/config-reference.md)**。コードの例は [examples/](examples/README.md)。
 
 ## コマンド
 
