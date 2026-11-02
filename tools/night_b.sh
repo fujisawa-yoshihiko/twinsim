@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# B（夜間）: 計算の結果を全部の長さで描き（Isaac Sim。./isaac_up.sh で起動した GPU）、MOPF（既定 GPU 3）で検出・追跡して正解と比べる。
+# B（夜間）: 計算の結果を全部の長さで描き（Isaac Sim。./isaac_up.sh で起動した GPU）、MOPF（Isaac Sim と同じ GPU）で検出・追跡して正解と比べる。
 #   tools/night_b.sh [結果の場所（既定 ~/dt-data/twinsim/runs/office_gate_ev）]
 #   目安（office_gate_ev、5 分 × 2 台）: 描画 約 1 時間、MOPF 数分。終わったら MOPF を止める（Isaac Sim は止めない）。
 #   記録: <結果の場所>/night_b.log。結果: video/・mopf_tracks/・mopf_eval/・mopf_graph/
@@ -9,7 +9,7 @@ set -uo pipefail
 RESUME=0
 [ "${1:-}" = "--resume" ] && { RESUME=1; shift; }  # 描画（Isaac Sim）が終わったあとに止まったとき: 描画を飛ばし、mp4 にするところから
 RUN=$(readlink -f "${1:-$HOME/dt-data/twinsim/runs/office_gate_ev}")
-MOPF_GPU=${MOPF_GPU:-3}
+MOPF_GPU=${MOPF_GPU:-$(one-gpu pick 2>/dev/null || echo 3)}
 TS=$HOME/twinsim
 MOPF=$HOME/MOPF_ALL_video
 LOG=$RUN/night_b.log
@@ -25,7 +25,7 @@ if [ $RESUME -eq 1 ]; then
 else
   if ! uv run --no-project --with numpy --with scipy --with pyyaml --with pillow python -c \
       "import sys; from twinsim import isaac_bridge as b; sys.exit(0 if b.ready() else 1)"; then
-    echo "Isaac Sim が受け付けていない（./isaac_up.sh <GPU>）。止める"; exit 1
+    echo "Isaac Sim が受け付けていない（./isaac_up.sh）。止める"; exit 1
   fi
   echo "--- 描画 $(date '+%T')"
   ./run.sh render "$RUN" || { echo "描画に失敗"; exit 1; }

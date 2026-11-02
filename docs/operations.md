@@ -6,7 +6,7 @@ ampb（共用の GPU サーバー）で twinsim・MOPF・Isaac Sim を動かし�
 
 ## 0. 決まり
 
-- GPU（RTX PRO 6000 ×4）は他の利用者と共有。使う前に空きを確かめ（`./status.sh` か `nvidia-smi`）、同時に使うのは 2 枚まで。
+- GPU（RTX PRO 6000 ×4）は他の利用者と共有。使う前に空きを確かめる（`./status.sh` か `nvidia-smi`）。twinsim・MOPF・Isaac Sim は同じ GPU 1 枚に載せるのが既定（`one-gpu` が選ぶ。既定は GPU 3）。分けるのは必要なときだけで、2 枚まで。
 - 描画など長い計算は、所要時間と GPU を決めてから始める。使い終わったら止める。
 - 結果・動画は git に入れない（`~/dt-data/twinsim/` に置く）。竹芝の映像・図面から作ったものは別の場所に置く。
 
@@ -35,8 +35,8 @@ cd ~/twinsim && ./status.sh     # GUI のサーバー・MOPF（GPU・ライブ�
 | もの | 起動 | 停止 | GPU |
 |---|---|---|---|
 | twinsim の GUI のサーバー | `./run.sh serve`（端末を閉じても動かすなら `setsid nohup ./run.sh serve > ~/dt-data/twinsim/serve.log 2>&1 &`） | 起動した端末で `Ctrl+C`、または `./stop.sh gui` | 使わない |
-| MOPF | 画面の「MOPF」のタブで GPU を選んで「動画の処理用に起動」か「選んだ動画をライブで起動」。コマンドなら `cd ~/MOPF_ALL_video && ./start_ampb.sh --gpu 3 --no-llm --no-vc3` | 「MOPF」のタブの「止める」、または `./stop.sh mopf` | 1 枚 |
-| Isaac Sim（描画） | `./isaac_up.sh <GPU>`（例 `./isaac_up.sh 2`） | `./stop.sh isaac`（= `isim down`） | 1 枚 |
+| MOPF | 画面の「MOPF」のタブで GPU を選んで「動画の処理用に起動」か「選んだ動画をライブで起動」。コマンドなら `cd ~/MOPF_ALL_video && ./start_ampb.sh --no-llm --no-vc3` | 「MOPF」のタブの「止める」、または `./stop.sh mopf` | Isaac Sim と同じ 1 枚 |
+| Isaac Sim（描画） | `./isaac_up.sh`（別の GPU を選ぶときは `./isaac_up.sh 2`） | `./stop.sh isaac`（= `isim down`） | MOPF と同じ 1 枚 |
 | まとめて | - | `./stop.sh`（GUI と MOPF）、`./stop.sh all`（Isaac Sim も） | - |
 
 コマンドはどれも `~/twinsim` で実行する（MOPF の起動のコマンドだけ `~/MOPF_ALL_video`）。
@@ -61,8 +61,9 @@ cd ~/twinsim && ./status.sh     # GUI のサーバー・MOPF（GPU・ライブ�
 | 画面が開かない | 手元の PC の `ssh -N -L …` が切れていないか。`./status.sh` で GUI のサーバーが動いているか |
 | 「トークンが要る」と出る | ampb で `./run.sh serve --url` の URL を開き直す |
 | `./run.sh serve` で「Address already in use」 | もう動いている（`./status.sh`）。作り直すなら `./stop.sh gui` してから起動 |
-| 「Isaac Sim が受け付けていない」 | `./isaac_up.sh <空いている GPU>` で起動し、`./status.sh` で確かめる |
-| MOPF が起動しない（GPU が使用中） | 他の人のジョブ。`./status.sh` で空いている GPU を選び直す |
+| 「Isaac Sim が受け付けていない」 | `./isaac_up.sh` で起動し、`./status.sh` で確かめる |
+| MOPF が起動しない（GPU が使用中） | 他の人のジョブ。`one-gpu status` で確かめ、空いている GPU を選び直す |
+| 「GPU 1 枚に載せる決まり」と出て MOPF が起動しない | Isaac Sim と別の GPU を選んでいる。同じ GPU を選ぶ。分ける理由があるときは GUI を `TWINSIM_MAX_GPUS=2` で起動する（2 枚まで） |
 | 画面の新しい欄が出ない | GUI のサーバーが古いコードのまま。`./stop.sh gui` → `./run.sh serve` → ブラウザを読み直す |
 | サーバーの記録に BrokenPipeError | ブラウザが動画・ライブの映像を途中で閉じただけ。問題ない |
 

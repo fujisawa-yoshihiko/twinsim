@@ -5,6 +5,7 @@ GPU は他の利用者と共有。起動の前に gpus() で空きを見せ、�
 """
 
 import json
+import os
 import subprocess
 import time
 import urllib.error
@@ -13,7 +14,7 @@ import urllib.request
 from .. import config
 from .process import mopf_ready
 
-MAX_OWN_GPUS = 2  # このマシンで同時に使ってよい GPU（CLAUDE.md の決まり）
+MAX_OWN_GPUS = min(int(os.environ.get("TWINSIM_MAX_GPUS", 1)), 2)  # 既定は MOPF と Isaac Sim を GPU 1 枚に載せる。分けても 2 枚まで（CLAUDE.md の決まり）
 
 
 def gpus():
@@ -46,8 +47,9 @@ def _docker_gpu(name_filter):
         for r in (info.get("HostConfig", {}).get("DeviceRequests") or []):
             out |= {int(x) for x in (r.get("DeviceIDs") or []) if str(x).isdigit()}
         env = dict(e.split("=", 1) for e in info.get("Config", {}).get("Env", []) if "=" in e)
-        if env.get("NVIDIA_VISIBLE_DEVICES", "").isdigit():
-            out.add(int(env["NVIDIA_VISIBLE_DEVICES"]))
+        main_gpu = env.get("NVIDIA_VISIBLE_DEVICES", "").split(",")[0]  # 2 番目は VLM の逃がし先
+        if main_gpu.isdigit():
+            out.add(int(main_gpu))
     return out
 
 
@@ -80,7 +82,7 @@ def start(gpu, live_video=None, log=None):
     own = own_gpus()
     used = (own["mopf"] | own["isaac"]) - set(own["mopf"])  # MOPF を起動し直すときは、MOPF の今の GPU は数えない
     if gpu not in used and len(used | {gpu}) > MAX_OWN_GPUS:
-        raise RuntimeError(f"同時に使う GPU は {MAX_OWN_GPUS} 枚まで（今 {sorted(used)} を使用中）")
+        raise RuntimeError(f"GPU {MAX_OWN_GPUS} 枚に載せる決まり（今 {sorted(used)} を使用中）。分けるときは TWINSIM_MAX_GPUS=2 で GUI を起動する")
     cmd = ["./start_ampb.sh", "--gpu", str(int(gpu)), "--no-llm", "--no-vc3"]
     if live_video:
         cmd += ["--live-demo", str(live_video)]

@@ -104,5 +104,5 @@
 5. 歩き方のモデルの改善（速さと密度の関係・RiMEA のテストケース）、MOPF への設定の送信（--apply）の確認、画面からの USD のアップロード
 
 ### 再開の手順
-- GPU の空きを確かめる（`nvidia-smi`）→ `isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.viewport --kit-arg "--exec /workspace/twinsim/isaac/agent_runner.py"`
+- GPU の空きを確かめる（`nvidia-smi`）→ `./isaac_up.sh`
 - GUI: `python -m twinsim serve`（URL は `--url`）

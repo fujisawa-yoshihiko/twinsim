@@ -2,6 +2,8 @@
 
 [日本語](README.md)
 
+This branch, `with-mopf`, includes the MOPF detection/tracking integration and person re-identification. The simulator-only version is `main`.
+
 A 3D simulator for checking the research plan (Takeshiba VLM × QUBO, 10/4 version) and the digital-twin concept.
 The space (USD), the distribution of people, the cameras and the events (elevator (EV), gates) are defined in a scenario file, people's movement is computed on the CPU,
 and the ground truth, aggregates, graphs for GNNs and per-camera bounding boxes are written out. When video is needed, it is rendered with Isaac Sim. The specification is in [docs/spec.en.md](docs/spec.en.md).
@@ -16,7 +18,7 @@ cd ~/twinsim
 ./run.sh templates             # list the templates
 ./run.sh run office_gate_ev    # compute (CPU; about 20 s for 5 min with about 100 people)
 ./run.sh check ~/dt-data/twinsim/runs/office_gate_ev   # check (also writes the comparison with the literature, validity.md, and png files)
-./isaac_up.sh 2                # only when rendering: start Isaac Sim on GPU 2 (stop it with isim down)
+./isaac_up.sh                  # only when rendering: start Isaac Sim (on the same single GPU as MOPF; stop it with isim down)
 ./run.sh render ~/dt-data/twinsim/runs/office_gate_ev --frames 7395 7544   # test render
 ./run.sh mopf-process ~/dt-data/twinsim/runs/office_gate_ev   # detect and track people in the videos with MOPF (start MOPF first; GPU)
 ./run.sh mopf-eval ~/dt-data/twinsim/runs/office_gate_ev      # compare MOPF's tracking with the ground truth; intermediate graph layer
@@ -62,8 +64,8 @@ The GPUs are shared with other users, so stop things when you are done. After st
 | What to stop | How | Notes |
 |---|---|---|
 | GUI server (port 8770) | `Ctrl+C` in the terminal where it was started, or `./stop.sh gui` | CPU only. If it was started in the background (e.g. with `setsid`), use `./stop.sh gui` |
-| MOPF (uses 1 GPU) | "Stop" on the "MOPF" tab of the GUI, or `./stop.sh mopf` (= `~/MOPF_ALL_video/stop_ampb.sh`) | The data and the images are kept |
-| Isaac Sim (rendering, uses 1 GPU) | `./stop.sh isaac` (= `isim down`) | If a render is in progress, it stops too. To render next time, `./isaac_up.sh <GPU>` |
+| MOPF (shares one GPU with Isaac Sim) | "Stop" on the "MOPF" tab of the GUI, or `./stop.sh mopf` (= `~/MOPF_ALL_video/stop_ampb.sh`) | The data and the images are kept |
+| Isaac Sim (rendering, shares one GPU with MOPF) | `./stop.sh isaac` (= `isim down`) | If a render is in progress, it stops too. To render next time, `./isaac_up.sh` |
 | Overnight rendering and comparison processing (`tools/night_b.sh`) | Look up the process ID with `pgrep -af night_b` and run `kill <PID>` | Rendering (inside Isaac Sim) keeps going, so to stop it also run `./stop.sh isaac`. If rendering has finished, `tools/night_b.sh --resume` continues from where it left off |
 | Everything at once | `./stop.sh` (GUI and MOPF), `./stop.sh all` (Isaac Sim too) | Check the state before and after with `./status.sh` |
 
@@ -78,7 +80,7 @@ The GPUs are shared with other users, so stop things when you are done. After st
 | Comparison, overlay video, side-by-side video (CPU) | a few seconds; 2–3 min per camera; 3–4 min | |
 
 - Rendering speed differs by space (test-render values): office 3.5–5.7 frames per second, warehouse 1.9 frames (about 16×), hospital 1.1 frames (about 27×; many lights).
-- Ways to make it faster: render each camera on a separate GPU at the same time (half the time with 2 GPUs; at most 2 GPUs at a time), lower the resolution, use 15 frames per second (the effect on MOPF's tracking still needs to be checked).
+- Ways to make it faster: lower the resolution, use 15 frames per second (the effect on MOPF's tracking still needs to be checked). Only when in a hurry, render each camera on a separate GPU at the same time (half the time with 2 GPUs; the default is everything on one GPU, and splitting is limited to 2 GPUs).
 
 ## Structure
 

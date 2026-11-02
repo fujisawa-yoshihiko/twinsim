@@ -1,11 +1,13 @@
 # twinsim（建物・工場の人流のデジタルツインのシミュレータ）
 
+このブランチ `with-mopf` は、MOPF との連携と人物照合を含む版。シミュレータだけの版は `main`（作業場所は `~/twinsim-lib`）。`saferamp-omni/links` などがこのフォルダの配置を読むので、`~/twinsim` はこのブランチのままにする。
+
 人流解析（`~/MOPF_ALL_video`、竹芝の研究）とデジタルツインの構想のためのシミュレータ。医療のプロジェクト（`~/digitaltwin`）とは別のリポジトリ。
 Isaac Sim の環境（`isim`）と人物の部品は `~/digitaltwin` のもの（`isaac/vendor/` に写してある。直すときは元と合わせる）。
 
 ## 守ること
 
-- GPU（RTX PRO 6000 ×4）は他の利用者と共有。使う前に `nvidia-smi` で空きを確かめ、同時に 2 枚まで。描画など長い計算は、所要時間と GPU を示して確認を取ってから始める。
+- GPU（RTX PRO 6000 ×4）は他の利用者と共有。使う前に `nvidia-smi` で空きを確かめる。twinsim・MOPF・Isaac Sim は同じ GPU 1 枚に載せるのが既定（`one-gpu` が選ぶ）で、分けるときも 2 枚まで。描画など長い計算は、所要時間と GPU を示して確認を取ってから始める。
 - データ（計算の結果・動画）は git に入れない。置き場所は `~/dt-data/twinsim/`（runs/）。
   例外は報告のページ（`docs/report/<日付>/media/`）に載せる短い切り出し・画像だけ（1 回 30 MB まで、`tools/report_media.sh`・`tools/capture_gui.py` で作る）。
 - 竹芝の実際の映像・図面（NDA の対象）から作ったもの（空間・映像）は、このリポジトリにも共有の場所にも置かない。

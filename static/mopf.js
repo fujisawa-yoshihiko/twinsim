@@ -7,7 +7,7 @@ function gpuRows(st) {
   const own = st.own_gpus || {};
   const tag = (i) => [(own.mopf || []).includes(i) ? "MOPF" : "", (own.isaac || []).includes(i) ? "Isaac Sim" : ""].filter(Boolean).join(tr("・", ", "));
   const free = (st.gpus || []).filter((g) => g.memory_used_mib < 2000 && !tag(g.index)).map((g) => g.index);
-  const pick = (own.mopf || [])[0] ?? (free.includes(3) ? 3 : free[0]);
+  const pick = (own.mopf || [])[0] ?? (own.isaac || [])[0] ?? (free.includes(3) ? 3 : free[0]);
   return `<tr><th></th><th>GPU</th><th>${tr("メモリ", "Memory")}</th><th>${tr("使用率", "Utilization")}</th><th>${tr("twinsim・MOPF", "twinsim / MOPF")}</th></tr>` + (st.gpus || []).map((g) =>
     `<tr><td><input type="radio" name="gpu" value="${g.index}" ${g.index === pick ? "checked" : ""}></td><td>${g.index}</td>
      <td class="${g.memory_used_mib >= 2000 && !tag(g.index) ? "warn" : ""}">${g.memory_used_mib} / ${g.memory_total_mib} MiB</td>
