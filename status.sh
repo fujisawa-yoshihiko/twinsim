@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# twinsim と、いっしょに使うアプリの起動状況を見る（GUI のサーバー・MOPF・Isaac Sim・GPU）。止めるのは ./stop.sh
+# twinsim と、いっしょに使うアプリの起動状況を見る（GUI のサーバー・Isaac Sim・GPU）。止めるのは ./stop.sh
 PORT=${TWINSIM_PORT:-8770}
 echo "GUI のサーバー（ポート $PORT）:"
 if curl -sf -m 3 "http://127.0.0.1:$PORT/api/health" >/dev/null; then
@@ -7,16 +7,6 @@ if curl -sf -m 3 "http://127.0.0.1:$PORT/api/health" >/dev/null; then
   echo "  動いている（PID $pid、起動 $(ps -o lstart= -p "$pid" 2>/dev/null)）。開く URL: ./run.sh serve --url"
 else
   echo "  止まっている（起動: ./run.sh serve）"
-fi
-echo "MOPF:"
-if docker ps --format '{{.Names}}' | grep -q "mopf_video-cv-app"; then
-  live=$(curl -sf -m 3 http://127.0.0.1:8010/api/live/summary | python3 -c "import json,sys; s=json.load(sys.stdin); print(s.get('status'))" 2>/dev/null)
-  gpu=$(docker inspect mopf_video-cv-app-1 --format '{{range .HostConfig.DeviceRequests}}{{join .DeviceIDs ","}}{{end}}' 2>/dev/null)
-  [ -z "$gpu" ] && gpu=$(docker inspect mopf_video-cv-app-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^NVIDIA_VISIBLE_DEVICES=//p')
-  started=$(date -d "$(docker inspect mopf_video-cv-app-1 --format '{{.State.StartedAt}}')" '+%m/%d %H:%M')
-  echo "  動いている（GPU ${gpu:-不明}、ライブ: ${live:-不明}、起動 $started）。画面: http://localhost:5174"
-else
-  echo "  止まっている（GUI の「MOPF」のタブから起動できる）"
 fi
 echo "Isaac Sim:"
 if docker ps --format '{{.Names}}' | grep -q "isaac-sim"; then

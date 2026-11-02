@@ -7,8 +7,7 @@ from pathlib import Path
 import yaml
 
 from . import config
-from .mopf.linking import Geodesic
-from .space import load_space
+from .space import Geodesic, load_space
 
 
 def ward_layout(space="hospital"):

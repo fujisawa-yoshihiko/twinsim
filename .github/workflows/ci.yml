@@ -1,4 +1,4 @@
-# 送るたびに、書き方の確かめ（ruff）と動作確認（pytest、CPU だけ）。GPU・Isaac Sim・MOPF は使わない。
+# 送るたびに、書き方の確かめ（ruff）と動作確認（pytest、CPU だけ）。GPU・Isaac Sim は使わない。
 name: ci
 on:
   push:

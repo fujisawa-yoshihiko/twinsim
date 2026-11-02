@@ -1,5 +1,13 @@
 # 作業の状態（再開用）
 
+## 2026-11-02（シミュレータだけのブランチ simulator-lib）
+
+- `main` から MOPF との連携（`twinsim/mopf/`）・人物照合（`reid.py`・`vendor/`）・検知の説明と報告のページを外した。人の動き・正解ラベル・描画・画面・実データでの合わせ込み・病棟の配置は残した。
+- `spaces`・`templates`・`static`・`isaac` を `twinsim/` の中へ移した（pip で入れても動くように）。`Geodesic` は `space.py` へ。
+- Python の入口: `twinsim.simulate` など（docs/library.md）。設定は dict・JSON の文字列・ファイル・テンプレートの名前。知らないキーは誤りにする。
+- `engine.py` のよける向きが `hash()` で実行ごとに変わっていたのを `tie_side`（crc32）に直した（`main` には残っている）。`hash()` を固定すれば `main` と全ファイル同じ結果だった（office_gate_ev、種 3 通り）。
+- 下の記録は `main` のころのもの。`twinsim/mopf/` や `docs/report/` の話はこのブランチにない。
+
 ## 2026-10-26（病棟の配置と道のり）
 
 - `spaces/hospital/ward.yaml`（ベッド 8 台・ナースステーションの置き方 3 案。仮想病院の配置の比較から写した）と `twinsim ward-layout`（歩ける所の上の道のり → `~/dt-data/twinsim/ward/hospital_ward_layout.json`、形は docs/formats.md の 10）。

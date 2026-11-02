@@ -136,12 +136,12 @@ def finish_render(run_dir, log=None, frames=None, cameras=None):
 
 
 def export_space(name, usd, region, res=0.25):
-    """USD から空間の材料を作り、spaces/<name>/ に置く（walkable_1f.npz・top_1f.jpg・candidates.json・space.yaml のひな形）。"""
+    """USD から空間の材料を作り、TWINSIM_SPACES か付属の spaces/ の <name>/ に置く（walkable_1f.npz・top_1f.jpg・candidates.json・space.yaml のひな形）。"""
     dst = WORK / "spaces" / name
     dst.mkdir(parents=True, exist_ok=True)
     job = {"usd": usd, "region": list(map(float, region)), "res": res, "out": f"{CONTAINER}/spaces/{name}"}
     log = submit("export_space.py", job, f"export_{name}", wait_s=3600)
-    folder = ROOT / "spaces" / name
+    folder = (config.USER_SPACES or ROOT / "spaces") / name
     folder.mkdir(parents=True, exist_ok=True)
     if (dst / "walkable.npz").exists():
         shutil.copy(dst / "walkable.npz", folder / "walkable_1f.npz")

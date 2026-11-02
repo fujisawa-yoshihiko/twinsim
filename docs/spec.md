@@ -6,11 +6,11 @@
 人の動きは CPU で計算し（数秒〜数十秒）、映像が要るときだけ Isaac Sim で描く（GPU、数分〜数時間）。
 
 ```
-シナリオ（YAML） ──> 人の動きの計算（CPU）──> 正解・表・集計・グラフ・枠 ──> 研究・MOPF・GNN
-   空間（space pack）                    └──> Isaac Sim で描画（GPU）──> 動画 ──> MOPF・VLM
+シナリオ（JSON か YAML） ──> 人の動きの計算（CPU）──> 正解・表・集計・グラフ・枠 ──> 検知・追跡・GNN の学習と評価
+   空間（space pack）                    └──> Isaac Sim で描画（GPU）──> 動画 ──> 検知・追跡・VLM
 ```
 
-## 1. 空間（spaces/<名前>/space.yaml）
+## 1. 空間（twinsim/spaces/<名前>/space.yaml か space.json）
 
 USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲート・EV の扉・待つ場所・ゾーン）をここに書く。
 
@@ -49,9 +49,9 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 | `simple_room` | 10 m 四方の小部屋（床 z = -0.77） | 済（動作確認用） | 未対応（中から撮ると真っ暗、原因未調査） |
 | `warehouse_small` | 小さい倉庫（棚・扉・ゲートの部品） | 材料だけ（未） | 未 |
 
-空間の確かめ: `python -m twinsim show-space <名前>` で、真上の図に歩ける所・目盛り・候補・場所・ゾーンを重ねた図（spaces/<名前>/annotate.png）を作る。
+空間の確かめ: `python -m twinsim show-space <名前>` で、真上の図に歩ける所・目盛り・候補・場所・ゾーンを重ねた図（空間のフォルダの annotate.png）を作る。
 
-## 2. シナリオ（templates/<名前>.yaml）
+## 2. シナリオ（JSON か YAML。テンプレートは twinsim/templates/<名前>.yaml）
 
 | キー | 中身（既定） |
 |---|---|
@@ -114,7 +114,7 @@ EV の運行（`elevator.schedule`）:
 
 | ファイル | 中身 |
 |---|---|
-| `ground_truth.json` | 研究側（`~/MOPF_ALL_video/research` の `cctv_eval_lib`・`flow_tasks`）が読める正解（`tracks`・`moving`・`people`・`cameras`）に、状態の区間（`people[].states`）・グループ・EV とゲートの出来事・ゾーンを足したもの |
+| `ground_truth.json` | 追跡の評価などが読める正解（`tracks`・`moving`・`people`・`cameras`）に、状態の区間（`people[].states`）・グループ・EV とゲートの出来事・ゾーンを足したもの |
 | `frames.csv.gz` | 1 コマ 1 人 1 行（frame, t, person, x, y, yaw, moving, state, zone, group, type） |
 | `tasks.json` | 計画書 p7 の 6 タスクの正解の集計: 1 人数（秒ごと・ゾーンごと・状態ごと）、2 ゲートの通過（1 分ごと・向き）、3 滞留（3 秒以上止まった区間）、4 グループ、5 混み具合（ゾーンの密度と段階）、6 出発地 → 行き先（1 分ごと）、EV の待ち時間 |
 | `graph/` | GNN 向け: `graph.json`（ゾーンのグラフ・2 m の格子のグラフ・カメラから見えるノード）、`zone_counts.csv`（秒ごとのゾーンの人数）、`zone_flows.csv`（1 分ごとのゾーン間の移動）、`grid_counts.npz`（counts[秒, 格子]）、`zone_graph.graphml` |
@@ -123,7 +123,7 @@ EV の運行（`elevator.schedule`）:
 | `summary.json` | 人数・状態ごとの時間・EV の待ち時間・ゲートの通過の向き・かかった時間・`inputs`（文献から決めた到着の率・EV の乗り降り・ゲートの時間） |
 | `validity.json`・`validity.md`・`validity.png` | 文献の値との比べ（入力の再現・出てくる量）と、シナリオの値ごとの根拠の台帳（docs/validity.md） |
 | `aicity/gt.txt` | 複数カメラの追跡の形（AI City Challenge の MTMC）。人の番号はカメラをまたいで同じ |
-| `logs/`・`mopf/`・`mopf_tracks/`・`mopf_eval/`・`mopf_graph/` | 記録の形（export-logs）、MOPF の人流モニターの設定と数えるはずの値、MOPF の追跡・正解との比べ・中間層のグラフ（docs/integration.md） |
+| `logs/` | 記録の形（export-logs） |
 | `video/<カメラ>.mp4` | 描画した動画（`render` のあと） |
 
 ## 6. 使い方（API）
@@ -146,10 +146,10 @@ Python から: `from twinsim import api; api.run("office_gate_ev", out_dir, over
 
 - 画面: 左に空間の真上の図（ゾーン・場所・ゲートの線・カメラの位置と見る点と映る範囲。カメラはドラッグで動かせる）、右に設定
   （長さ・乱数の種・流れごとの到着の率とまとまりと行き先の重み・EV・ゲート・カメラ・置く物、シナリオの全部を書ける JSON の欄）と結果
-  （要約・確認の図・試し撮りと描画（見積もりを見て確かめてから始める）・動画・MOPF の設定・ファイル）。
+  （要約・確認の図・試し撮りと描画（見積もりを見て確かめてから始める）・動画・ファイル）。
 - API（プログラムからは `Authorization: Bearer <トークン>`）: `GET /api/spaces`・`/api/spaces/<名前>`・`/api/spaces/<名前>/top`、
   `GET /api/templates`・`/api/templates/<名前>`、`POST /api/runs {scenario, overrides, name}` → `{id}`、`GET /api/runs`・`/api/runs/<id>`・
-  `/api/runs/<id>/file?path=...`、`POST /api/runs/<id>/mopf {camera, apply}`、`POST /api/runs/<id>/render {frames | window: "busy", seconds, cameras, confirm}`、`GET /api/isaac`。
+  `/api/runs/<id>/file?path=...`、`POST /api/runs/<id>/render {frames | window: "busy", seconds, cameras, confirm}`、`GET /api/isaac`。
 - 画面の確かめ: `tools/gui_shot.py`（Playwright の Firefox で設定・結果のタブを撮り、カメラのドラッグとブラウザのエラーを確かめる）。
 
 ## 8. 描画（Isaac Sim、GPU）

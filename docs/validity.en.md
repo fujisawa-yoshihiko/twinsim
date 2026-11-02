@@ -15,7 +15,7 @@ The list of literature and the values are in `twinsim/literature.py` (`REFS`, `P
 | Ledger | For each scenario value, list whether its basis is literature, literature for the shape only, or provisional | End of `validity.md` |
 
 Literature values are "values observed under similar conditions", not values for the Takeshiba building itself. Provisional values and literature values from different conditions
-are not called "valid" until they have been fitted to real data (gate passage logs, elevator (EV) operation logs, MOPF trajectories) (calibration) and checked against data from another day (validation).
+are not called "valid" until they have been fitted to real data (gate passage logs, elevator (EV) operation logs, detection and tracking trajectories) (calibration) and checked against data from another day (validation).
 
 ## 2. Literature values
 

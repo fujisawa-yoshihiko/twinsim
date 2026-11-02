@@ -1,6 +1,6 @@
 """計算の結果を書き出す（形式は docs/spec.md の「出力」）。
 
-  ground_truth.json   研究側（~/MOPF_ALL_video/research の cctv_eval_lib・flow_tasks）が読める正解（tracks・moving・people・cameras）に、
+  ground_truth.json   追跡の評価などが読める正解（tracks・moving・people・cameras）に、
                       状態・グループ・EV・ゲートの出来事を足したもの
   frames.csv.gz       1 コマ 1 人 1 行（frame, t, person, x, y, yaw, moving, state, zone, group, type）
   tasks.json          p7 の 6 タスクの正解の集計（ゾーンの人数・ゲートの通過・滞留・グループ・混み具合・行き先）と EV の待ち時間
@@ -48,7 +48,8 @@ def write_all(sim, builder, spec, out_dir):
     files = []
 
     (out / "scenario_resolved.yaml").write_text(yaml.safe_dump(spec, allow_unicode=True, sort_keys=False), encoding="utf-8")
-    files.append("scenario_resolved.yaml")
+    (out / "scenario_resolved.json").write_text(json.dumps(spec, ensure_ascii=False, indent=1), encoding="utf-8")  # そのまま simulate に渡すと同じ計算になる
+    files += ["scenario_resolved.yaml", "scenario_resolved.json"]
 
     # ---- 正解 ----
     people, tracks, moving = {}, {}, {}

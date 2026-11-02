@@ -29,7 +29,6 @@
     <nav class="tabs">
       <button data-tab="settings" class="active" data-en="Settings">設定</button>
       <button data-tab="results" data-en="Results">結果</button>
-      <button data-tab="mopf">MOPF</button>
     </nav>
     <div id="tab-settings" class="tab">
       <fieldset>
@@ -86,39 +85,6 @@
       </div>
       <p id="run-msg" class="muted"></p>
     </div>
-    <div id="tab-mopf" class="tab hidden">
-      <fieldset>
-        <legend data-en="MOPF status">MOPF の状態</legend>
-        <div id="mopf-state" class="muted" data-en="Checking…">確認中…</div>
-        <div class="row"><button id="mopf-refresh" class="secondary" data-en="Refresh">更新</button>
-          <a id="mopf-open" target="_blank" rel="noopener" data-en="Open the MOPF screen">MOPF の画面を開く</a></div>
-        <div class="muted"><span data-en="To open the MOPF screen, first run">MOPF の画面は、手元の PC で</span> <code>ssh -N -L 5174:localhost:5174 ampb</code> <span data-en="on your local PC.">を実行してから開く。</span></div>
-      </fieldset>
-      <fieldset>
-        <legend data-en="Start/stop (uses a GPU)">起動・停止（GPU を使う）</legend>
-        <div class="muted" data-en="The GPUs are shared with other users. Pick a free GPU (at most 2 GPUs at a time).">GPU は他の利用者と共有。空いている GPU を選ぶ（同時に使うのは 2 枚まで）。</div>
-        <table id="gpu-table" class="dest"></table>
-        <div class="row">
-          <label><span data-en="Video to stream live">ライブに流す動画</span> <select id="live-run"></select></label>
-          <label><select id="live-cam"></select></label>
-        </div>
-        <div class="row">
-          <button id="mopf-start" class="secondary" data-en="Start for video processing">動画の処理用に起動</button>
-          <button id="mopf-start-live" class="secondary" data-en="Start live with the selected video">選んだ動画をライブで起動</button>
-          <button id="mopf-stop" class="secondary" data-en="Stop">止める</button>
-        </div>
-        <pre id="mopf-log" class="log"></pre>
-      </fieldset>
-      <fieldset>
-        <legend data-en="Live (flow monitor)">ライブ（人流モニター）</legend>
-        <div class="row">
-          <button id="live-apply" class="secondary" data-en="Send the selected result's settings (lines, areas, floor map)">選んだ結果の設定（線・エリア・床の図）を送る</button>
-          <button id="live-reset" class="secondary" data-en="Reset the counts">集計をリセット</button>
-        </div>
-        <img id="live-img" alt="MOPF のライブの映像（ライブで起動しているとき）" data-en-alt="MOPF live video (when started live)">
-        <div id="live-summary" class="muted"></div>
-      </fieldset>
-    </div>
     <div id="tab-results" class="tab hidden">
       <div class="row"><button id="refresh" class="secondary" data-en="Refresh the list">一覧を更新</button></div>
       <ul id="runs"></ul>
@@ -128,6 +94,5 @@
 </main>
 <script src="i18n.js"></script>
 <script src="app.js"></script>
-<script src="mopf.js"></script>
 </body>
 </html>

@@ -6,11 +6,11 @@ A simulator for people-flow digital twins of buildings and factories. It is an e
 People's movement is computed on the CPU (a few seconds to a few tens of seconds), and Isaac Sim renders it only when video is needed (GPU, a few minutes to a few hours).
 
 ```
-Scenario (YAML) ──> people-movement computation (CPU) ──> ground truth, tables, aggregates, graphs, boxes ──> research, MOPF, GNN
-   Space (space pack)                               └──> rendering in Isaac Sim (GPU) ──> video ──> MOPF, VLM
+Scenario (JSON or YAML) ──> people-movement computation (CPU) ──> ground truth, tables, aggregates, graphs, boxes ──> training and evaluating detection, tracking, GNNs
+   Space (space pack)                               └──> rendering in Isaac Sim (GPU) ──> video ──> detection, tracking, VLM
 ```
 
-## 1. Space (spaces/<name>/space.yaml)
+## 1. Space (twinsim/spaces/<name>/space.yaml or space.json)
 
 One USD scene. The "meaning" that is not in the USD (entrances, gates, elevator doors, waiting areas, zones) is written here.
 
@@ -49,9 +49,9 @@ Existing spaces (all bundled with Isaac Sim 6.1, CC BY 4.0):
 | `simple_room` | Small 10 m × 10 m room (floor z = -0.77) | Done (for smoke testing) | Not supported (completely dark when shot from inside; cause not investigated) |
 | `warehouse_small` | Small warehouse (shelf, door and gate parts) | Materials only (not done) | Not done |
 
-Checking a space: `python -m twinsim show-space <name>` produces an image (spaces/<name>/annotate.png) that overlays the walkable area, scale ticks, candidates, places and zones on the top-down image.
+Checking a space: `python -m twinsim show-space <name>` produces an image (annotate.png in the space folder) that overlays the walkable area, scale ticks, candidates, places and zones on the top-down image.
 
-## 2. Scenario (templates/<name>.yaml)
+## 2. Scenario (JSON or YAML; templates are twinsim/templates/<name>.yaml)
 
 | Key | Contents (default) |
 |---|---|
@@ -114,7 +114,7 @@ Arrival rates (`per_min` is groups per minute; with `unit: persons` it is person
 
 | File | Contents |
 |---|---|
-| `ground_truth.json` | Ground truth that the research side (`cctv_eval_lib`, `flow_tasks` in `~/MOPF_ALL_video/research`) can read (`tracks`, `moving`, `people`, `cameras`), plus state intervals (`people[].states`), groups, elevator and gate events, and zones |
+| `ground_truth.json` | Ground truth that tracking evaluation and similar tools can read (`tracks`, `moving`, `people`, `cameras`), plus state intervals (`people[].states`), groups, elevator and gate events, and zones |
 | `frames.csv.gz` | One row per person per frame (frame, t, person, x, y, yaw, moving, state, zone, group, type) |
 | `tasks.json` | Ground-truth aggregates for the 6 tasks on p7 of the research plan: 1 people count (per second, per zone, per state), 2 gate passages (per minute, by direction), 3 lingering (intervals stopped for 3 s or more), 4 groups, 5 congestion (zone density and level), 6 origin → destination (per minute), and elevator waiting time |
 | `graph/` | For GNNs: `graph.json` (zone graph, 2 m grid graph, nodes visible from each camera), `zone_counts.csv` (people per zone per second), `zone_flows.csv` (movement between zones per minute), `grid_counts.npz` (counts[second, cell]), `zone_graph.graphml` |
@@ -123,7 +123,7 @@ Arrival rates (`per_min` is groups per minute; with `unit: persons` it is person
 | `summary.json` | People count, time per state, elevator waiting time, gate passage directions, run time, `inputs` (arrival rates, elevator boarding/alighting and gate times determined from the literature) |
 | `validity.json`, `validity.md`, `validity.png` | Comparison with literature values (reproduction of inputs, emergent quantities) and a ledger of the basis for each scenario value (docs/validity.md) |
 | `aicity/gt.txt` | Multi-camera tracking format (AI City Challenge MTMC). Person IDs are the same across cameras |
-| `logs/`, `mopf/`, `mopf_tracks/`, `mopf_eval/`, `mopf_graph/` | Log format (export-logs); MOPF flow monitor settings and the values it should count; MOPF tracking, comparison with ground truth, and the intermediate graph layer (docs/integration.md) |
+| `logs/` | Log format (export-logs) |
 | `video/<camera>.mp4` | Rendered video (after `render`) |
 
 ## 6. Usage (API)
@@ -146,10 +146,10 @@ open the URL shown by `python -m twinsim serve --url`). Because other users shar
 
 - Screen: on the left, the top-down image of the space (zones, places, gate lines, camera positions, look-at points and fields of view; cameras can be moved by dragging); on the right, the settings
   (length, random seed, per-stream arrival rate, group size and destination weights, elevators, gates, cameras, placed objects, and a JSON field in which the whole scenario can be written) and the results
-  (summary, check images, test render and rendering (started only after reviewing the estimate and confirming), videos, MOPF settings, files).
+  (summary, check images, test render and rendering (started only after reviewing the estimate and confirming), videos, files).
 - API (from programs, `Authorization: Bearer <token>`): `GET /api/spaces`, `/api/spaces/<name>`, `/api/spaces/<name>/top`,
   `GET /api/templates`, `/api/templates/<name>`, `POST /api/runs {scenario, overrides, name}` → `{id}`, `GET /api/runs`, `/api/runs/<id>`,
-  `/api/runs/<id>/file?path=...`, `POST /api/runs/<id>/mopf {camera, apply}`, `POST /api/runs/<id>/render {frames | window: "busy", seconds, cameras, confirm}`, `GET /api/isaac`.
+  `/api/runs/<id>/file?path=...`, `POST /api/runs/<id>/render {frames | window: "busy", seconds, cameras, confirm}`, `GET /api/isaac`.
 - Checking the screen: `tools/gui_shot.py` (takes screenshots of the settings and results tabs with Playwright's Firefox, and checks camera dragging and browser errors).
 
 ## 8. Rendering (Isaac Sim, GPU)

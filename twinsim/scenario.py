@@ -1,6 +1,7 @@
-"""シナリオ（templates/*.yaml、形式は docs/spec.md）を読み、空間・人の発生・EV・ゲートから Sim を組み立てる。"""
+"""シナリオ（設定。JSON か YAML、形式は docs/spec.md）を読み、空間・人の発生・EV・ゲートから Sim を組み立てる。"""
 
 import copy
+import json
 import math
 import random
 from pathlib import Path
@@ -31,6 +32,12 @@ DEFAULTS = {
 }
 
 
+OUTPUTS = ("ground_truth", "frames", "tasks", "graph", "mot", "aicity", "preview", "validity")
+# 設定の一番上のキー（docs/spec.md）。綴りの誤りを既定の値のまま黙って動かさないように、ほかのキーは誤りにする
+CONFIG_KEYS = set(DEFAULTS) | {"name", "title", "title_en", "description", "space", "demand", "elevator", "validity", "variants", "variant", "graph",
+                               "mot_stride", "congestion_levels", "calibration"}
+
+
 def deep_merge(base, over):
     out = copy.deepcopy(base)
     for k, v in (over or {}).items():
@@ -38,16 +45,41 @@ def deep_merge(base, over):
     return out
 
 
-def load_scenario(src, overrides=None):
-    """ファイルの場所・テンプレートの名前・dict のどれでも。overrides は一部を上書きする dict（API・GUI から）。
-    people.profile（literature.PROFILES）があれば、既定 → その組の値 → シナリオ → overrides の順に重ねる。"""
+def _parse_json(text, where):
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"{where} の JSON の誤り（{e.lineno} 行 {e.colno} 文字目）: {e.msg}") from e
+
+
+def read_config(src):
+    """設定を既定の値を足さずに読む。src は dict・JSON の文字列・ファイル（.json・.yaml）の場所・テンプレートの名前のどれでも。"""
     if isinstance(src, dict):
-        spec = src
+        return copy.deepcopy(src)
+    text = str(src)
+    if text.lstrip().startswith("{"):
+        return _parse_json(text, "設定")
+    p = Path(text).expanduser()
+    if p.is_file():
+        body = p.read_text(encoding="utf-8")
+        spec = _parse_json(body, str(p)) if p.suffix == ".json" else yaml.safe_load(body)
+    elif (TEMPLATES / f"{text}.yaml").is_file():
+        spec = yaml.safe_load((TEMPLATES / f"{text}.yaml").read_text(encoding="utf-8"))
     else:
-        p = Path(src)
-        if not p.exists():
-            p = TEMPLATES / f"{src}.yaml"
-        spec = yaml.safe_load(p.read_text(encoding="utf-8"))
+        raise FileNotFoundError(f"設定 {text} がない（ファイルの場所かテンプレートの名前: {', '.join(list_templates())}）")
+    if not isinstance(spec, dict):
+        raise ValueError(f"設定 {text} の中身が {{...}} の形ではない")
+    return spec
+
+
+def list_templates():
+    return sorted(p.stem for p in TEMPLATES.glob("*.yaml"))
+
+
+def load_scenario(src, overrides=None):
+    """設定を読み、既定の値を足して確かめる。src は read_config と同じ。overrides は一部を上書きする dict（API・GUI から）。
+    people.profile（literature.PROFILES）があれば、既定 → その組の値 → シナリオ → overrides の順に重ねる。"""
+    spec = read_config(src)
     prof = ((overrides or {}).get("people") or {}).get("profile") or (spec.get("people") or {}).get("profile")
     base = DEFAULTS
     if prof:
@@ -57,9 +89,14 @@ def load_scenario(src, overrides=None):
     spec = deep_merge(base, spec)
     if overrides:
         spec = deep_merge(spec, overrides)
+    if "space" not in spec:
+        raise ValueError("設定に space（空間の名前かフォルダの場所）がない")
     apply_variant(spec)
     validate(spec)
     return spec
+
+
+load_config = load_scenario
 
 
 def apply_variant(spec):
@@ -80,7 +117,11 @@ def apply_variant(spec):
 
 def validate(spec):
     space = load_space(spec["space"])
-    errs = []
+    errs = [f"知らないキー {k}（使えるのは {', '.join(sorted(CONFIG_KEYS))}）" for k in spec if k not in CONFIG_KEYS]
+    for k in ("duration_s", "fps"):
+        if not isinstance(spec.get(k), (int, float)) or isinstance(spec.get(k), bool) or spec[k] <= 0:
+            errs.append(f"{k} は正の数（今は {spec.get(k)!r}）")
+    errs += [f"outputs に知らない名前 {o}（使えるのは {', '.join(OUTPUTS)}）" for o in spec["outputs"] if o not in OUTPUTS]
 
     def check_to(d, where):
         to = d.get("to") if isinstance(d, dict) else d

@@ -1,0 +1,17 @@
+{
+  "name": "minimal",
+  "space": "office",
+  "duration_s": 60,
+  "seed": 1,
+  "people": {"profile": "office_commute_jp"},
+  "streams": [
+    {
+      "name": "commuters",
+      "origin": "entrance",
+      "rate": {"type": "constant", "per_min": 20, "unit": "persons"},
+      "destinations": [{"to": "south_exit", "via": ["gate"]}]
+    }
+  ],
+  "cameras": [{"name": "CamGate"}, {"name": "CamEV"}],
+  "outputs": ["ground_truth", "frames", "tasks", "mot", "validity"]
+}

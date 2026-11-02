@@ -1,7 +1,7 @@
 [project]
 name = "twinsim"
-version = "0.4.0"
-description = "建物・工場の人流のデジタルツインのシミュレータ（人の動き・正解・グラフ・カメラの枠、Isaac Sim での描画、MOPF との連携）"
+version = "0.5.0"
+description = "建物・工場の人流のシミュレータ（人の動き・状態の正解・グラフ・カメラの枠の正解ラベル、Isaac Sim での描画）。設定は JSON、Python から呼べる"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -11,8 +11,6 @@ dependencies = [
     "pillow",
     "networkx",
     "matplotlib",
-    "motmetrics",
-    "opencv-python-headless",
 ]
 
 [project.scripts]
@@ -21,19 +19,6 @@ twinsim = "twinsim.__main__:main"
 [dependency-groups]
 dev = ["pytest", "ruff"]
 gui-test = ["playwright"]
-# 人物照合のモデル（OSNet など）で見た目の特徴を出すとき: uv run --group reid ...（CPU 版の torch）
-reid = ["torch>=2.4"]
-
-[tool.uv]
-default-groups = ["dev", "reid"]
-
-[tool.uv.sources]
-torch = [{ index = "pytorch-cpu" }]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
 
 [build-system]
 requires = ["hatchling"]
@@ -45,7 +30,7 @@ packages = ["twinsim"]
 [tool.ruff]
 line-length = 160
 target-version = "py310"
-extend-exclude = ["isaac/vendor", "twinsim/vendor"]
+extend-exclude = ["twinsim/isaac/vendor"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
@@ -58,7 +43,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Isaac Sim の中で動くスクリプト: log・JOB は受け付け（isaac/agent_runner.py）が渡す。omni.* の読み込みは拡張を読み込ませるためのもの
-"isaac/*.py" = ["F401", "F821", "E402"]
+"twinsim/isaac/*.py" = ["F401", "F821", "E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["twinsim"]

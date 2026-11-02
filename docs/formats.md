@@ -2,15 +2,15 @@
 
 [English](formats.en.md)
 
-twinsim の計算・描画・連携が書き出すファイルの形。検出・追跡・複数カメラの追跡・人物照合・人流の予測・グラフの学習・状態の判別（VLM）など、
+twinsim の計算・描画が書き出すファイルの形。検出・追跡・複数カメラの追跡・人物照合・人流の予測・グラフの学習・状態の判別（VLM）など、
 ほかの目的で使う人向け。2026-10-23 の版（v0.4）。
 
 ## 0. 共通の約束
 
 | 項目 | 約束 |
 |---|---|
-| 置き場所 | `~/dt-data/twinsim/runs/<結果の名前>/`（環境変数 `TWINSIM_DATA` で変えられる）。git には入れない |
-| 座標 | 世界の座標（m）。Z が上。床の高さは空間の `levels[0].z`（office は 0）。x・y は `spaces/<空間>/space.yaml` と同じ |
+| 置き場所 | `<TWINSIM_DATA>/runs/<結果の名前>/` か、`out_dir` で決めた場所（`TWINSIM_DATA` の既定は `~/.twinsim`）。git には入れない |
+| 座標 | 世界の座標（m）。Z が上。床の高さは空間の `levels[0].z`（office は 0）。x・y は `twinsim/spaces/<空間>/space.yaml` と同じ |
 | 向き（yaw） | 度。+X から反時計回り（`atan2(dy, dx)`）。−180〜180。歩いている間は進む向き、止まっている間は向いている向き |
 | 時刻 | シミュレータのコマは 0 始まり、秒 = コマ ÷ fps（既定 30）。`events` などの時刻は秒 |
 | コマの番号のずれ | MOT・AI City の形は 1 始まり（= シミュレータのコマ ＋ 1）。動画の k コマ目 = シミュレータのコマ `render_log.json` の `frames[0]` ＋ k（全部を描いたときは同じ） |
@@ -49,7 +49,6 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `logs/` | ゲートの通過記録・EV の運行記録（実データと同じ形） | 実データで合わせる（`calibrate`）の見本 |
 | `summary.json`・`scenario_resolved.yaml` | 要約と、既定を足したシナリオ（乱数の種を含む） | 作り直し・記録 |
 | `validity.*`・`preview.png` | 文献との比べ・確認の図 | 人の分布の妥当性 |
-| `mopf/`・`mopf_tracks/`・`mopf_eval/`・`mopf_graph/` | MOPF の設定・追跡・比べ（[integration.md](integration.md)） | MOPF の評価 |
 
 ## 2. `ground_truth.json`
 
@@ -129,7 +128,6 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `grid_counts.npz` | `counts[秒, 格子]`（格子の順は `grid_graph.nodes`）、`t` |
 | `zone_graph.graphml` | ゾーンのグラフ（networkx などで読める） |
 
-MOPF の追跡から作った同じ形のものが `mopf_graph/<カメラ>/`（映像から作るときの中間層）。
 
 ## 7. 動画
 

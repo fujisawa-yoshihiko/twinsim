@@ -12,7 +12,9 @@ import numpy as np
 import yaml
 from scipy.ndimage import distance_transform_edt
 
-ROOT = Path(__file__).resolve().parent.parent
+from . import config
+
+ROOT = Path(__file__).resolve().parent  # 空間・テンプレート・画面・Isaac Sim のスクリプトはパッケージの中に置く（pip で入れても動くように）
 SPACES = ROOT / "spaces"
 
 
@@ -193,11 +195,104 @@ class Space:
         return sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
 
 
+def _space_dirs():
+    return ([config.USER_SPACES] if config.USER_SPACES else []) + [SPACES]
+
+
 def list_spaces():
-    return sorted(p.parent.name for p in SPACES.glob("*/space.yaml"))
+    names = {p.parent.name for d in _space_dirs() for p in d.glob("*/space.[yj]*") if p.suffix in (".yaml", ".json")}
+    return sorted(names)
+
+
+def find_space(name):
+    """空間の名前（TWINSIM_SPACES の場所 → 付属の空間の順に探す）か、space.yaml・space.json のあるフォルダの場所 → そのフォルダ。"""
+    p = Path(str(name)).expanduser()
+    for folder in ([p] if p.is_absolute() or "/" in str(name) else []) + [d / str(name) for d in _space_dirs()]:
+        if (folder / "space.yaml").exists() or (folder / "space.json").exists():
+            return folder
+    raise FileNotFoundError(f"空間 {name} がない（付属の空間: {', '.join(list_spaces())}。自分の空間はフォルダの場所を書くか、環境変数 TWINSIM_SPACES に置く）")
 
 
 def load_space(name):
-    folder = SPACES / name
-    spec = yaml.safe_load((folder / "space.yaml").read_text(encoding="utf-8"))
-    return Space(name, spec, folder)
+    folder = find_space(name)
+    f = folder / "space.yaml"
+    if not f.exists():
+        f = folder / "space.json"
+    return Space(folder.name, yaml.safe_load(f.read_text(encoding="utf-8")), folder)  # JSON は YAML として読める
+
+
+# ---- 道のり ----
+def _simplify(pts, tol):
+    """折れ線の間引き（Ramer–Douglas–Peucker 法）。両端を結ぶ線から tol より離れた点だけを残す。"""
+    if len(pts) < 3:
+        return pts
+    p = np.asarray(pts, float)
+    d = p[-1] - p[0]
+    n = float(np.hypot(*d))
+    q = p - p[0]
+    off = np.abs(d[0] * q[:, 1] - d[1] * q[:, 0]) / n if n > 1e-9 else np.hypot(q[:, 0], q[:, 1])
+    k = int(off.argmax())
+    if off[k] <= tol:
+        return [pts[0], pts[-1]]
+    return _simplify(pts[:k + 1], tol)[:-1] + _simplify(pts[k:], tol)
+
+
+class Geodesic:
+    """歩ける所の格子の上の最短の道のり（m）。始点ごとに 1 回だけダイクストラ法で全体の距離を求めて覚える。"""
+
+    def __init__(self, sp):
+        from scipy.sparse import coo_matrix
+        self.sp = sp
+        g = sp.grid
+        ny, nx = g.shape
+        idx = -np.ones(g.shape, int)
+        idx[g] = np.arange(int(g.sum()))
+        self.idx = idx
+        rows, cols, w = [], [], []
+        ii, jj = np.nonzero(g)
+        for di, dj in ((0, 1), (1, 0), (1, 1), (1, -1)):
+            i2, j2 = ii + di, jj + dj
+            ok = (i2 < ny) & (j2 >= 0) & (j2 < nx)
+            ok[ok] = g[i2[ok], j2[ok]]
+            rows.append(idx[ii[ok], jj[ok]])
+            cols.append(idx[i2[ok], j2[ok]])
+            w.append(np.full(int(ok.sum()), sp.res * math.hypot(di, dj)))
+        r, c, ww = np.concatenate(rows), np.concatenate(cols), np.concatenate(w)
+        n = int(g.sum())
+        self.graph = coo_matrix((np.r_[ww, ww], (np.r_[r, c], np.r_[c, r])), shape=(n, n)).tocsr()
+        self.cache = {}
+        self.ij = np.argwhere(g)   # 点の番号 → 格子の (i, j)（idx と同じ並び）
+        self.pred = {}
+
+    def node(self, xy):
+        x, y = self.sp.snap(*xy) if not self.sp.walkable(*xy) else xy
+        i, j = self.sp.cell(x, y)
+        return int(self.idx[i, j])
+
+    def dist(self, a, b):
+        from scipy.sparse.csgraph import dijkstra
+        na, nb = self.node(a), self.node(b)
+        if na < 0 or nb < 0:
+            return float(np.hypot(*(np.asarray(a) - np.asarray(b))))
+        if nb not in self.cache:
+            self.cache[nb] = dijkstra(self.graph, directed=False, indices=nb)
+        d = float(self.cache[nb][na])
+        return d if np.isfinite(d) else float("inf")
+
+    def path(self, a, b, tol=0.2):
+        """a から b への最短の道の点の列 [(x, y)]。格子の点の列を tol m の幅で間引く（両端は a と b）。つながらなければ直線。"""
+        from scipy.sparse.csgraph import dijkstra
+        na, nb = self.node(a), self.node(b)
+        if na < 0 or nb < 0:
+            return [tuple(map(float, a)), tuple(map(float, b))]
+        if na not in self.pred:
+            self.pred[na] = dijkstra(self.graph, directed=False, indices=na, return_predecessors=True)[1]
+        pred, nodes = self.pred[na], [nb]
+        while nodes[-1] != na:
+            k = int(pred[nodes[-1]])
+            if k < 0:
+                return [tuple(map(float, a)), tuple(map(float, b))]
+            nodes.append(k)
+        pts = [self.sp.center(*self.ij[k]) for k in reversed(nodes)]
+        pts[0], pts[-1] = tuple(map(float, a)), tuple(map(float, b))
+        return _simplify(pts, tol)

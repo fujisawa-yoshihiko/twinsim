@@ -25,7 +25,7 @@ import numpy as np
 import yaml
 
 from . import config
-from .scenario import load_scenario, resolve_rate
+from .scenario import load_scenario, read_config, resolve_rate
 
 OUT_ROOT = config.CALIBRATION
 SATURATED_S = 4.0  # これ以下の間隔は、列ができていた（ゲートの時間で決まった）とみなす（Fruin のカードの改札の上限）
@@ -101,8 +101,7 @@ def gate_service(rows):
 def calibrate(base, gate_log=None, ev_log=None, out_dir=None, ev_mode="fit", bin_s=60.0, cid=None):
     """base（テンプレートの名前・ファイル）を記録で合わせたシナリオを書く。返り値: (シナリオの場所, 報告)"""
     spec = load_scenario(base)
-    raw = yaml.safe_load(Path(base).read_text(encoding="utf-8")) if Path(base).exists() else \
-        yaml.safe_load((Path(__file__).resolve().parent.parent / "templates" / f"{base}.yaml").read_text(encoding="utf-8"))
+    raw = read_config(base)
     new = copy.deepcopy(raw)
     cid = cid or time.strftime("cal-%Y%m%d-%H%M%S")
     src = f"data:{cid}"

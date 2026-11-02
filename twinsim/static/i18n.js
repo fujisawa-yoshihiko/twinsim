@@ -1,5 +1,5 @@
 // 画面の言葉の切り替え（日本語・英語）。index.html は日本語を既定に書き、英語を data-en（data-en-placeholder・data-en-title・data-en-alt）に持つ。
-// JavaScript で作る文字は tr("日本語", "English")。選んだ言語は localStorage の twinsim-lang に残す。app.js・mopf.js より先に読む。
+// JavaScript で作る文字は tr("日本語", "English")。選んだ言語は localStorage の twinsim-lang に残す。app.js より先に読む。
 "use strict";
 
 const LANG = (() => {

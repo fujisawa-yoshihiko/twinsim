@@ -2,7 +2,7 @@
 
 [English](operations.en.md)
 
-ampb（共用の GPU サーバー）で twinsim・MOPF・Isaac Sim を動かし、手元の PC のブラウザで見るための手順。2026-10-23 の版。
+ampb（共用の GPU サーバー）で twinsim・Isaac Sim を動かし、手元の PC のブラウザで見るための手順。2026-10-23 の版。
 
 ## 0. 決まり
 
@@ -13,13 +13,13 @@ ampb（共用の GPU サーバー）で twinsim・MOPF・Isaac Sim を動かし�
 ## 1. 手元の PC から見る
 
 ```bash
-# 手元の PC で（つないだままにする。8770 = twinsim の画面、5174 = MOPF の画面）
+# 手元の PC で（つないだままにする。8770 = twinsim の画面）
 ssh -N -L 8770:localhost:8770 -L 5174:localhost:5174 ampb
 ```
 
 ```bash
 # ampb で: 開く URL（鍵つき）を出す。人に送らない
-cd ~/twinsim && ./run.sh serve --url
+cd ~/twinsim-lib && ./run.sh serve --url
 ```
 
 出てきた `http://localhost:8770/?token=…` を開く（2 回目からは `http://localhost:8770` だけでよい）。右上で日本語・English を切り替えられる。
@@ -27,7 +27,7 @@ cd ~/twinsim && ./run.sh serve --url
 ## 2. 起動状況を見る
 
 ```bash
-cd ~/twinsim && ./status.sh     # GUI のサーバー・MOPF（GPU・ライブか）・Isaac Sim（GPU）・GPU の空き
+cd ~/twinsim-lib && ./status.sh     # GUI のサーバー・Isaac Sim（GPU）・GPU の空き
 ```
 
 ## 3. 起動と停止
@@ -35,11 +35,10 @@ cd ~/twinsim && ./status.sh     # GUI のサーバー・MOPF（GPU・ライブ�
 | もの | 起動 | 停止 | GPU |
 |---|---|---|---|
 | twinsim の GUI のサーバー | `./run.sh serve`（端末を閉じても動かすなら `setsid nohup ./run.sh serve > ~/dt-data/twinsim/serve.log 2>&1 &`） | 起動した端末で `Ctrl+C`、または `./stop.sh gui` | 使わない |
-| MOPF | 画面の「MOPF」のタブで GPU を選んで「動画の処理用に起動」か「選んだ動画をライブで起動」。コマンドなら `cd ~/MOPF_ALL_video && ./start_ampb.sh --gpu 3 --no-llm --no-vc3` | 「MOPF」のタブの「止める」、または `./stop.sh mopf` | 1 枚 |
 | Isaac Sim（描画） | `./isaac_up.sh <GPU>`（例 `./isaac_up.sh 2`） | `./stop.sh isaac`（= `isim down`） | 1 枚 |
-| まとめて | - | `./stop.sh`（GUI と MOPF）、`./stop.sh all`（Isaac Sim も） | - |
+| まとめて | - | `./stop.sh`（GUI）、`./stop.sh all`（Isaac Sim も） | - |
 
-コマンドはどれも `~/twinsim` で実行する（MOPF の起動のコマンドだけ `~/MOPF_ALL_video`）。
+コマンドはどれもリポジトリのフォルダで実行する。
 
 ## 4. よく使う流れ
 
@@ -48,8 +47,6 @@ cd ~/twinsim && ./status.sh     # GUI のサーバー・MOPF（GPU・ライブ�
 | 結果を見る | 画面の「結果」のタブで結果を選ぶ | - |
 | 人の動きを計算する | 画面の「設定」で値を変えて「計算する」、または `./run.sh run office_gate_ev` | 15 秒（CPU） |
 | 描画する | Isaac Sim を起動 → 画面の「いちばん混む 5 秒を試し撮り」か「全部を描画」、または `./run.sh render <結果>` | 試し撮り 2〜3 分、全部 1 台 42 分（GPU） |
-| MOPF で検出・追跡して比べる | MOPF を「動画の処理用」で起動 → 画面の「動画を MOPF で検出・追跡」、または `./run.sh mopf-process <結果>` → `./run.sh mopf-eval <結果>` | 1 台 3 分（GPU）＋数秒 |
-| 2 台の間の対応を推論する | 画面の「推論して採点する」、または `./run.sh mopf-link <結果>` | 約 30 秒（CPU）＋予測の動画 3〜4 分 |
 | 夜間に描画から比べるまで | `setsid nohup tools/night_b.sh <結果> > /dev/null 2>&1 &`（描画のあとに止まったら `--resume`） | 約 1.5 時間 |
 
 `<結果>` は `~/dt-data/twinsim/runs/<結果の名前>`（例 `~/dt-data/twinsim/runs/office_gate_ev`）。
@@ -62,8 +59,7 @@ cd ~/twinsim && ./status.sh     # GUI のサーバー・MOPF（GPU・ライブ�
 | 「トークンが要る」と出る | ampb で `./run.sh serve --url` の URL を開き直す |
 | `./run.sh serve` で「Address already in use」 | もう動いている（`./status.sh`）。作り直すなら `./stop.sh gui` してから起動 |
 | 「Isaac Sim が受け付けていない」 | `./isaac_up.sh <空いている GPU>` で起動し、`./status.sh` で確かめる |
-| MOPF が起動しない（GPU が使用中） | 他の人のジョブ。`./status.sh` で空いている GPU を選び直す |
 | 画面の新しい欄が出ない | GUI のサーバーが古いコードのまま。`./stop.sh gui` → `./run.sh serve` → ブラウザを読み直す |
 | サーバーの記録に BrokenPipeError | ブラウザが動画・ライブの映像を途中で閉じただけ。問題ない |
 
-くわしくは [README.md](../README.md)（構成・出力の形・映像を作るのにかかる時間）、[integration.md](integration.md)（MOPF との連携）。
+くわしくは [README.md](../README.md)（構成・出力の形・映像を作るのにかかる時間）、[library.md](library.md)（Python から使う）。

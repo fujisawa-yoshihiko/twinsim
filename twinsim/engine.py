@@ -16,6 +16,7 @@ digitaltwin の hospital-sim/scripts/flow_scene_lib.py・flow_scene2_lib.py（�
 
 import math
 import random
+import zlib
 
 import numpy as np
 
@@ -119,6 +120,11 @@ class Car:
     def __init__(self, name, door, inside, capacity):
         self.name, self.door, self.inside, self.capacity = name, tuple(door), tuple(inside), capacity
         self.arrivals = []
+
+
+def tie_side(name):
+    """真正面の人をどちら側へよけるか。hash() は実行ごとに変わるので、同じ種で同じ結果になるように crc32 で決める。"""
+    return 1.0 if zlib.crc32(name.encode()) % 2 else -1.0
 
 
 def _wrap(d):
@@ -476,7 +482,7 @@ class Sim:
                     factor = min(factor, 0.3)
                 if a.mode == "gate_pass" or (a.mode == "to_gate" and a.path.length - a.s < 2.0):
                     continue  # ゲートを通る間と、列の場所の 2 m 手前からは横へよけない
-                side = -1.0 if lat > 0 else 1.0 if lat < 0 else (1.0 if hash(a.name) % 2 else -1.0)
+                side = -1.0 if lat > 0 else 1.0 if lat < 0 else tie_side(a.name)
                 if follow:  # 前の遅い人に詰まったら、横へ出て追い越す
                     dl += side * FOLLOW["overtake_m_s"] * dt
                 if r <= reach:

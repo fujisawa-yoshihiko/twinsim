@@ -2,7 +2,7 @@
 
 [日本語](formats.md)
 
-The formats of the files written out by twinsim's computation, rendering, and integration. Intended for people who use them for other purposes, such as detection, tracking, multi-camera tracking, person re-identification, people-flow prediction, graph learning, and state classification (VLM).
+The formats of the files written out by twinsim's computation and rendering. Intended for people who use them for other purposes, such as detection, tracking, multi-camera tracking, person re-identification, people-flow prediction, graph learning, and state classification (VLM).
 This is the 2026-10-23 version (v0.4).
 
 ## 0. Common conventions
@@ -10,7 +10,7 @@ This is the 2026-10-23 version (v0.4).
 | Item | Convention |
 |---|---|
 | Location | `~/dt-data/twinsim/runs/<run-name>/` (can be changed with the environment variable `TWINSIM_DATA`). Not put in git |
-| Coordinates | World coordinates (m). Z is up. The floor height is the space's `levels[0].z` (0 for office). x and y are the same as in `spaces/<space>/space.yaml` |
+| Coordinates | World coordinates (m). Z is up. The floor height is the space's `levels[0].z` (0 for office). x and y are the same as in `twinsim/spaces/<space>/space.yaml` |
 | Heading (yaw) | Degrees. Counterclockwise from +X (`atan2(dy, dx)`). −180 to 180. While walking, the direction of travel; while stopped, the direction the person is facing |
 | Time | Simulator frames start at 0; seconds = frame ÷ fps (default 30). Times in `events` and elsewhere are in seconds |
 | Frame number offset | The MOT and AI City formats are 1-based (= simulator frame + 1). Frame k of the video = simulator frame `frames[0]` of `render_log.json` + k (identical when all frames are rendered) |
@@ -49,7 +49,6 @@ No lens distortion (pinhole). Other values: `eye` and `target` (world coordinate
 | `logs/` | Gate passage logs and elevator operation logs (same format as real data) | Example for calibrating with real data (`calibrate`) |
 | `summary.json` and `scenario_resolved.yaml` | Summary, and the scenario with defaults filled in (including the random seed) | Regeneration, logging |
 | `validity.*` and `preview.png` | Comparison with the literature, figures for checking | Validity of the people distribution |
-| `mopf/`, `mopf_tracks/`, `mopf_eval/`, `mopf_graph/` | MOPF configuration, tracking, and comparison ([integration.en.md](integration.en.md)) | Evaluating MOPF |
 
 ## 2. `ground_truth.json`
 
@@ -129,7 +128,6 @@ Every person with at least 20% of their box inside the image is written, even if
 | `grid_counts.npz` | `counts[second, cell]` (cell order follows `grid_graph.nodes`), `t` |
 | `zone_graph.graphml` | Zone graph (readable with networkx and similar tools) |
 
-Files of the same format built from MOPF tracking are in `mopf_graph/<camera>/` (the intermediate graph layer when building from video).
 
 ## 7. Video
 
