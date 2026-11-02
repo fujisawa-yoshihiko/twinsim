@@ -5,12 +5,12 @@
 Define the space, the distribution of people, cameras and events (elevators, gates) in a **JSON configuration**. twinsim computes how people move on the CPU and writes **ground-truth labels for object detection and tracking**, state labels, aggregates and graphs.
 It can be called as a Python library. When video is needed, it is rendered with Isaac Sim.
 
-This branch, `simulator-lib`, contains the simulator only (no MOPF detection/tracking integration and no person re-identification; `main` has everything).
+`main` contains the simulator only (the MOPF detection/tracking integration and person re-identification are on the `with-mopf` branch).
 
 ## Installing
 
 ```bash
-pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git@simulator-lib"   # private repository: read access is required
+pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git"   # private repository: read access is required
 ```
 
 Python 3.10 or later. The only dependencies are numpy, scipy, pyyaml, pillow, networkx and matplotlib. No GPU is needed (only rendering needs Isaac Sim and a GPU).
@@ -38,7 +38,7 @@ for row in result.frames():        # one row per frame per person (position, hea
     ...
 ```
 
-The functions, `Result` and how to write a configuration are in **[docs/library.en.md](docs/library.en.md)**; every configuration item is in [docs/spec.en.md](docs/spec.en.md). See [examples/](examples/) for examples.
+The functions, `Result` and how to write a configuration are in **[docs/library.en.md](docs/library.en.md)**; every configuration item is in [docs/spec.en.md](docs/spec.en.md). Tutorial examples are in [examples/](examples/README.en.md).
 
 ## Commands
 
@@ -61,7 +61,7 @@ There are two tabs: Settings (scenario, distribution of people, cameras) and Res
 ## Rendering (GPU)
 
 ```bash
-./isaac_up.sh 2                                    # start Isaac Sim on GPU 2 (stop it with isim down)
+./isaac_up.sh                                      # start Isaac Sim (one-gpu chooses the GPU; stop it with isim down)
 ./run.sh render runs/test --frames 7395 7544       # a test render (twinsim.render from code)
 ```
 
@@ -116,7 +116,7 @@ The sources, the check results and the assumed values are in [docs/validity.en.m
 | `twinsim/spaces/` | Spaces (office, hospital, warehouse, simple_room, warehouse_small, corridor, corridor_door) |
 | `twinsim/templates/` | Templates (table below) |
 | `twinsim/config.py` | Locations (environment variables such as `TWINSIM_DATA`, `TWINSIM_SPACES`, `TWINSIM_ISAAC_WORK`) |
-| `examples/` | JSON configurations and an example of calling from Python |
+| `examples/` | Tutorial examples (simulating, changing settings, ground-truth labels, getting videos, training data) |
 | `tests/` | Checks (`uv run --group dev pytest -q`; lint with `uv run --group dev ruff check`) |
 
 | Template | What it checks |

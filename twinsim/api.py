@@ -6,6 +6,7 @@
     result = twinsim.simulate("office_gate_ev", overrides={"duration_s": 60})   # テンプレート
     print(result.summary["people"], result.out_dir)
     labels = result.mot("CamGate")                                     # 物体検知の正解ラベル（カメラごとの枠）
+    result = twinsim.open_result("runs/test")                          # 計算済みの結果を開く
 
 overrides はシナリオの一部を上書きする dict（GUI・ほかの道具から値を変えて回すとき）。
 elevator_policy(sim, t) を渡すと、EV の運行を差し替えられる（毎秒呼ばれ、car.arrivals に着く時刻を足す。UC2 の最適化の差し込み口）。
@@ -14,6 +15,7 @@ elevator_policy(sim, t) を渡すと、EV の運行を差し替えられる（�
 import csv
 import gzip
 import json
+import subprocess
 import time
 from pathlib import Path
 
@@ -72,6 +74,42 @@ class Result:
             raise FileNotFoundError(f"カメラ {camera} の枠がない（あるのは {', '.join(self.cameras) or 'なし'}。設定の cameras と outputs を確かめる）")
         return np.loadtxt(p, delimiter=",", ndmin=2)
 
+    @property
+    def videos(self):
+        """描画した動画 {カメラ: mp4 の場所}（twinsim.render のあと）。"""
+        return {p.stem: p for p in sorted((self.out_dir / "video").glob("*.mp4"))}
+
+    @property
+    def video_first_frame(self):
+        """動画の 0 コマ目のシミュレータのコマ（一部だけ描いたときは途中から始まる）。"""
+        p = self.out_dir / "render_log.json"
+        return int(json.loads(p.read_text())["frames"][0]) if p.exists() else 0
+
+    def video_frames(self, camera, frames=None, step=1):
+        """動画のコマを順に返す: (シミュレータのコマ, 高さ×幅×3 の RGB の配列)。ffmpeg を使う。
+
+        frames=(始まり, 終わり) はシミュレータのコマで、端を含む。step=30 なら 30 コマごと。
+        MOT の正解ラベルの frame は、シミュレータのコマ ＋ 1。
+        """
+        if camera not in self.videos:
+            raise FileNotFoundError(f"カメラ {camera} の動画がない（あるのは {', '.join(self.videos) or 'なし'}。先に twinsim.render）")
+        gt = self.ground_truth()
+        w, h, first = gt["cameras"][camera]["width"], gt["cameras"][camera]["height"], self.video_first_frame
+        start, stop = frames or (first, None)
+        # 半コマ手前を指す（秒を丸めても、次のコマに飛ばないように）
+        cmd = ["ffmpeg", "-v", "error", "-ss", f"{max(start - first - 0.5, 0) / gt['fps']:.4f}", "-i", str(self.videos[camera]),
+               "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
+        with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
+            frame = start
+            while stop is None or frame <= stop:
+                data = proc.stdout.read(w * h * 3)
+                if len(data) < w * h * 3:
+                    break
+                if (frame - start) % step == 0:
+                    yield frame, np.frombuffer(data, np.uint8).reshape(h, w, 3)
+                frame += 1
+            proc.kill()
+
 
 def run(scenario, out_dir, overrides=None, elevator_policy=None):
     t0 = time.monotonic()
@@ -116,6 +154,16 @@ def simulate(config_src, out_dir=None, overrides=None, elevator_policy=None):
     return Result(out, summary, spec)
 
 
+def open_result(out_dir):
+    """計算済みの結果のフォルダを開いて Result を返す（計算し直さない）。"""
+    out = Path(out_dir).expanduser()
+    if not (out / "summary.json").is_file():
+        raise FileNotFoundError(f"{out} に計算の結果（summary.json）がない。先に twinsim.simulate")
+    resolved = out / "scenario_resolved.json"
+    spec = json.loads(resolved.read_text(encoding="utf-8")) if resolved.is_file() else {}
+    return Result(out, json.loads((out / "summary.json").read_text(encoding="utf-8")), spec)
+
+
 def template(name):
     """テンプレートを dict で返す（既定の値は足さない）。値を変えて simulate に渡す、JSON に書き出す、など。"""
     from .scenario import TEMPLATES, read_config
@@ -128,4 +176,6 @@ def template(name):
 def render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=True):
     """計算の結果を Isaac Sim で描画して video/<カメラ>.mp4 を作る（GPU。Isaac Sim の受け付けが動いているとき。tint=False で服の色を変えない）。"""
     from . import isaac_bridge
+    if not isaac_bridge.ready():
+        raise RuntimeError("Isaac Sim が動いていない。先に ./isaac_up.sh を実行する（終わったら isim down）")
     return isaac_bridge.render(out_dir, frames, cameras, preset, tint)

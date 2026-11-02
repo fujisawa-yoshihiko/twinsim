@@ -35,7 +35,8 @@ result = twinsim.simulate(config, out_dir="runs/short")
 | `twinsim.load_config(config, overrides=None)` | `validate` と同じ（読むための名前） |
 | `twinsim.template(name)` | テンプレートを dict で返す（既定の値は足さない） |
 | `twinsim.list_templates()`・`twinsim.list_spaces()` | テンプレート・空間の名前の一覧 |
-| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=True)` | 計算の結果を Isaac Sim で描画する。GPU を使う。Isaac Sim の受け付けが動いているとき。`tint=False` で服の色を変えない |
+| `twinsim.open_result(out_dir)` | 計算済みの結果のフォルダを開いて `Result` を返す。計算し直さない |
+| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=True)` | 計算の結果を Isaac Sim で描画して `video/<カメラ>.mp4` を作る。GPU を使う。Isaac Sim が動いていなければ `RuntimeError`。`frames` はシミュレータのコマの範囲（端を含む）、`tint=False` で服の色を変えない |
 
 `config` に渡せるもの:
 
@@ -66,11 +67,14 @@ for seed in range(5):
 | `result.cameras` | 枠があるカメラの名前 |
 | `result.mot(camera)` | 物体検知・追跡の正解ラベルの配列。列は `frame, id, x, y, w, h, conf, class, visibility`（frame は 1 始まり） |
 | `result.frames()` | 1 コマ 1 人の行を dict で順に返す（`frame, t, person, x, y, yaw, moving, state, zone, group, type`） |
+| `result.videos` | 描画した動画の dict（カメラ → mp4 の場所） |
+| `result.video_first_frame` | 動画の 0 コマ目のシミュレータのコマ。一部だけ描いたときは途中から始まる |
+| `result.video_frames(camera, frames=None, step=1)` | 動画のコマを順に返す: `(シミュレータのコマ, 高さ×幅×3 の RGB の配列)`。ffmpeg を使う。`frames` はシミュレータのコマの範囲（端を含む） |
 | `result.ground_truth()` | `ground_truth.json`（人ごとの軌跡・状態・出来事、カメラ、EV・ゲートの出来事） |
 | `result.tasks()` | `tasks.json`（場所ごとの人数・通過・滞留などの集計） |
 | `result.validity()` | `validity.json`（文献との比べ）。`outputs` に `validity` があるとき |
 
-ファイルの形は [formats.md](formats.md)。ラベルの見えている割合が 0.4 未満の枠は、学習・評価から外すのが目安。
+ファイルの形は [formats.md](formats.md)。計算から動画の取得までの通しの例は [examples/](../examples/README.md)。ラベルの見えている割合が 0.4 未満の枠は、学習・評価から外すのが目安。
 
 ## 設定（JSON）
 

@@ -6,7 +6,7 @@ How to run twinsim and Isaac Sim on ampb (the shared GPU server) and view them i
 
 ## 0. Rules
 
-- The GPUs (RTX PRO 6000 ×4) are shared with other users. Check what is free before use (`./status.sh` or `nvidia-smi`), and use at most 2 at the same time.
+- The GPUs (RTX PRO 6000 ×4) are shared with other users. Check what is free before use (`./status.sh` or `nvidia-smi`). When detection and other components run on the same machine, they share one GPU by default (`one-gpu` chooses it; GPU 3 by default). Split them only when needed, and use at most 2 GPUs.
 - Decide the expected time and the GPU before starting long jobs such as rendering. Stop things when you are done.
 - Do not put results or videos in git (they go under `~/dt-data/twinsim/`). Keep anything made from Takeshiba's real video or drawings in a separate place.
 
@@ -35,7 +35,7 @@ cd ~/twinsim-lib && ./status.sh     # GUI server, Isaac Sim (GPU), free GPUs
 | Component | Start | Stop | GPU |
 |---|---|---|---|
 | twinsim GUI server | `./run.sh serve` (to keep it running after closing the terminal: `setsid nohup ./run.sh serve > ~/dt-data/twinsim/serve.log 2>&1 &`) | `Ctrl+C` in the terminal that started it, or `./stop.sh gui` | none |
-| Isaac Sim (rendering) | `./isaac_up.sh <GPU>` (e.g. `./isaac_up.sh 2`) | `./stop.sh isaac` (= `isim down`) | 1 |
+| Isaac Sim (rendering) | `./isaac_up.sh` (`./isaac_up.sh 2` to choose another GPU) | `./stop.sh isaac` (= `isim down`) | 1 (the same GPU as detection and the rest) |
 | Everything at once | - | `./stop.sh` (GUI), `./stop.sh all` (Isaac Sim too) | - |
 
 Run the commands in the repository folder.
@@ -58,7 +58,7 @@ Run the commands in the repository folder.
 | The GUI does not open | Check that `ssh -N -L …` on your local PC is still connected, and that the GUI server is running (`./status.sh`) |
 | "Token required" | Reopen the URL from `./run.sh serve --url` on ampb |
 | "Address already in use" from `./run.sh serve` | It is already running (`./status.sh`). To restart: `./stop.sh gui`, then start again |
-| "Isaac Sim is not accepting jobs" | Start it with `./isaac_up.sh <free GPU>` and check with `./status.sh` |
+| "Isaac Sim is not accepting jobs" | Start it with `./isaac_up.sh` and check with `./status.sh` |
 | New GUI sections do not appear | The GUI server runs old code. `./stop.sh gui` → `./run.sh serve` → reload the browser |
 | BrokenPipeError in the server log | The browser just closed a video or the live stream midway. Harmless |
 

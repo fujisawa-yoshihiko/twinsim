@@ -35,7 +35,8 @@ result = twinsim.simulate(config, out_dir="runs/short")
 | `twinsim.load_config(config, overrides=None)` | Same as `validate` (a name for reading) |
 | `twinsim.template(name)` | Returns a template as a dict (defaults are not filled in) |
 | `twinsim.list_templates()`, `twinsim.list_spaces()` | Names of the templates and spaces |
-| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=True)` | Renders a result with Isaac Sim. Uses a GPU; the Isaac Sim receiver must be running. `tint=False` keeps the original clothing colors |
+| `twinsim.open_result(out_dir)` | Open a finished result folder and return a `Result`, without simulating again |
+| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=True)` | Renders a result with Isaac Sim and writes `video/<camera>.mp4`. Uses a GPU. Raises `RuntimeError` if Isaac Sim is not running. `frames` is a range of simulator frames (both ends included); `tint=False` keeps the original clothing colors |
 
 What `config` accepts:
 
@@ -66,11 +67,14 @@ Without `out_dir`, results go to `<TWINSIM_DATA>/runs/<the configuration's name>
 | `result.cameras` | Names of cameras with boxes |
 | `result.mot(camera)` | Array of ground-truth labels for detection and tracking. Columns: `frame, id, x, y, w, h, conf, class, visibility` (frames start at 1) |
 | `result.frames()` | Yields one dict per frame per person (`frame, t, person, x, y, yaw, moving, state, zone, group, type`) |
+| `result.videos` | A dict of rendered videos (camera → mp4 path) |
+| `result.video_first_frame` | The simulator frame of the video's first frame. When only part was rendered, the video starts partway through |
+| `result.video_frames(camera, frames=None, step=1)` | Yields video frames in order as `(simulator frame, height × width × 3 RGB array)`. Uses ffmpeg. `frames` is a range of simulator frames (both ends included) |
 | `result.ground_truth()` | `ground_truth.json` (per-person trajectories, states and events; cameras; elevator and gate events) |
 | `result.tasks()` | `tasks.json` (aggregates such as counts per place, crossings, dwelling) |
 | `result.validity()` | `validity.json` (comparison with the literature), when `outputs` includes `validity` |
 
-File formats are in [formats.en.md](formats.en.md). As a guide, leave boxes with visibility below 0.4 out of training and evaluation.
+File formats are in [formats.en.md](formats.en.md). [examples/](../examples/README.en.md) has worked examples, from simulating to getting videos. As a guide, leave boxes with visibility below 0.4 out of training and evaluation.
 
 ## Configuration (JSON)
 

@@ -1,12 +1,14 @@
 # 作業の状態（再開用）
 
-## 2026-11-02（シミュレータだけのブランチ simulator-lib）
+## 2026-11-02（`main` をシミュレータだけにした）
 
-- `main` から MOPF との連携（`twinsim/mopf/`）・人物照合（`reid.py`・`vendor/`）・検知の説明と報告のページを外した。人の動き・正解ラベル・描画・画面・実データでの合わせ込み・病棟の配置は残した。
+- ユーザーの指示で、シミュレータだけの版を `main` にした。それまでの全部入りはブランチ `with-mopf` に残した。
+- チュートリアルの例 `examples/`（01〜06）と、`twinsim.open_result`・`Result.videos`・`Result.video_frames` を足した。GPU の既定は `one-gpu` が選ぶ 1 枚。
+- 全部入りから MOPF との連携（`twinsim/mopf/`）・人物照合（`reid.py`・`vendor/`）・検知の説明と報告のページを外した。人の動き・正解ラベル・描画・画面・実データでの合わせ込み・病棟の配置は残した。
 - `spaces`・`templates`・`static`・`isaac` を `twinsim/` の中へ移した（pip で入れても動くように）。`Geodesic` は `space.py` へ。
 - Python の入口: `twinsim.simulate` など（docs/library.md）。設定は dict・JSON の文字列・ファイル・テンプレートの名前。知らないキーは誤りにする。
-- `engine.py` のよける向きが `hash()` で実行ごとに変わっていたのを `tie_side`（crc32）に直した（`main` には残っている）。`hash()` を固定すれば `main` と全ファイル同じ結果だった（office_gate_ev、種 3 通り）。
-- 下の記録は `main` のころのもの。`twinsim/mopf/` や `docs/report/` の話はこのブランチにない。
+- `engine.py` のよける向きが `hash()` で実行ごとに変わっていたのを `tie_side`（crc32）に直した（`with-mopf` には残っている）。`hash()` を固定すれば全部入りと全ファイル同じ結果だった（office_gate_ev、種 3 通り）。
+- 下の記録は全部入りのころのもの。`twinsim/mopf/` や `docs/report/` の話は `main` にはなく、`with-mopf` にある。
 
 ## 2026-10-26（病棟の配置と道のり）
 
@@ -112,5 +114,5 @@
 5. 歩き方のモデルの改善（速さと密度の関係・RiMEA のテストケース）、MOPF への設定の送信（--apply）の確認、画面からの USD のアップロード
 
 ### 再開の手順
-- GPU の空きを確かめる（`nvidia-smi`）→ `isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.viewport --kit-arg "--exec /workspace/twinsim/isaac/agent_runner.py"`
+- GPU の空きを確かめる（`nvidia-smi`）→ `./isaac_up.sh`
 - GUI: `python -m twinsim serve`（URL は `--url`）

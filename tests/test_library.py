@@ -1,6 +1,8 @@
 """Python のライブラリとして使う入口（設定は JSON）の確かめ（CPU だけ、数秒）。"""
 
 import json
+import shutil
+import subprocess
 
 import numpy as np
 import pytest
@@ -60,6 +62,42 @@ def test_result_reads_outputs(tmp_path):
     assert r.config["duration_s"] == 30 and "lib_test" in repr(r)
     with pytest.raises(FileNotFoundError, match="CamGate"):
         r.mot("NoSuchCamera")
+
+
+def test_open_result_reads_a_finished_run(tmp_path):
+    r = twinsim.simulate(CONFIG, out_dir=tmp_path / "r")
+    opened = twinsim.open_result(tmp_path / "r")
+    assert opened.summary == r.summary and opened.config["duration_s"] == 30
+    assert opened.cameras == ["CamGate"] and opened.videos == {}
+    with pytest.raises(FileNotFoundError, match="summary.json"):
+        twinsim.open_result(tmp_path / "none")
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg がない")
+def test_video_frames_use_simulator_frame_numbers(tmp_path):
+    r = twinsim.simulate(CONFIG, out_dir=tmp_path / "r")
+    cam = r.ground_truth()["cameras"]["CamGate"]
+    with pytest.raises(FileNotFoundError, match="CamGate"):
+        list(r.video_frames("CamGate"))
+    (r.out_dir / "video").mkdir()
+    subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"testsrc2=size={cam['width']}x{cam['height']}:rate=30:duration=1",
+                    "-c:v", "libx264", "-g", "10", "-pix_fmt", "yuv420p", str(r.out_dir / "video/CamGate.mp4")], check=True)
+    (r.out_dir / "render_log.json").write_text(json.dumps({"frames": [100, 129]}))  # 一部だけ描いた動画
+    assert r.video_first_frame == 100
+    all_frames = list(r.video_frames("CamGate"))
+    assert [f for f, _ in all_frames] == list(range(100, 130))
+    assert all_frames[0][1].shape == (cam["height"], cam["width"], 3)
+    assert [f for f, _ in r.video_frames("CamGate", step=10)] == [100, 110, 120]
+    part = list(r.video_frames("CamGate", frames=(117, 119)))
+    assert [f for f, _ in part] == [117, 118, 119]
+    assert np.abs(part[0][1].astype(int) - all_frames[17][1].astype(int)).mean() < 1  # 途中からでも同じコマ
+
+
+def test_render_needs_isaac_sim(tmp_path, monkeypatch):
+    from twinsim import isaac_bridge
+    monkeypatch.setattr(isaac_bridge, "ready", lambda: False)
+    with pytest.raises(RuntimeError, match="isaac_up"):
+        twinsim.render(tmp_path)
 
 
 def test_resolved_config_is_json_and_reruns_the_same(tmp_path):

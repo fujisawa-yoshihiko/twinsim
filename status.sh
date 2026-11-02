@@ -12,7 +12,7 @@ echo "Isaac Sim:"
 if docker ps --format '{{.Names}}' | grep -q "isaac-sim"; then
   isim status 2>/dev/null | grep -E "枠" | sed 's/^/  /'
 else
-  echo "  止まっている（描画するときだけ ./isaac_up.sh <GPU>）"
+  echo "  止まっている（描画するときだけ ./isaac_up.sh）"
 fi
 echo "GPU:"
 nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv,noheader 2>/dev/null | sed 's/^/  /'

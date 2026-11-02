@@ -5,12 +5,12 @@
 空間・人の分布・カメラ・イベント（EV・ゲート）を **JSON の設定**で決めて、人の動きを CPU で計算し、**物体検知・追跡の正解ラベル**・状態の正解・集計・グラフを書き出す。
 Python のライブラリとして呼べる。映像が要るときは Isaac Sim で描く。
 
-このブランチ `simulator-lib` は、シミュレータだけを切り出したもの（検出・追跡の MOPF との連携と人物照合は入っていない。全部入りは `main`）。
+`main` はシミュレータだけ（検出・追跡の MOPF との連携と人物照合は、ブランチ `with-mopf` にある）。
 
 ## 入れ方
 
 ```bash
-pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git@simulator-lib"   # 非公開のリポジトリなので、読む権限が要る
+pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git"   # 非公開のリポジトリなので、読む権限が要る
 ```
 
 Python 3.10 以上。依存は numpy・scipy・pyyaml・pillow・networkx・matplotlib だけ。GPU は要らない（描画するときだけ Isaac Sim と GPU）。
@@ -38,7 +38,7 @@ for row in result.frames():        # 1 コマ 1 人の行（位置・向き・�
     ...
 ```
 
-関数・`Result`・設定の書き方は **[docs/library.md](docs/library.md)**、設定の全部の項目は [docs/spec.md](docs/spec.md)。例は [examples/](examples/)。
+関数・`Result`・設定の書き方は **[docs/library.md](docs/library.md)**、設定の全部の項目は [docs/spec.md](docs/spec.md)。チュートリアルの例は [examples/](examples/README.md)。
 
 ## コマンド
 
@@ -61,7 +61,7 @@ twinsim calibrate config.json --gate-log gate_log.csv --ev-log ev_log.csv   # �
 ## 描画（GPU）
 
 ```bash
-./isaac_up.sh 2                                    # Isaac Sim を GPU 2 で起動（止めるのは isim down）
+./isaac_up.sh                                      # Isaac Sim を起動（GPU は one-gpu が選ぶ。止めるのは isim down）
 ./run.sh render runs/test --frames 7395 7544       # 試し撮り（コードからは twinsim.render）
 ```
 
@@ -116,7 +116,7 @@ twinsim calibrate config.json --gate-log gate_log.csv --ev-log ev_log.csv   # �
 | `twinsim/spaces/` | 空間（office・hospital・warehouse・simple_room・warehouse_small・corridor・corridor_door） |
 | `twinsim/templates/` | テンプレート（下の表） |
 | `twinsim/config.py` | 置き場所（`TWINSIM_DATA`・`TWINSIM_SPACES`・`TWINSIM_ISAAC_WORK` などの環境変数で変えられる） |
-| `examples/` | 設定の JSON と、Python から呼ぶ例 |
+| `examples/` | チュートリアルの例（計算、設定の変え方、正解ラベル、動画の取得、学習データ） |
 | `tests/` | 動作確認（`uv run --group dev pytest -q`、書き方の確かめは `uv run --group dev ruff check`） |
 
 | テンプレート | 確かめること |
