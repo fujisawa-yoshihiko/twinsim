@@ -25,7 +25,7 @@ import numpy as np
 import yaml
 
 from . import config
-from .scenario import load_scenario, read_config, resolve_rate
+from .scenario import load_scenario, origin_center, read_config, resolve_rate
 
 OUT_ROOT = config.CALIBRATION
 SATURATED_S = 4.0  # これ以下の間隔は、列ができていた（ゲートの時間で決まった）とみなす（Fruin のカードの改札の上限）
@@ -118,7 +118,7 @@ def calibrate(base, gate_log=None, ev_log=None, out_dir=None, ev_mode="fit", bin
         streams = []
         for i, s in enumerate(spec["streams"]):
             vias = {g for d in s.get("destinations", []) if isinstance(d, dict) for g in d.get("via", [])}
-            if any(entering(pois, g, pois[s["origin"]]["xy"]) for g in vias if g in pois):
+            if any(entering(pois, g, origin_center(s["origin"], pois)) for g in vias if g in pois):
                 _, note = resolve_rate(spec, s["rate"], s.get("group_size") or size_default)
                 pm = note.get("persons_per_min")
                 if pm is None:  # piecewise・constant（まとまり/分）を人/分に

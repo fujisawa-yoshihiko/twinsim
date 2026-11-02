@@ -36,6 +36,8 @@ OUTPUTS = ("ground_truth", "frames", "tasks", "graph", "mot", "aicity", "preview
 # 設定の一番上のキー（docs/spec.md）。綴りの誤りを既定の値のまま黙って動かさないように、ほかのキーは誤りにする
 CONFIG_KEYS = set(DEFAULTS) | {"name", "title", "title_en", "description", "space", "demand", "elevator", "validity", "variants", "variant", "graph",
                                "mot_stride", "congestion_levels", "calibration"}
+CAMERA_KEYS = {"name", "eye", "target", "focal_mm", "h_aperture_mm", "width", "height", "clock_offset_s", "drop_rate", "note"}
+ORIGIN_FORMS = '場所の名前か、{"xy": [x, y]}・{"line": [[x0, y0], [x1, y1]]}'
 
 
 def deep_merge(base, over):
@@ -92,11 +94,42 @@ def load_scenario(src, overrides=None):
     if "space" not in spec:
         raise ValueError("設定に space（空間の名前かフォルダの場所）がない")
     apply_variant(spec)
+    normalize_streams(spec)
     validate(spec)
     return spec
 
 
 load_config = load_scenario
+
+
+def is_xy(p):
+    return (isinstance(p, (list, tuple)) and len(p) == 2
+            and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in p))
+
+
+def is_xyz(p):
+    return (isinstance(p, (list, tuple)) and len(p) == 3
+            and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in p))
+
+
+def origin_center(origin, pois):
+    """流れの現れる所の代表の点。origin は場所の名前か {"xy": ..}・{"line": ..}。"""
+    if isinstance(origin, str):
+        return pois[origin]["xy"]
+    if "xy" in origin:
+        return list(origin["xy"])
+    (x0, y0), (x1, y1) = origin["line"]
+    return [(x0 + x1) / 2, (y0 + y1) / 2]
+
+
+def normalize_streams(spec):
+    """座標で置いた流れに名前を付け（記録と集計は、流れを名前で呼ぶ）、名前だけで書いた行き先を {"to": 名前} にそろえる。"""
+    for i, s in enumerate(spec["streams"]):
+        if isinstance(s.get("origin"), dict) and "name" not in s:
+            s["name"] = s["origin"].get("name") or f"stream{i + 1}"
+    for owner in [*spec["streams"], (spec.get("elevator") or {}).get("alight") or {}]:
+        if "destinations" in owner:
+            owner["destinations"] = [{"to": d} if isinstance(d, str) else d for d in owner["destinations"]]
 
 
 def apply_variant(spec):
@@ -137,11 +170,50 @@ def validate(spec):
             if d.get("then"):
                 check_to(d["then"], where + ".then")
 
+    def check_origin(o, where):
+        if isinstance(o, str):
+            if o not in space.pois:
+                errs.append(f"{where}: origin {o} がない（{ORIGIN_FORMS}）")
+            return False
+        if not isinstance(o, dict) or ("xy" in o) == ("line" in o) or set(o) - {"xy", "line", "name"}:
+            errs.append(f"{where}: origin {o!r} の形が正しくない（{ORIGIN_FORMS}）")
+            return False
+        if "xy" in o:
+            pts = [o["xy"]] if is_xy(o["xy"]) else None
+        else:
+            line = o["line"]
+            ok = isinstance(line, (list, tuple)) and len(line) == 2 and all(is_xy(p) for p in line)
+            pts = [[line[0][0] + (line[1][0] - line[0][0]) * u, line[0][1] + (line[1][1] - line[0][1]) * u] for u in (0, 0.25, 0.5, 0.75, 1)] if ok else None
+        if pts is None:
+            errs.append(f"{where}: origin {o!r} の座標が正しくない（{ORIGIN_FORMS}）")
+            return False
+        for x, y in pts:
+            if not space.walkable(x, y):
+                nx, ny = space.snap(x, y, 0.3)
+                errs.append(f"{where}: origin の点 ({x:.2f}, {y:.2f}) は歩ける所の外（近くの歩ける所は ({nx:.2f}, {ny:.2f})）")
+                return False
+        return True
+
+    def check_reach(start, dests, where):
+        """座標で置いた発生位置から、行き先へ歩いて行けるか（別の部屋に置くと途中で止まるので、計算の前に知らせる）。"""
+        for d in dests:
+            names = list(d.get("via", [])) + [d.get("to")] if isinstance(d, dict) else [d]
+            for name in names:
+                if name in space.pois:
+                    try:
+                        space.route(start, space.poi_xy(name))
+                    except ValueError:
+                        errs.append(f"{where}: origin から {name} へ歩いて行けない")
+
     for i, s in enumerate(spec["streams"]):
-        if s.get("origin") not in space.pois:
-            errs.append(f"streams[{i}]: origin {s.get('origin')} がない")
+        placed = check_origin(s.get("origin"), f"streams[{i}]")
         for j, d in enumerate(s.get("destinations", [])):
             check_to(d, f"streams[{i}].destinations[{j}]")
+            frm = d.get("meet", {}).get("from") if isinstance(d, dict) else None
+            if frm is not None:
+                check_origin(frm, f"streams[{i}].destinations[{j}].meet.from")
+        if placed:
+            check_reach(origin_center(s["origin"], space.pois), s.get("destinations", []), f"streams[{i}]")
     ev = spec.get("elevator")
     if ev:
         for c in ev.get("cars", []):
@@ -149,9 +221,24 @@ def validate(spec):
                 errs.append(f"elevator: 扉 {c} がない")
         for j, d in enumerate(ev.get("alight", {}).get("destinations", [])):
             check_to(d, f"elevator.alight.destinations[{j}]")
+    names = [c.get("name") for c in spec["cameras"]]
     for c in spec["cameras"]:
-        if "eye" not in c and c.get("name") not in space.spec.get("cameras", {}):
-            errs.append(f"cameras: {c.get('name')} に eye・target がなく、空間の候補にもない")
+        n = c.get("name")
+        if not n:
+            errs.append("cameras: name がない")
+            continue
+        if names.count(n) > 1:
+            errs.append(f"cameras: {n} が 2 回ある")
+        errs += [f"cameras: {n} に知らないキー {k}（使えるのは {', '.join(sorted(CAMERA_KEYS))}）" for k in c if k not in CAMERA_KEYS]
+        full = {**space.spec.get("cameras", {}).get(n, {}), **c}
+        if not ("eye" in full and "target" in full):
+            errs.append(f"cameras: {n} に eye・target がなく、空間の候補にもない")
+        elif not (is_xyz(full["eye"]) and is_xyz(full["target"])):
+            errs.append(f"cameras: {n} の eye・target は [x, y, z]")
+        elif list(full["eye"]) == list(full["target"]):
+            errs.append(f"cameras: {n} の eye と target が同じ点")
+    if spec["render"].get("tint") not in ("per_person", False, None):
+        errs.append(f"render.tint は per_person か false（今は {spec['render'].get('tint')!r}）")
     if errs:
         raise ValueError("シナリオの誤り:\n  " + "\n  ".join(errs))
 
@@ -239,6 +326,16 @@ class Builder:
             return (x0 + (x1 - x0) * u, y0 + (y1 - y0) * u)
         return self.space.poi_xy(name)
 
+    def origin_point(self, origin):
+        """人が現れる点。origin は場所の名前か、{"xy": [x, y]}・{"line": [[x0, y0], [x1, y1]]}。"""
+        if isinstance(origin, str):
+            return self.poi_point(origin)
+        if "xy" in origin:
+            return tuple(map(float, origin["xy"]))
+        (x0, y0), (x1, y1) = origin["line"]
+        u = self.rng.random()
+        return (x0 + (x1 - x0) * u, y0 + (y1 - y0) * u)
+
     def plan_for(self, d, comp=None):
         """行き先の指定（dict か名前）→ 段取りの列。comp は同行者（待ち合わせ）を作るときの情報を返す list。"""
         if isinstance(d, str):
@@ -306,7 +403,8 @@ class Builder:
         speeds = [float(dists.sample(self.spec["people"]["speed"], self.rng)) for _ in range(size)]
         speed = self.group_speed(speeds)
         lat = self.spec["people"]["group_lateral_m"]
-        oxy = origin_xy or self.poi_point(origin)
+        oxy = origin_xy or self.origin_point(origin)
+        label = origin if isinstance(origin, str) else origin.get("name") or stream  # 記録の出発地（OD の集計に使う）
         comp = []
         base_plan = self.plan_for(d, comp)
         made = []
@@ -314,7 +412,7 @@ class Builder:
             l_pref = (k - (size - 1) / 2) * lat if size > 1 else self.rng.uniform(-0.3, 0.3)
             plan = base_plan if k == 0 else self.plan_for_copy(base_plan)
             a = self.new_agent(plan, t0 + k * self.rng.uniform(0.0, 0.4), oxy, speed if size > 1 else speeds[0], l_pref, group,
-                               {"type": typ, "stream": stream, "destination": d["to"], "origin": origin})
+                               {"type": typ, "stream": stream, "destination": d["to"], "origin": label})
             made.append(a)
         for c in comp:  # 待ち合わせ: 先に来た人（グループ全員）と、あとから来る同行者
             for a in made:
@@ -322,11 +420,13 @@ class Builder:
             cs = c["spec"]
             delay = float(dists.sample(cs.get("delay", {"type": "uniform", "min": 8, "max": 25}), self.rng))
             corigin = cs.get("from", origin)
+            cxy = self.space.poi_xy(corigin) if isinstance(corigin, str) else self.origin_point(corigin)
+            clabel = corigin if isinstance(corigin, str) else corigin.get("name") or stream
             cplan = [("gate", g) for g in cs.get("via", [])] + [("walk", c["xy"], "pass"), ("meet", c["meet"], c["face"], "companion_wait", 0.0)]
             if c["then"]:
                 cplan += self.plan_for(c["then"])
-            ca = self.new_agent(cplan, t0 + delay, self.space.poi_xy(corigin), speed, 0.3, group or f"G{self.group_n + 1:03d}",
-                                {"type": typ, "stream": stream, "destination": d["to"], "origin": corigin, "role": "companion"})
+            ca = self.new_agent(cplan, t0 + delay, cxy, speed, 0.3, group or f"G{self.group_n + 1:03d}",
+                                {"type": typ, "stream": stream, "destination": d["to"], "origin": clabel, "role": "companion"})
             if group is None:
                 self.group_n += 1
                 for a in made:

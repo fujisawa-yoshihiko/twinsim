@@ -36,7 +36,7 @@ result = twinsim.simulate(config, out_dir="runs/short")
 | `twinsim.template(name)` | Returns a template as a dict (defaults are not filled in) |
 | `twinsim.list_templates()`, `twinsim.list_spaces()` | Names of the templates and spaces |
 | `twinsim.open_result(out_dir)` | Open a finished result folder and return a `Result`, without simulating again |
-| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=True)` | Renders a result with Isaac Sim and writes `video/<camera>.mp4`. Uses a GPU. Raises `RuntimeError` if Isaac Sim is not running. `frames` is a range of simulator frames (both ends included); `tint=False` keeps the original clothing colors |
+| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None)` | Renders a result with Isaac Sim and writes `video/<camera>.mp4`. Uses a GPU. Raises `RuntimeError` if Isaac Sim is not running. `frames` is a range of simulator frames (both ends included); `tint=False` keeps the original clothing colors (`None` follows `render.tint` in the configuration) |
 
 What `config` accepts:
 
@@ -108,14 +108,74 @@ The smallest example ([examples/minimal.json](../examples/minimal.json)):
 | `duration_s`, `fps` | Length (s, default 120) and frames per second (default 30) |
 | `people` | Distribution of people: `profile` (a set of literature values: `office_commute_jp`, `leisure_low_density`), `speed`, ... |
 | `demand` | Elevator demand (`population`, `period`, `peak_pct_5min`) |
-| `streams` | Flows of people (where they appear, arrival rate, destinations) |
+| `streams` | Flows of people (where they appear, arrival rate, destinations). Where they appear is a place name or coordinates |
 | `elevator`, `gates` | Elevator operation and gate service times |
 | `cameras` | Cameras: a candidate name from the space, or your own `eye`, `target`, `focal_mm`, ... |
+| `render` | Render size (`width`, `height`), clothing colors (`tint`), placed objects (`props`) |
 | `outputs` | What to write (`ground_truth`, `frames`, `tasks`, `graph`, `mot`, `aicity`, `preview`, `validity`) |
 
-Every item and how to write distributions are in sections 2–3 of [spec.en.md](spec.en.md). The sets of literature values are in [validity.en.md](validity.en.md).
+To learn step by step, see the [tutorial](config-tutorial.en.md). Every key and how to write distributions are in the [reference](config-reference.en.md). The sets of literature values are in [validity.en.md](validity.en.md).
 
 To get ground-truth labels for object detection, list cameras in `cameras` and include `mot` in `outputs`.
+
+### Moving where people appear and the cameras
+
+Where people appear (`streams[].origin`) can be a place name or coordinates. Coordinates are world coordinates (m).
+
+```json
+"streams": [
+  {"name": "a", "origin": "entrance", "rate": 5, "destinations": ["south_exit"]},
+  {"name": "b", "origin": {"xy": [-3.0, 20.0]}, "rate": 5, "destinations": ["south_exit"]},
+  {"name": "c", "origin": {"line": [[-4.0, 20.0], [-2.0, 20.0]], "name": "north_door"}, "rate": 5, "destinations": ["south_exit"]}
+]
+```
+
+| Form | Where people appear |
+|---|---|
+| `"entrance"` | A place in the space (see the image from `twinsim show-space <space>` or the map in the GUI) |
+| `{"xy": [x, y]}` | That point |
+| `{"line": [[x0, y0], [x1, y1]]}` | Somewhere on the line (an entrance with a width) |
+
+Adding `name` sets the label used in the counts (`flow`, `od_per_min`). Without it, the stream name is used. Coordinates outside the walkable area, or from which the destinations cannot be reached, raise `ValueError` before simulating (the message shows the nearest walkable point). `meet.from` takes the same forms. Destinations are place names only; they cannot be coordinates.
+
+For cameras (`cameras[]`), values added to a candidate name override only those values. A new name requires `eye` and `target`.
+
+```json
+"cameras": [
+  {"name": "CamGate", "eye": [-1.0, 8.0, 3.0]},
+  {"name": "MyCam", "eye": [-6.0, 6.0, 2.7], "target": [-3.0, 14.5, 0.8], "focal_mm": 10.0}
+]
+```
+
+A complete example is [examples/07_move_origin_and_camera.py](../examples/07_move_origin_and_camera.py).
+
+### How the GUI maps to the configuration
+
+The GUI settings edit this same JSON. The "Advanced settings" box shows it, and "Export settings" saves it to a file. Everything the GUI can change can be written in JSON.
+
+| GUI field | JSON key |
+|---|---|
+| Duration, random seed | `duration_s`, `seed` |
+| Literature profile | `people.profile` |
+| Building population, time of day, share in the busiest 5 min | `demand.population`, `period`, `peak_pct_5min` |
+| Streams: appears at | `streams[].origin` |
+| Streams: arrivals, group size λ | `streams[].rate`, `group_size` |
+| Streams: destination weights | `streams[].destinations[].p` |
+| Elevator: arrival interval, capacity, people alighting | `elevator.schedule.interval`, `capacity`, `alight.count` |
+| Gates | `gates.<name>.service_s` |
+| Cameras: use, position, look-at point, focal length | `name`, `eye`, `target`, `focal_mm` in `cameras[]` |
+| Placed objects | `render.props` |
+
+Actions that are not settings correspond to functions.
+
+| GUI action | Code |
+|---|---|
+| Choose a template | `twinsim.template(name)` |
+| Run simulation | `twinsim.simulate(config)` |
+| Render all | `twinsim.render(out_dir)` |
+| Test render of the busiest 5 s | `twinsim.render(out_dir, frames=(a, b))`; see [examples/04_get_video.py](../examples/04_get_video.py) for finding the part |
+
+JSON only (in the GUI, write these in the "Advanced settings" box): the space (`space`), `fps`, distributions such as walking speed (`people`), adding and removing streams and destinations, gates on the way (`via`), stop time (`dwell`), the next destination (`then`), meeting (`meet`), the elevator schedule type (`schedule`) and transfer times, outputs (`outputs`), A/B comparison (`variants`), render size and clothing colors (`render`), camera image size (`width`, `height`), the graph (`graph`), and more.
 
 ### Errors
 

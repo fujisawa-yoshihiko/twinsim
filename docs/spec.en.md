@@ -59,15 +59,19 @@ Checking a space: `python -m twinsim show-space <name>` produces an image (annot
 | `seed`, `fps`, `duration_s` | Random seed (0), frames per second (30), length (120 s) |
 | `people` | `profile` (literature profile: `office_commute_jp`, `leisure_low_density`; docs/validity.md), `speed` (distribution of walking speed, default 1.34 ± 0.26 m/s, Weidmann 1993), `models` (person models; `all`), `group_size` (group size used when a stream does not specify one), `group_speed` (default `{model: moussaid2010, slope_m_s: 0.04}`; `{model: min}` matches the slowest member), `group_lateral_m` (side-by-side spacing of a pair, default 0.66, Zanlungo et al. 2017), `speed_density` (speed–density relation, default Weidmann 1993; `null` turns it off), `lateral_max_m` (how far a person can step sideways off the path to avoid others, 1.0) |
 | `demand` | Volume of elevator users: `population` (building population), `period` (`morning`, `lunch`), `peak_pct_5min` (percentage in the busiest 5 minutes, 12). Used by `rate: {type: lift_demand}` and `alight.count: {type: lift_demand}` (Peters et al. 2011) |
-| `streams[]` | Streams of people: `origin` (where people appear; for a place with a `line`, somewhere on that line), `rate` (arrival rate), `group_size`, `types`, `destinations[]`, `start_s` |
+| `streams[]` | Streams of people: `name`, `origin` (where people appear: a place name, or coordinates as `{"xy": [x, y]}` or `{"line": [[x0, y0], [x1, y1]]}`; for a line, somewhere on that line; adding `name` sets the label used in the counts), `rate` (arrival rate), `group_size`, `types`, `destinations[]`, `start_s`. Coordinates must be walkable and connected to the destinations (otherwise an error before simulating) |
 | `elevator` | `cars` (door names), `capacity`, `schedule`, `alight` (people getting off: `count`, `types`, `destinations`), `transfer_s` (boarding/alighting time per person, 1.0 s), `door_open_s` (from arrival until the first person moves, 1.0 s, provisional) |
 | `gates` | Per-gate `service_s` (interval for passing one person through one lane; seconds or a distribution; default 1.5 s, lognormal with median 2.0 s in `office_commute_jp`) |
 | `validity` | `{speed_density: judge}` judges the speed at each density against Weidmann's formula (only for the one-way corridor check) |
-| `cameras[]` | `name` (name of a candidate camera in the space) and overrides for `eye`, `target`, `focal_mm`, `width`, `height`, `clock_offset_s`, `drop_rate` |
-| `render` | `width`, `height` (1280×720), `tint` (vary clothing color per person), `props` (names of the places where objects are placed) |
+| `cameras[]` | `name` (a candidate camera in the space, or a new name) and overrides for `eye`, `target` (both `[x, y, z]`), `focal_mm` (12), `h_aperture_mm` (20.955), `width`, `height`, `clock_offset_s`, `drop_rate` (the last two are only recorded). A new name requires `eye` and `target` |
+| `render` | `width`, `height` (1280×720), `tint` (`per_person` varies clothing color per person, `false` does not; the argument of `twinsim.render(tint=...)` takes priority), `props` (names of the places where objects are placed), `gate_props` (place the gate machines, `true`) |
 | `outputs` | What to write out (`ground_truth`, `frames`, `tasks`, `graph`, `mot`, `aicity`, `preview`, `validity`) |
 | `variants`, `variant` | A/B comparison: `variants: {A: {name: value}}` together with `variant_p: name` in a destination replaces `p` |
 | `graph` | `cell_m` (cell size of the grid graph, 2 m) |
+| `mot_stride` | Write MOT boxes every N frames (1) |
+| `congestion_levels` | Boundaries of the congestion levels (people/m², `[0.10, 0.20]`) |
+| `name`, `title`, `title_en`, `description` | Name and description |
+| `calibration` | Record written by `twinsim calibrate` |
 
 Destinations (elements of `destinations[]`):
 
@@ -79,7 +83,9 @@ Destinations (elements of `destinations[]`):
 | `via` | Gates passed on the way (`[gate]`). The direction (entry/exit) is determined from the positions |
 | `dwell` | Stop duration (distribution, s) |
 | `state` | State while stopped (defaults: reception `reception`, meeting up `dwell`, sign `sign_check`) |
-| `meet` | Meeting up: `p`, `delay` (how late the companion arrives), `from` (where the companion appears), `via`. The state while waiting is `companion_wait` |
+| `glance` | How far to look around while stopped (degrees) |
+| `variant_p` | Name that replaces `p` in an A/B comparison (`variants`) |
+| `meet` | Meeting up: `p`, `delay` (how late the companion arrives), `from` (where the companion appears; same forms as `origin`), `via`. The state while waiting is `companion_wait` |
 | `then` | Destination after stopping (same format) |
 
 Elevator operation (`elevator.schedule`):
@@ -144,7 +150,7 @@ From Python: `from twinsim import api; api.run("office_gate_ev", out_dir, overri
 `python -m twinsim serve` (listens only on 127.0.0.1:8770; run `ssh -N -L 8770:localhost:8770 ampb` on your local PC and
 open the URL shown by `python -m twinsim serve --url`). Because other users share the machine, it checks a token (~/.config/twinsim/token, readable only by the owner).
 
-- Screen: on the left, the top-down image of the space (zones, places, gate lines, camera positions, look-at points and fields of view; cameras can be moved by dragging); on the right, the settings
+- Screen: on the left, the top-down image of the space (zones, places, gate lines, camera positions, look-at points and fields of view; where streams appear; cameras and stream origins can be moved by dragging); on the right, the settings
   (length, random seed, per-stream arrival rate, group size and destination weights, elevators, gates, cameras, placed objects, and a JSON field in which the whole scenario can be written) and the results
   (summary, check images, test render and rendering (started only after reviewing the estimate and confirming), videos, files).
 - API (from programs, `Authorization: Bearer <token>`): `GET /api/spaces`, `/api/spaces/<name>`, `/api/spaces/<name>/top`,

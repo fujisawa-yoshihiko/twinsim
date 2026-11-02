@@ -36,7 +36,7 @@ result = twinsim.simulate(config, out_dir="runs/short")
 | `twinsim.template(name)` | テンプレートを dict で返す（既定の値は足さない） |
 | `twinsim.list_templates()`・`twinsim.list_spaces()` | テンプレート・空間の名前の一覧 |
 | `twinsim.open_result(out_dir)` | 計算済みの結果のフォルダを開いて `Result` を返す。計算し直さない |
-| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=True)` | 計算の結果を Isaac Sim で描画して `video/<カメラ>.mp4` を作る。GPU を使う。Isaac Sim が動いていなければ `RuntimeError`。`frames` はシミュレータのコマの範囲（端を含む）、`tint=False` で服の色を変えない |
+| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None)` | 計算の結果を Isaac Sim で描画して `video/<カメラ>.mp4` を作る。GPU を使う。Isaac Sim が動いていなければ `RuntimeError`。`frames` はシミュレータのコマの範囲（端を含む）、`tint=False` で服の色を変えない（`None` なら設定の `render.tint` に従う） |
 
 `config` に渡せるもの:
 
@@ -108,14 +108,74 @@ for seed in range(5):
 | `duration_s`・`fps` | 長さ（秒、既定 120）・1 秒のコマ数（既定 30） |
 | `people` | 人の分布。`profile`（文献の値の組: `office_commute_jp`・`leisure_low_density`）、`speed` など |
 | `demand` | EV を使う人の量（`population`・`period`・`peak_pct_5min`） |
-| `streams` | 人の流れ（現れる場所・到着の率・行き先） |
+| `streams` | 人の流れ（現れる場所・到着の率・行き先）。現れる場所は場所の名前か座標 |
 | `elevator`・`gates` | EV の運行、ゲートの処理時間 |
 | `cameras` | カメラ。空間の候補の名前か、`eye`・`target`・`focal_mm` などで自分で置く |
+| `render` | 描画の大きさ（`width`・`height`）、服の色（`tint`）、置く物（`props`） |
 | `outputs` | 書き出すもの（`ground_truth`・`frames`・`tasks`・`graph`・`mot`・`aicity`・`preview`・`validity`） |
 
-全部の項目と分布の書き方は [spec.md](spec.md) の 2〜3 節。文献の値の組は [validity.md](validity.md)。
+書き方を順に学ぶには[チュートリアル](config-tutorial.md)、全部のキーと分布の書き方は[リファレンス](config-reference.md)。文献の値の組は [validity.md](validity.md)。
 
 物体検知の正解ラベルを出すには、`cameras` にカメラを書き、`outputs` に `mot` を入れる。
+
+### 人の現れる場所とカメラの位置を変える
+
+人の現れる場所（`streams[].origin`）は、場所の名前のほかに座標で書ける。座標は世界の座標（m）。
+
+```json
+"streams": [
+  {"name": "a", "origin": "entrance", "rate": 5, "destinations": ["south_exit"]},
+  {"name": "b", "origin": {"xy": [-3.0, 20.0]}, "rate": 5, "destinations": ["south_exit"]},
+  {"name": "c", "origin": {"line": [[-4.0, 20.0], [-2.0, 20.0]], "name": "north_door"}, "rate": 5, "destinations": ["south_exit"]}
+]
+```
+
+| 書き方 | 人の現れる所 |
+|---|---|
+| `"entrance"` | 空間の場所（`twinsim show-space <空間>` の図や、GUI の図で確かめる） |
+| `{"xy": [x, y]}` | その点 |
+| `{"line": [[x0, y0], [x1, y1]]}` | 線の上のどこか（幅のある入口） |
+
+`name` を足すと、集計（`flow`・`od_per_min`）での呼び名になる。書かなければ流れの名前を使う。歩ける所の外の座標や、行き先まで歩いて行けない座標は、計算の前に `ValueError` になる（近くの歩ける所も表示する）。待ち合わせの `meet.from` も同じ形で書ける。行き先は場所の名前だけで、座標では書けない。
+
+カメラ（`cameras[]`）は、候補の名前に値を足すと、その値だけを上書きする。新しい名前なら `eye` と `target` が必須。
+
+```json
+"cameras": [
+  {"name": "CamGate", "eye": [-1.0, 8.0, 3.0]},
+  {"name": "MyCam", "eye": [-6.0, 6.0, 2.7], "target": [-3.0, 14.5, 0.8], "focal_mm": 10.0}
+]
+```
+
+通しの例は [examples/07_move_origin_and_camera.py](../examples/07_move_origin_and_camera.py)。
+
+### GUI との対応
+
+GUI の設定は、この JSON を編集している。「詳しい設定」の欄に同じ JSON が出て、「設定を書き出す」でファイルにできる。GUI で変えられるものは、全部 JSON で書ける。
+
+| GUI の欄 | JSON のキー |
+|---|---|
+| 長さ・乱数の種 | `duration_s`・`seed` |
+| 文献の値の組 | `people.profile` |
+| 建物にいる人数・時間帯・混む 5 分の割合 | `demand.population`・`period`・`peak_pct_5min` |
+| 人の流れ: 現れる所 | `streams[].origin` |
+| 人の流れ: 到着・まとまりの λ | `streams[].rate`・`group_size` |
+| 人の流れ: 行き先の重み | `streams[].destinations[].p` |
+| エレベーター: 着く間隔・定員・降りる人 | `elevator.schedule.interval`・`capacity`・`alight.count` |
+| ゲート | `gates.<名前>.service_s` |
+| カメラ: 使う・位置・見る点・焦点距離 | `cameras[]` の `name`・`eye`・`target`・`focal_mm` |
+| 置く物 | `render.props` |
+
+設定ではない操作は、コードの関数に当たる。
+
+| GUI の操作 | コード |
+|---|---|
+| テンプレートを選ぶ | `twinsim.template(name)` |
+| 計算する | `twinsim.simulate(config)` |
+| 全部を描画 | `twinsim.render(out_dir)` |
+| いちばん混む 5 秒を試し撮り | `twinsim.render(out_dir, frames=(a, b))`。区間の探し方は [examples/04_get_video.py](../examples/04_get_video.py) |
+
+JSON だけで書けるもの（GUI では「詳しい設定」の欄で書く）: 空間（`space`）、`fps`、歩く速さなどの分布（`people`）、流れと行き先の追加・削除、経由するゲート（`via`）、止まる時間（`dwell`）、次の行き先（`then`）、待ち合わせ（`meet`）、EV の運行の方式（`schedule`）と乗り降りの時間、出力（`outputs`）、A/B の比較（`variants`）、描画の大きさと服の色（`render`）、カメラの画面の大きさ（`width`・`height`）、グラフ（`graph`）など。
 
 ### 誤りの知らせ方
 

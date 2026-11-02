@@ -25,6 +25,7 @@ uv run python examples/06_detection_dataset.py
 | [04_get_video.py](04_get_video.py) | Isaac Sim で描画して mp4 を取得する。人がいちばん多い区間だけ、カメラを絞る、服の色を変えない、などを選べる | 1 枚 | 2 秒・2 台で 1〜2 分 |
 | [05_frames_with_boxes.py](05_frames_with_boxes.py) | 動画のコマを取り出し、正解の枠を重ねて画像にする | なし | 数秒 |
 | [06_detection_dataset.py](06_detection_dataset.py) | 動画と正解ラベルから、物体検出の学習データ（YOLO の形）を作る | なし | 数秒 |
+| [07_move_origin_and_camera.py](07_move_origin_and_camera.py) | 人の現れる場所を座標で変える、カメラを動かす・足す | なし | 数秒 |
 
 ## コマの番号
 
@@ -45,4 +46,4 @@ uv run python examples/06_detection_dataset.py
 - 04 の既定は、人が見分けやすいように服の色を人ごとに変える。評価に使う動画は `--plain` で描く。
 - 動画の置き場所は `runs/tutorial/video/<カメラ>.mp4`。動画は git に入れない。
 
-関数の一覧は [docs/library.md](../docs/library.md)、ファイルの形は [docs/formats.md](../docs/formats.md)。
+関数の一覧は [docs/library.md](../docs/library.md)、ファイルの形は [docs/formats.md](../docs/formats.md)。JSON の設定は[チュートリアル](../docs/config-tutorial.md)と[リファレンス](../docs/config-reference.md)。

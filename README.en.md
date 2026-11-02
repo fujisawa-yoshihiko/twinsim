@@ -38,7 +38,7 @@ for row in result.frames():        # one row per frame per person (position, hea
     ...
 ```
 
-The functions, `Result` and how to write a configuration are in **[docs/library.en.md](docs/library.en.md)**; every configuration item is in [docs/spec.en.md](docs/spec.en.md). Tutorial examples are in [examples/](examples/README.en.md).
+The functions and `Result` are in **[docs/library.en.md](docs/library.en.md)**. To write a JSON configuration, see the **[tutorial](docs/config-tutorial.en.md)**; every key is in the **[reference](docs/config-reference.en.md)**. Code examples are in [examples/](examples/README.en.md).
 
 ## Commands
 
