@@ -7,7 +7,7 @@
 使える名前: simulate・open_result・Result・load_config・validate・template・list_templates・list_spaces・render。説明は docs/library.md。
 """
 
-__version__ = "0.5.0"
+__version__ = "1.0.0"
 __all__ = ["Result", "list_spaces", "list_templates", "load_config", "open_result", "render", "run", "simulate", "template", "validate"]
 
 _WHERE = {"Result": "api", "run": "api", "simulate": "api", "template": "api", "render": "api", "open_result": "api",

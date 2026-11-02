@@ -28,7 +28,10 @@ function applyI18n(root = document) {
   if (!sel) return;
   sel.value = LANG;
   sel.addEventListener("change", () => {
-    try { localStorage.setItem("twinsim-lang", sel.value); } catch (e) { /* 残せなくても読み直す */ }
+    try {
+      localStorage.setItem("twinsim-lang", sel.value);
+      if (typeof S !== "undefined" && S.spec) sessionStorage.setItem("twinsim-spec", JSON.stringify(S.spec));  // 編集中の設定を残す
+    } catch (e) { /* 残せなくても読み直す */ }
     location.reload();
   });
 })();

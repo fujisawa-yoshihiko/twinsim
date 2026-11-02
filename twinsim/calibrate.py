@@ -106,11 +106,11 @@ def calibrate(base, gate_log=None, ev_log=None, out_dir=None, ev_mode="fit", bin
     cid = cid or time.strftime("cal-%Y%m%d-%H%M%S")
     src = f"data:{cid}"
     rep = {"id": cid, "date": time.strftime("%Y-%m-%d %H:%M:%S"), "base": str(base), "files": [], "changes": [], "kept": []}
-    t0 = None
+    starts = [min(float(r["time_s"]) for r in _read(p)) for p in (gate_log, ev_log) if p]
+    t0 = min(starts) if starts else None  # 2 つの記録の早い方を 0 にする（片方に合わせると、もう片方の時刻が負になって消える）
     if gate_log:
         g = _read(gate_log)
         rep["files"].append({"kind": "gate_log", **_file_info(gate_log, g)})
-        t0 = min(float(r["time_s"]) for r in g)
         rates = gate_rates(g, t0, bin_s)
         # ゲートを通って入る流れ（行き先に via があり、出どころがゲートの外＝入館の向きの手前の流れ）と、元のシナリオでの人/分の割合
         size_default = spec["people"].get("group_size")
@@ -148,7 +148,6 @@ def calibrate(base, gate_log=None, ev_log=None, out_dir=None, ev_mode="fit", bin
     if ev_log and spec.get("elevator"):
         e = _read(ev_log)
         rep["files"].append({"kind": "ev_log", **_file_info(ev_log, e)})
-        t0 = t0 if t0 is not None else min(float(r["time_s"]) for r in e)
         by = defaultdict(list)
         for r in e:
             by[r["car"]].append(float(r["time_s"]) - t0)

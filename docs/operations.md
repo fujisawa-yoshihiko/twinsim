@@ -14,7 +14,7 @@ ampb（共用の GPU サーバー）で twinsim・Isaac Sim を動かし、手�
 
 ```bash
 # 手元の PC で（つないだままにする。8770 = twinsim の画面）
-ssh -N -L 8770:localhost:8770 -L 5174:localhost:5174 ampb
+ssh -N -L 8770:localhost:8770 ampb
 ```
 
 ```bash
@@ -47,7 +47,6 @@ cd ~/twinsim-lib && ./status.sh     # GUI のサーバー・Isaac Sim（GPU）�
 | 結果を見る | 画面の「結果」のタブで結果を選ぶ | - |
 | 人の動きを計算する | 画面の「設定」で値を変えて「計算する」、または `./run.sh run office_gate_ev` | 15 秒（CPU） |
 | 描画する | Isaac Sim を起動 → 画面の「いちばん混む 5 秒を試し撮り」か「全部を描画」、または `./run.sh render <結果>` | 試し撮り 2〜3 分、全部 1 台 42 分（GPU） |
-| 夜間に描画から比べるまで | `setsid nohup tools/night_b.sh <結果> > /dev/null 2>&1 &`（描画のあとに止まったら `--resume`） | 約 1.5 時間 |
 
 `<結果>` は `~/dt-data/twinsim/runs/<結果の名前>`（例 `~/dt-data/twinsim/runs/office_gate_ev`）。
 
@@ -58,8 +57,8 @@ cd ~/twinsim-lib && ./status.sh     # GUI のサーバー・Isaac Sim（GPU）�
 | 画面が開かない | 手元の PC の `ssh -N -L …` が切れていないか。`./status.sh` で GUI のサーバーが動いているか |
 | 「トークンが要る」と出る | ampb で `./run.sh serve --url` の URL を開き直す |
 | `./run.sh serve` で「Address already in use」 | もう動いている（`./status.sh`）。作り直すなら `./stop.sh gui` してから起動 |
-| 「Isaac Sim が受け付けていない」 | `./isaac_up.sh` で起動し、`./status.sh` で確かめる |
+| 「Isaac Sim が動いていない」 | `./isaac_up.sh` で起動し、1 分ほど待ってから `./status.sh` で確かめる |
 | 画面の新しい欄が出ない | GUI のサーバーが古いコードのまま。`./stop.sh gui` → `./run.sh serve` → ブラウザを読み直す |
-| サーバーの記録に BrokenPipeError | ブラウザが動画・ライブの映像を途中で閉じただけ。問題ない |
+| サーバーの記録に BrokenPipeError | ブラウザが動画を途中で閉じただけ。問題ない |
 
 くわしくは [README.md](../README.md)（構成・出力の形・映像を作るのにかかる時間）、[library.md](library.md)（Python から使う）。

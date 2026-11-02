@@ -28,7 +28,7 @@ Only `space` is required. Any key not listed here is an error.
 |---|---|---|---|
 | [`space`](#space) | string | required | Name of a space, or the path of a space folder |
 | `seed` | integer | `0` | Random seed |
-| `fps` | integer | `30` | Frames per second |
+| `fps` | positive integer | `30` | Frames per second |
 | `duration_s` | number | `120` | Length to simulate (seconds) |
 | [`people`](#people) | object | see below | Distribution of people |
 | [`demand`](#demand) | object | none | Amount of elevator users |
@@ -54,7 +54,7 @@ Values are stacked in this order, and later ones take priority.
 3. The configuration file
 4. `overrides` (Python) and `--set` (command line)
 
-Objects are combined key by key. Arrays are replaced as a whole. All values used in a run are written to `scenario_resolved.json`.
+Objects are combined key by key. Arrays and distributions (objects with `type`) are replaced as a whole. All values used in a run are written to `scenario_resolved.json`.
 
 <a id="space"></a>
 
@@ -75,7 +75,7 @@ Objects are combined key by key. Arrays are replaced as a whole. All values used
 | `group_lateral_m` | number | `0.66` | Side-by-side spacing of a pair (m) |
 | `lateral_max_m` | number | `1.0` | How far people can step aside from their path (m) |
 | `speed_density` | object or `null` | `{"v0": 1.34, "gamma": 1.913, "rho_max": 5.4}` | Slowing with density (Weidmann 1993). `null` turns it off |
-| `models` | `"all"` or array | `"all"` | Names of the person models to use |
+| `models` | `"all"` or array | `"all"` | Names of the person models to use (the 10 in `twinsim/characters.py`) |
 
 Values of `profile`:
 
@@ -167,7 +167,7 @@ Elements of `streams[].destinations` and `elevator.alight.destinations`. A name 
 | `state` | string | depends on the place | State while stopped: `reception` at reception, `sign_check` at a sign, otherwise `dwell` |
 | `glance` | number | stop `0`, elevator `20`, meeting `45` | How far to look around while stopped (degrees) |
 | [`meet`](#meet) | object | none | Meeting up |
-| `then` | string or object | none | Next destination after stopping (same form) |
+| `then` | string or object | none | Next destination after stopping (same form, without `meet`) |
 | `variant_p` | string | none | Name that replaces `p` in [`variants`](#variants) |
 
 Values of `to`:
@@ -370,7 +370,7 @@ Except in `uniform`, `min` and `max` clip the value. A literature name in `sourc
 
 ## Place names
 
-Names for `origin`, `to`, `via`, `cars` and `props`. To see them on a map, run `twinsim show-space <space>` (`annotate.png` in the space folder).
+Names for `origin`, `to`, `via`, `cars` and `props`. To see them on a map, run `twinsim show-space <space>` (`annotate.png` in the space folder, or in the current folder if that is not writable). The `corridor` spaces have no top-down image, so it does not work for them.
 
 | Space | Appear and leave | Gates | Elevators | Stops | Candidate cameras |
 |---|---|---|---|---|---|
@@ -387,21 +387,26 @@ The office map is in the [tutorial](config-tutorial.en.md#origin).
 
 ## Checks before simulating
 
-`twinsim.validate`, `twinsim validate` and `twinsim.simulate` check the following before simulating. All errors are reported together in one `ValueError`.
+`twinsim.validate`, `twinsim validate` and `twinsim.simulate` check the following before simulating. All errors are reported together in one `ValueError` (unknown spaces and templates raise `FileNotFoundError`).
 
 | Check | Examples |
 |---|---|
 | Unknown keys | Top-level keys and keys in `cameras[]` |
-| Value ranges | `duration_s` and `fps` are positive; values of `outputs` and `render.tint` |
-| Place names | `origin`, `to`, `via` and `cars` exist in the space |
-| Coordinates | Form of `origin` and `meet.from`; inside the walkable area; destinations reachable |
+| Value ranges | `duration_s` is positive, `fps` is a positive integer, `seed` is an integer, `mot_stride`, `graph.cell_m` is a multiple of the space's grid, values of `outputs` and `render.tint` |
+| Names | `name` and camera names use only letters, digits, `_` and `-` (they become file names) |
+| Place names | `origin`, `to`, `via`, `meet.via`, `cars`, keys of `gates` and `render.props` exist in the space; `via` is a gate; `cars` are elevators |
+| Required items | `rate`, `destinations`, and `elevator` with `cars` when `to` is `"elevator"` |
+| Spelling of kinds | `type` of `rate` and `schedule`; `variant` exists in `variants` |
+| Coordinates | Form of `origin` and `meet.from`; inside the walkable area; destinations reachable, including from both ends of a line |
 | Cameras | `name`; form of `eye` and `target`; no duplicate names; `eye` differs from `target` |
+| Combinations | `aicity` needs `mot`; `meet` can only be written on a stream's top-level destination |
 
 These are not checked.
 
-- `to: "elevator"` without `elevator`. The run works, but people keep waiting in front of the elevator.
-- Mistakes inside a distribution or `rate`. They become errors during the simulation.
+- Mistakes inside a distribution. They become errors during the simulation.
 - Unknown keys inside `people`, `elevator` and so on. They are ignored.
+
+A group size of 0 is treated as 1 person.
 
 ---
 

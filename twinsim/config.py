@@ -20,4 +20,13 @@ CALIBRATION = DATA / "calibration"
 USER_SPACES = _path("TWINSIM_SPACES", "") if os.environ.get("TWINSIM_SPACES") else None
 ISAAC_WORK = _path("TWINSIM_ISAAC_WORK", "~/isaac-sim-work/twinsim")
 TOKEN_FILE = _path("TWINSIM_TOKEN_FILE", "~/.config/twinsim/token")
-FONT_CJK = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"  # 図・動画の日本語（なければ文字なしで描く）
+FONT_CJK = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"  # 図の日本語
+
+
+def font(size):
+    """図の文字のフォント。日本語のフォントがなければ既定のフォントで描く（日本語は読めないが、図はできる）。"""
+    from PIL import ImageFont
+    try:
+        return ImageFont.truetype(FONT_CJK, size)
+    except OSError:
+        return ImageFont.load_default(size)

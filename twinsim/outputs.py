@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 import yaml
 
+from . import config
 from .camera import Camera, boxes_with_visibility, camera_dict
 from .engine import state_runs
 
@@ -63,11 +64,13 @@ def write_all(sim, builder, spec, out_dir):
         tracks[a.name] = [[round(x, 4), round(y, 4), round(((yaw + 180) % 360) - 180, 2)] for _, x, y, yaw, _ in a.frames]
         moving[a.name] = [1 if m else 0 for *_, m in a.frames]
     first_car = sim.cars[0] if sim.cars else None
+    shown = set(people)  # 計算の終わりの間際に降りて、まだ現れていない人は記録に入れない
+    ev_events = [{**e, "alighted": [n for n in e["alighted"] if n in shown]} for e in sim.ev_events]
     gt = {"fps": fps, "total_frames": total, "seed": spec["seed"], "space": sp.name, "scenario": spec.get("name"),
           "people": people, "cameras": cams, "tracks": tracks, "moving": moving,
           "elevator_times": sorted(x for c in sim.cars for x in c.arrivals if x < total / fps),
           "cars": {c.name: {"door": list(c.door), "inside": list(c.inside), "capacity": c.capacity} for c in sim.cars},
-          "elevator_events": sim.ev_events, "gate_events": sim.gate_events,
+          "elevator_events": ev_events, "gate_events": sim.gate_events,
           "spots": [list(s) for s in sim.spots], "door": list(first_car.door) if first_car else None,
           "gates": {k: {"lanes": [ln.center.tolist() for ln in g.lanes], "in_dir": g.in_dir.tolist(), "service_s": g.service_s}
                     for k, g in sim.gates.items()},
@@ -131,7 +134,7 @@ def write_all(sim, builder, spec, out_dir):
                "state_seconds": {k: round(v, 1) for k, v in states_s.most_common()},
                "max_present": max((len(v) for v in per_frame.values()), default=0),
                "elevator": {"arrivals": len(sim.ev_events), "boarded": sum(len(e["boarded"]) for e in sim.ev_events),
-                            "alighted": sum(len(e["alighted"]) for e in sim.ev_events),
+                            "alighted": sum(len(e["alighted"]) for e in ev_events),
                             "wait_mean_s": round(float(np.mean(waits)), 1) if waits else None,
                             "wait_max_s": round(float(np.max(waits)), 1) if waits else None},
                "gate_passes": Counter(e["dir"] for e in sim.gate_events),
@@ -274,7 +277,7 @@ def write_graph(sim, agents, per_frame, cams, folder, spec, cell_m=None):
     # カメラから見えるノード（ゾーン: 歩ける格子のうち見える割合、格子: 中心が見えるか）
     observed = {}
     for name, c in cams.items():
-        cam = Camera(c)
+        cam = Camera(c, sp.z)
         seen = Counter()
         tot = Counter()
         for i in range(sp.ny):
@@ -310,7 +313,7 @@ def write_mot(sp, cams, per_frame, total, folder, spec):
     stride = int(spec.get("mot_stride", 1))
     ids = {}
     for name, c in cams.items():
-        cam = Camera(c)
+        cam = Camera(c, sp.z)
         with open(folder / f"{name}.txt", "w") as fh:
             for f in range(0, total, stride):
                 rows = per_frame.get(f, [])
@@ -347,7 +350,7 @@ def write_aicity(out, agents):
 
 
 def write_preview(sp, agents, cams, path):
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw
     lv = sp.spec["levels"][0]
     tv = lv.get("top_view")
     if tv and lv.get("top_image"):
@@ -370,7 +373,7 @@ def write_preview(sp, agents, cams, path):
             return (x - sp.x0) / sp.res * S + S / 2, (sp.ny - 1 - (y - sp.y0) / sp.res) * S + S / 2
     img = Image.blend(img, Image.new("RGB", img.size, "white"), 0.35)
     d = ImageDraw.Draw(img)
-    font = ImageFont.truetype("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 14)
+    font = config.font(14)
     for z, poly in sp.zones.items():
         pts = [P(*q) for q in poly]
         d.line(pts + [pts[0]], fill=(120, 120, 120), width=1)

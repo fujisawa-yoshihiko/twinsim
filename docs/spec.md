@@ -1,4 +1,4 @@
-# twinsim の仕様（v0.2、2026-10-22）
+# twinsim の仕様
 
 [English](spec.en.md)
 
@@ -28,8 +28,8 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 
 | kind | 意味 | キー |
 |---|---|---|
-| `spawn` | 人が現れる・消える所（建物の入口など） | `xy` |
-| `exit` | 出ていく所 | `xy` |
+| `spawn` | 人が現れる・消える所（建物の入口など） | `xy` か `line`（線の上のどこか） |
+| `exit` | 出ていく所 | `xy` か `line` |
 | `gate` | 入館のゲート | `line`（両端）、`lanes`、`lanes_in`・`lanes_out`（向きごとに使うレーン）、`in_dir`（入館の向き） |
 | `elevator` | EV の扉 | `xy`（扉の前）、`face`（かごの中の点） |
 | `wait_zone` | EV 待ちの場所の範囲 | `zone`、`spacing`（間隔 m）、`door_aisle`（扉の前に空ける通り道の半分の幅 m） |
@@ -39,7 +39,7 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 空間を新しく作るとき: `python -m twinsim export-space <名前> --usd URL --region ...`（Isaac Sim で、歩ける所の格子・真上の図・
 エレベーターや扉らしい prim の一覧を作り、space.yaml のひな形を置く）→ 真上の図と一覧を見て `pois`・`zones`・`cameras` を書く。
 
-今ある空間（どれも Isaac Sim 6.1 付属、CC BY 4.0）:
+今ある空間（`corridor` 系は自作、ほかは Isaac Sim 6.1 付属で CC BY 4.0）:
 
 | 空間 | 中身 | 意味の地図 | 描画 |
 |---|---|---|---|
@@ -48,6 +48,8 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 | `warehouse` | 倉庫（北に棚 8 列の通路、南に作業の床。荷受け・梱包・待つ場所は見立て） | 済 | 済 |
 | `simple_room` | 10 m 四方の小部屋（床 z = -0.77） | 済（動作確認用） | 未対応（中から撮ると真っ暗、原因未調査） |
 | `warehouse_small` | 小さい倉庫（棚・扉・ゲートの部品） | 材料だけ（未） | 未 |
+| `corridor` | 幅 5 m・長さ 50 m の廊下（速さと密度の確かめ用） | 済 | なし（真上の図がない） |
+| `corridor_door` | 途中に幅 1 m の出入口がある廊下（ボトルネックの確かめ用） | 済 | なし（真上の図がない） |
 
 空間の確かめ: `python -m twinsim show-space <名前>` で、真上の図に歩ける所・目盛り・候補・場所・ゾーンを重ねた図（空間のフォルダの annotate.png）を作る。
 
@@ -62,7 +64,7 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 | `streams[]` | 人の流れ: `name`、`origin`（現れる場所。場所の名前か、座標の `{"xy": [x, y]}`・`{"line": [[x0, y0], [x1, y1]]}`。線なら線の上のどこか。`name` を足すと集計での呼び名になる）、`rate`（到着の率）、`group_size`、`types`、`destinations[]`、`start_s`。座標は歩ける所の中で、行き先まで歩いて行ける所に置く（外なら計算の前に誤り） |
 | `elevator` | `cars`（扉の名前）、`capacity`、`schedule`、`alight`（降りる人: `count`・`types`・`destinations`）、`transfer_s`（1 人の乗り降り、1.0 秒）、`door_open_s`（着いてから最初の人が動くまで、1.0 秒、仮） |
 | `gates` | ゲートごとの `service_s`（1 レーンで 1 人を通す間隔。秒か分布。既定 1.5 秒、`office_commute_jp` では対数正規 中央 2.0 秒） |
-| `validity` | `{speed_density: judge}` で密度ごとの速さを Weidmann の式で判定する（一方向の廊下の確かめだけ） |
+| `validity` | `{speed_density: judge}` で密度ごとの速さを Weidmann の式で判定する（一方向の廊下の確かめだけ）。`{bottleneck: {x, y: [下, 上], width_m}}` で出入口を通る流れを測る |
 | `cameras[]` | `name`（空間の候補の名前。新しい名前でもよい）と、上書きする `eye`・`target`（どちらも `[x, y, z]`）・`focal_mm`（12）・`h_aperture_mm`（20.955）・`width`・`height`・`clock_offset_s`・`drop_rate`（後ろの 2 つは記録するだけ）。新しい名前なら `eye` と `target` が必須 |
 | `render` | `width`・`height`（1280×720）、`tint`（`per_person` で人ごとに服の色を変える、`false` で変えない。`twinsim.render(tint=...)` の引数が優先）、`props`（置く物の場所の名前）、`gate_props`（ゲートの機械を置く、`true`） |
 | `outputs` | 書き出すもの（`ground_truth`・`frames`・`tasks`・`graph`・`mot`・`aicity`・`preview`・`validity`） |
@@ -116,7 +118,7 @@ EV の運行（`elevator.schedule`）:
 | `sign_check` | 案内板・サイネージを見る |
 | `companion_wait` | 同行者を待つ |
 
-## 5. 出力（結果の場所。既定は ~/dt-data/twinsim/runs/<シナリオの名前>）
+## 5. 出力（結果の場所。既定は <TWINSIM_DATA>/runs/<シナリオの名前>、TWINSIM_DATA の既定は ~/.twinsim、./run.sh では ~/dt-data/twinsim）
 
 | ファイル | 中身 |
 |---|---|
@@ -135,15 +137,13 @@ EV の運行（`elevator.schedule`）:
 ## 6. 使い方（API）
 
 ```bash
-cd ~/twinsim
-U="uv run --no-project --with numpy --with scipy --with pyyaml --with pillow --with networkx"
-$U python -m twinsim templates                                # テンプレートの一覧
-$U python -m twinsim run office_gate_ev --set duration_s=120   # 計算（CPU）。--set でシナリオの値を上書き
-$U python -m twinsim check ~/dt-data/twinsim/runs/office_gate_ev   # 確かめ
-$U python -m twinsim render ~/dt-data/twinsim/runs/office_gate_ev --frames 3000 3149   # 試し撮り（GPU）
+twinsim templates                                              # テンプレートの一覧
+twinsim run office_gate_ev --set duration_s=120 --out runs/test   # 計算（CPU）。--set でシナリオの値を上書き
+twinsim check runs/test                                        # 確かめ
+twinsim render runs/test --frames 3000 3149                    # 試し撮り（GPU）
 ```
 
-Python から: `from twinsim import api; api.run("office_gate_ev", out_dir, overrides={...}, elevator_policy=f)`。
+Python から: `twinsim.simulate("office_gate_ev", out_dir="runs/test", overrides={...}, elevator_policy=f)`（[library.md](library.md)）。
 
 ## 7. GUI と REST API
 
@@ -167,7 +167,7 @@ isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.vie
 （2026-10-22 時点、ホストのドライバーが 615.71.10 で `--vnc` の画面は作れない。上の WebRTC 方式で動く。）
 `render` は、計算の結果の人を人物モデル（10 種類、服の色は人ごとに変える）で置き、カメラごとに描いて mp4 にする。
 描画の速さ（2026-10-22 の試し撮り、1280×720、GPU 1 枚）: オフィス 30 人で 1 秒に約 5.7 コマ、倉庫 15 人で約 1.9 コマ、病院 24 人で約 1.1 コマ
-（病院は照明が多く遅い）。5 分（9,000 コマ）× 2 台の目安は、オフィス約 1 時間、倉庫約 2.6 時間、病院約 4.5 時間。
+（病院は照明が多く遅い）。5 分（9,000 コマ）× 2 台の目安は、オフィス約 1.5 時間、倉庫約 2.6 時間、病院約 4.5 時間。
 置く物: ゲートの機械（レーンを仕切る箱、自動）、サイネージ（`render.props`）、照明（空間の `lights`、部屋の中に照明がない USD 用）。
 長い描画は、始める前に所要時間と GPU を示して確認を取る（GPU は他の利用者と共有）。
 
@@ -175,13 +175,13 @@ isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.vie
 
 人の分布は文献の値で作り、計算ごとに文献の値と比べる（`validity.*`）。値と出典の一覧・確かめの基準・エンジンの確かめの結果・
 文献のない値（仮）と実データでの合わせ方は [validity.md](validity.md)。確かめ用のテンプレート: `verify_corridor_speed`（RiMEA の試験 1 に相当）、
-`verify_fundamental_diagram`（速さと密度）、`verify_groups`（グループ）、`verify_gate_capacity`（混んだゲート）。
+`verify_fundamental_diagram`（速さと密度）、`verify_groups`（グループ）、`verify_gate_capacity`（混んだゲート）、`verify_counterflow`（すれ違い）、`verify_bottleneck`（出入口）。
 
 ## 10. 既知の限界
 
 - 歩き方は「経路から横へずれてよける」簡単なモデル（hospital-sim を広げたもの）に、前の人についていく速さ（Seyfried ら 2005）・
   速さと密度の関係（Weidmann 1993）・追い越し・グループのまとまりを足したもの。すれ違いで 0.25〜0.4 m まで近づく。
-  0.25〜1 人/m² では文献より 0.1 m/s ほど遅い。RiMEA のテストケースは 1 番に当たるものだけ。双方向の流れ・階段・避難は確かめていない。
+  0.25〜1 人/m² では文献より 0.1 m/s ほど遅い。曲がり角・階段・避難は確かめていない（すれ違いと出入口は確かめた。[validity.md](validity.md) の 5 節）。
 - 入口（現れる場所）がふさがっていると、空くまで外で待つ（`events.spawn_wait_s`）。列が建物の外まで伸びる場面は、外で待つ人として数える。
 - 見えている割合（MOT の 9 列目）は近似。正確な値は描画の深度から取る（未実装）。
 - 1 つの階だけ。EV は扉で人が消える・現れるだけで、かごや他の階はない。扉の開閉のアニメーションは使っていない（オフィスの EV 1 基には開閉のアニメーションがある）。

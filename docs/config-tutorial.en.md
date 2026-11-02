@@ -298,10 +298,11 @@ The simulations so far make no video. Videos are rendered from a result with Isa
 "render": {"width": 1280, "height": 720, "tint": false}
 ```
 
-Rendering is a separate step from the configuration.
+Rendering is a separate step from the configuration. After changing the configuration, simulate again before rendering.
 
 ```bash
-./isaac_up.sh                                  # start Isaac Sim
+twinsim run config.json --out runs/first       # simulate again (CPU)
+./isaac_up.sh                                  # start Isaac Sim (wait about 1 minute)
 twinsim render runs/first --frames 300 449     # render frames 300 to 449
 isim down                                      # give the GPU back when done
 ```
@@ -321,7 +322,7 @@ twinsim run config.json --out runs/s1 --set seed=1
 twinsim run config.json --out runs/s2 --set seed=2
 ```
 
-`--set` joins nested keys with `.` (`--set people.lateral_max_m=0.8`).
+`--set` joins nested keys with `.` (`--set people.lateral_max_m=0.8`). Only `streams` accepts an index into an array (`--set streams.0.rate=30`).
 
 To compare two conditions, use `variants`. Give a destination a `variant_p` name, and its weight is replaced for each condition.
 
@@ -353,12 +354,12 @@ Unknown keys are errors before simulating, so a misspelling never runs silently 
 
 ```text
 $ twinsim validate config.json
-ValueError: シナリオの誤り:
+シナリオの誤り:
   知らないキー duraton_s（使えるのは calibration, cameras, ...）
   streams[0].destinations[0]: 行き先 south_exit2 が空間 office にない
 ```
 
-All errors are reported at once. `streams[0].destinations[0]` means the first destination of the first stream; numbering starts at 0.
+All errors are reported at once. Simulating again in the same place replaces the previous result. `streams[0].destinations[0]` means the first destination of the first stream; numbering starts at 0.
 
 The list of checks is in the [reference](config-reference.en.md#checks).
 

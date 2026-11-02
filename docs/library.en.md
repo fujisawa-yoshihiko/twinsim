@@ -54,7 +54,7 @@ for seed in range(5):
     r = twinsim.simulate("config.json", out_dir=f"runs/s{seed}", overrides={"seed": seed})
 ```
 
-Without `out_dir`, results go to `<TWINSIM_DATA>/runs/<the configuration's name>` (`TWINSIM_DATA` defaults to `~/.twinsim`). Writing to the same place again overwrites.
+Without `out_dir`, results go to `<TWINSIM_DATA>/runs/<the configuration's name>` (`TWINSIM_DATA` defaults to `~/.twinsim`). Running again in the same place replaces the previous result (videos and render records move to `before_<date>/`).
 
 ## Result
 
@@ -132,7 +132,7 @@ Where people appear (`streams[].origin`) can be a place name or coordinates. Coo
 
 | Form | Where people appear |
 |---|---|
-| `"entrance"` | A place in the space (see the image from `twinsim show-space <space>` or the map in the GUI) |
+| `"entrance"` | A place in the space (see the image from `twinsim show-space <space>` or the map in the GUI; not available for the `corridor` spaces, which have no top-down image) |
 | `{"xy": [x, y]}` | That point |
 | `{"line": [[x0, y0], [x1, y1]]}` | Somewhere on the line (an entrance with a width) |
 
@@ -220,3 +220,4 @@ result = twinsim.simulate("config.json", out_dir="runs/ev", elevator_policy=poli
 | `TWINSIM_DATA` | Default location of results (default `~/.twinsim`) |
 | `TWINSIM_SPACES` | Location of your own spaces (searched before the bundled spaces) |
 | `TWINSIM_ISAAC_WORK` | Exchange folder with Isaac Sim (default `~/isaac-sim-work/twinsim`) |
+| `TWINSIM_TOKEN_FILE` | The GUI token file (default `~/.config/twinsim/token`) |

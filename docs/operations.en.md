@@ -14,7 +14,7 @@ How to run twinsim and Isaac Sim on ampb (the shared GPU server) and view them i
 
 ```bash
 # On your local PC (keep it running. 8770 = twinsim GUI)
-ssh -N -L 8770:localhost:8770 -L 5174:localhost:5174 ampb
+ssh -N -L 8770:localhost:8770 ampb
 ```
 
 ```bash
@@ -47,7 +47,6 @@ Run the commands in the repository folder.
 | View results | Choose a result in the GUI's "Results" tab | - |
 | Compute people's movement | Change values in "Settings" and press "Run simulation (CPU)", or `./run.sh run office_gate_ev` | 15 s (CPU) |
 | Render | Start Isaac Sim → "Test render of the busiest 5 s" or "Render all" in the GUI, or `./run.sh render <run>` | test render 2–3 min, everything 42 min per camera (GPU) |
-| Overnight: render through comparison | `setsid nohup tools/night_b.sh <run> > /dev/null 2>&1 &` (if it stops after rendering, add `--resume`) | about 1.5 h |
 
 `<run>` is `~/dt-data/twinsim/runs/<run-name>` (e.g. `~/dt-data/twinsim/runs/office_gate_ev`).
 
@@ -58,8 +57,8 @@ Run the commands in the repository folder.
 | The GUI does not open | Check that `ssh -N -L …` on your local PC is still connected, and that the GUI server is running (`./status.sh`) |
 | "Token required" | Reopen the URL from `./run.sh serve --url` on ampb |
 | "Address already in use" from `./run.sh serve` | It is already running (`./status.sh`). To restart: `./stop.sh gui`, then start again |
-| "Isaac Sim is not accepting jobs" | Start it with `./isaac_up.sh` and check with `./status.sh` |
+| "Isaac Sim is not running" | Start it with `./isaac_up.sh`, wait about 1 minute and check with `./status.sh` |
 | New GUI sections do not appear | The GUI server runs old code. `./stop.sh gui` → `./run.sh serve` → reload the browser |
-| BrokenPipeError in the server log | The browser just closed a video or the live stream midway. Harmless |
+| BrokenPipeError in the server log | The browser just closed a video midway. Harmless |
 
 More: [README.en.md](../README.en.md) (structure, output formats, time to produce video), [library.en.md](library.en.md) (using it from Python).

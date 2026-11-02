@@ -42,8 +42,9 @@ def camera_dict(name, eye, target, width=1280, height=720, focal_mm=12.0, h_aper
 
 
 class Camera:
-    def __init__(self, c):
+    def __init__(self, c, floor_z=0.0):
         self.c = c
+        self.floor_z = float(floor_z)  # 床の高さ（空間の levels[0].z）。人の箱はここから立てる
         self.M = np.asarray(c["world_to_camera_rowmajor"], float)
         self.fx, self.fy, self.cx, self.cy = c["fx_px"], c["fy_px"], c["cx_px"], c["cy_px"]
         self.w, self.h = c["width"], c["height"]
@@ -52,8 +53,9 @@ class Camera:
     def project(self, pts):
         ph = np.c_[np.asarray(pts, float), np.ones(len(pts))] @ self.M
         depth = -ph[:, 2]
-        u = self.cx + self.fx * ph[:, 0] / depth
-        v = self.cy - self.fy * ph[:, 1] / depth
+        with np.errstate(divide="ignore", invalid="ignore"):  # カメラと同じ高さの面の点（呼ぶ側が depth で外す）
+            u = self.cx + self.fx * ph[:, 0] / depth
+            v = self.cy - self.fy * ph[:, 1] / depth
         return np.c_[u, v], depth
 
     def floor_point(self, u, v, z=0.0):
@@ -70,7 +72,8 @@ class Camera:
         return float(o[0] + t * d[0]), float(o[1] + t * d[1])
 
     def person_box(self, x, y, height):
-        corners = [(x + dx, y + dy, z) for dx in (-RADIUS_M, RADIUS_M) for dy in (-RADIUS_M, RADIUS_M) for z in (0.0, height)]
+        floor = self.floor_z
+        corners = [(x + dx, y + dy, z) for dx in (-RADIUS_M, RADIUS_M) for dy in (-RADIUS_M, RADIUS_M) for z in (floor, floor + height)]
         uv, depth = self.project(corners)
         if np.any(depth <= 0.1):
             return None
@@ -81,7 +84,7 @@ class Camera:
         area = (x1 - x0) * (y1 - y0)
         cx0, cy0, cx1, cy1 = max(x0, 0), max(y0, 0), min(x1, self.w), min(y1, self.h)
         inside = (cx1 - cx0) * (cy1 - cy0) / max(area, 1e-9)
-        _, d = self.project([(x, y, height / 2)])
+        _, d = self.project([(x, y, floor + height / 2)])
         return float(x0), float(y0), float(x1), float(y1), float(inside), float(d[0])
 
     def wall_blocked(self, space, x, y, run_m=1.0):
@@ -96,19 +99,19 @@ class Camera:
         ex, ey = self.eye[0], self.eye[1]
         dist = math.hypot(x - ex, y - ey)
         n = max(2, int(dist / 0.2))
-        run = 0.0
+        run, entered = 0.0, False  # 壁に付けたカメラの真下は歩けないことが多いので、最初に歩ける所へ入るまでは数えない
         for k in range(1, n):
             px, py = ex + (x - ex) * k / n, ey + (y - ey) * k / n
             if space.walkable(px, py):
-                run = 0.0
-            else:
+                run, entered = 0.0, True
+            elif entered:
                 run += dist / n
                 if run >= run_m:
                     return True
         return False
 
     def sees_floor(self, space, x, y, margin=0.0):
-        uv, d = self.project([(x, y, 0.0)])
+        uv, d = self.project([(x, y, self.floor_z)])
         if d[0] <= 0.1:
             return False
         u, v = uv[0]

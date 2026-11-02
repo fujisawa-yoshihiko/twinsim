@@ -3,8 +3,8 @@ name: warehouse_small
 title: warehouse_small
 title_en: "warehouse_small"
 usd: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Digital_Twin_Warehouse/small_warehouse_digital_twin.usd
-license: （確かめて書く）
-license_en: "(to be checked)"
+license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジットを書く）
+license_en: "CC BY 4.0 (NVIDIA Isaac Sim assets; give credit when distributing)"
 navmesh_region:
 - -6.0
 - 5.0

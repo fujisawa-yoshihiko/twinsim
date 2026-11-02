@@ -15,6 +15,7 @@ elevator_policy(sim, t) を渡すと、EV の運行を差し替えられる（�
 import csv
 import gzip
 import json
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -72,7 +73,7 @@ class Result:
         p = self.out_dir / "mot" / f"{camera}.txt"
         if not p.exists():
             raise FileNotFoundError(f"カメラ {camera} の枠がない（あるのは {', '.join(self.cameras) or 'なし'}。設定の cameras と outputs を確かめる）")
-        return np.loadtxt(p, delimiter=",", ndmin=2)
+        return np.loadtxt(p, delimiter=",", ndmin=2) if p.stat().st_size else np.empty((0, 9))
 
     @property
     def videos(self):
@@ -96,6 +97,7 @@ class Result:
         gt = self.ground_truth()
         w, h, first = gt["cameras"][camera]["width"], gt["cameras"][camera]["height"], self.video_first_frame
         start, stop = frames or (first, None)
+        start = max(start, first)  # 描いていない所から始めても、コマの番号をずらさない
         # 半コマ手前を指す（秒を丸めても、次のコマに飛ばないように）
         cmd = ["ffmpeg", "-v", "error", "-ss", f"{max(start - first - 0.5, 0) / gt['fps']:.4f}", "-i", str(self.videos[camera]),
                "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
@@ -111,12 +113,18 @@ class Result:
             proc.kill()
 
 
+# 同じ場所に計算し直すとき、前の結果から消すもの（設定によっては書かれないので、残すと新しい結果と混ざる）
+STALE_OUTPUTS = ("mot", "aicity", "graph", "logs", "preview.png", "validity.json", "validity.md", "validity.png")
+
+
 def run(scenario, out_dir, overrides=None, elevator_policy=None):
     t0 = time.monotonic()
     spec = load_scenario(scenario, overrides)
     sim, builder = build(spec)
     if elevator_policy is not None:
         sim.elevator_policy = elevator_policy
+        for car in sim.cars:  # 差し替えるので、設定の schedule で決めた到着は使わない
+            car.arrivals = []
     sim.run()
     t1 = time.monotonic()
     out0 = Path(out_dir).expanduser()
@@ -127,6 +135,13 @@ def run(scenario, out_dir, overrides=None, elevator_policy=None):
         for p in stale:
             p.rename(moved / p.name)
         print(f"前の動画・描画の記録を {moved} に移した（新しい計算と合わないため）")
+    if (out0 / "summary.json").is_file():  # 計算の結果のフォルダのときだけ（ほかのフォルダのものは消さない）
+        for name in STALE_OUTPUTS:
+            p = out0 / name
+            if p.is_dir():
+                shutil.rmtree(p)
+            else:
+                p.unlink(missing_ok=True)
     summary = write_all(sim, builder, spec, Path(out_dir).expanduser())
     summary["timing_s"] = {"simulate": round(t1 - t0, 1), "write": round(time.monotonic() - t1, 1)}
     out = Path(out_dir).expanduser()

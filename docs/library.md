@@ -54,7 +54,7 @@ for seed in range(5):
     r = twinsim.simulate("config.json", out_dir=f"runs/s{seed}", overrides={"seed": seed})
 ```
 
-`out_dir` を省くと `<TWINSIM_DATA>/runs/<設定の name>` に書く（`TWINSIM_DATA` の既定は `~/.twinsim`）。同じ場所に書き直すと上書きする。
+`out_dir` を省くと `<TWINSIM_DATA>/runs/<設定の name>` に書く（`TWINSIM_DATA` の既定は `~/.twinsim`）。同じ場所に計算し直すと、前の結果を置き換える（動画と描画の記録は `before_<日時>/` に移す）。
 
 ## Result
 
@@ -132,7 +132,7 @@ for seed in range(5):
 
 | 書き方 | 人の現れる所 |
 |---|---|
-| `"entrance"` | 空間の場所（`twinsim show-space <空間>` の図や、GUI の図で確かめる） |
+| `"entrance"` | 空間の場所（`twinsim show-space <空間>` の図や、GUI の図で確かめる。真上の図のない `corridor` 系では使えない） |
 | `{"xy": [x, y]}` | その点 |
 | `{"line": [[x0, y0], [x1, y1]]}` | 線の上のどこか（幅のある入口） |
 
@@ -220,3 +220,4 @@ result = twinsim.simulate("config.json", out_dir="runs/ev", elevator_policy=poli
 | `TWINSIM_DATA` | 結果の既定の置き場所（既定 `~/.twinsim`） |
 | `TWINSIM_SPACES` | 自分の空間の置き場所（付属の空間より先に探す） |
 | `TWINSIM_ISAAC_WORK` | Isaac Sim との受け渡しの場所（既定 `~/isaac-sim-work/twinsim`） |
+| `TWINSIM_TOKEN_FILE` | GUI のトークンのファイル（既定 `~/.config/twinsim/token`） |

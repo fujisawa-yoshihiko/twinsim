@@ -1,4 +1,4 @@
-# twinsim specification (v0.2, 2026-10-22)
+# twinsim specification
 
 [日本語](spec.md)
 
@@ -28,8 +28,8 @@ Kinds of places (`pois`):
 
 | kind | Meaning | Keys |
 |---|---|---|
-| `spawn` | Where people appear and disappear (e.g. a building entrance) | `xy` |
-| `exit` | Where people leave | `xy` |
+| `spawn` | Where people appear and disappear (e.g. a building entrance) | `xy` or `line` (somewhere on the line) |
+| `exit` | Where people leave | `xy` or `line` |
 | `gate` | Entry gate | `line` (both ends), `lanes`, `lanes_in`, `lanes_out` (lanes used for each direction), `in_dir` (direction of entry) |
 | `elevator` | Elevator (EV) door | `xy` (in front of the door), `face` (a point inside the car) |
 | `wait_zone` | Area for waiting for the elevator | `zone`, `spacing` (spacing, m), `door_aisle` (half-width, in m, of the passage kept clear in front of the door) |
@@ -39,7 +39,7 @@ Kinds of places (`pois`):
 To create a new space: `python -m twinsim export-space <name> --usd URL --region ...` (in Isaac Sim, this produces the walkable-area grid, the top-down image and
 a list of prims that look like elevators or doors, and puts a space.yaml skeleton in place) → look at the top-down image and the list, and write `pois`, `zones` and `cameras`.
 
-Existing spaces (all bundled with Isaac Sim 6.1, CC BY 4.0):
+Existing spaces (the `corridor` ones are made for twinsim; the others are bundled with Isaac Sim 6.1, CC BY 4.0):
 
 | Space | Contents | Semantic map | Rendering |
 |---|---|---|---|
@@ -48,6 +48,8 @@ Existing spaces (all bundled with Isaac Sim 6.1, CC BY 4.0):
 | `warehouse` | Warehouse (aisles between 8 rows of shelves to the north, a work floor to the south; the receiving, packing and waiting areas are assumed) | Done | Done |
 | `simple_room` | Small 10 m × 10 m room (floor z = -0.77) | Done (for smoke testing) | Not supported (completely dark when shot from inside; cause not investigated) |
 | `warehouse_small` | Small warehouse (shelf, door and gate parts) | Materials only (not done) | Not done |
+| `corridor` | Corridor 5 m wide and 50 m long (for checking speed and density) | Done | None (no top-down image) |
+| `corridor_door` | Corridor with a 1 m opening partway (for checking bottlenecks) | Done | None (no top-down image) |
 
 Checking a space: `python -m twinsim show-space <name>` produces an image (annotate.png in the space folder) that overlays the walkable area, scale ticks, candidates, places and zones on the top-down image.
 
@@ -62,7 +64,7 @@ Checking a space: `python -m twinsim show-space <name>` produces an image (annot
 | `streams[]` | Streams of people: `name`, `origin` (where people appear: a place name, or coordinates as `{"xy": [x, y]}` or `{"line": [[x0, y0], [x1, y1]]}`; for a line, somewhere on that line; adding `name` sets the label used in the counts), `rate` (arrival rate), `group_size`, `types`, `destinations[]`, `start_s`. Coordinates must be walkable and connected to the destinations (otherwise an error before simulating) |
 | `elevator` | `cars` (door names), `capacity`, `schedule`, `alight` (people getting off: `count`, `types`, `destinations`), `transfer_s` (boarding/alighting time per person, 1.0 s), `door_open_s` (from arrival until the first person moves, 1.0 s, provisional) |
 | `gates` | Per-gate `service_s` (interval for passing one person through one lane; seconds or a distribution; default 1.5 s, lognormal with median 2.0 s in `office_commute_jp`) |
-| `validity` | `{speed_density: judge}` judges the speed at each density against Weidmann's formula (only for the one-way corridor check) |
+| `validity` | `{speed_density: judge}` judges the speed at each density against Weidmann's formula (only for the one-way corridor check). `{bottleneck: {x, y: [low, high], width_m}}` measures the flow through an opening |
 | `cameras[]` | `name` (a candidate camera in the space, or a new name) and overrides for `eye`, `target` (both `[x, y, z]`), `focal_mm` (12), `h_aperture_mm` (20.955), `width`, `height`, `clock_offset_s`, `drop_rate` (the last two are only recorded). A new name requires `eye` and `target` |
 | `render` | `width`, `height` (1280×720), `tint` (`per_person` varies clothing color per person, `false` does not; the argument of `twinsim.render(tint=...)` takes priority), `props` (names of the places where objects are placed), `gate_props` (place the gate machines, `true`) |
 | `outputs` | What to write out (`ground_truth`, `frames`, `tasks`, `graph`, `mot`, `aicity`, `preview`, `validity`) |
@@ -116,7 +118,7 @@ Arrival rates (`per_min` is groups per minute; with `unit: persons` it is person
 | `sign_check` | Looking at a sign / signage |
 | `companion_wait` | Waiting for a companion |
 
-## 5. Outputs (location of results; default ~/dt-data/twinsim/runs/<scenario name>)
+## 5. Outputs (location of results; default <TWINSIM_DATA>/runs/<scenario name>, TWINSIM_DATA defaults to ~/.twinsim, and to ~/dt-data/twinsim with ./run.sh)
 
 | File | Contents |
 |---|---|
@@ -135,15 +137,13 @@ Arrival rates (`per_min` is groups per minute; with `unit: persons` it is person
 ## 6. Usage (API)
 
 ```bash
-cd ~/twinsim
-U="uv run --no-project --with numpy --with scipy --with pyyaml --with pillow --with networkx"
-$U python -m twinsim templates                                # list templates
-$U python -m twinsim run office_gate_ev --set duration_s=120   # compute (CPU); --set overrides scenario values
-$U python -m twinsim check ~/dt-data/twinsim/runs/office_gate_ev   # check
-$U python -m twinsim render ~/dt-data/twinsim/runs/office_gate_ev --frames 3000 3149   # test render (GPU)
+twinsim templates                                              # list templates
+twinsim run office_gate_ev --set duration_s=120 --out runs/test   # compute (CPU); --set overrides scenario values
+twinsim check runs/test                                        # check
+twinsim render runs/test --frames 3000 3149                    # test render (GPU)
 ```
 
-From Python: `from twinsim import api; api.run("office_gate_ev", out_dir, overrides={...}, elevator_policy=f)`.
+From Python: `twinsim.simulate("office_gate_ev", out_dir="runs/test", overrides={...}, elevator_policy=f)` ([library.en.md](library.en.md)).
 
 ## 7. GUI and REST API
 
@@ -167,7 +167,7 @@ isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.vie
 (As of 2026-10-22, the host driver is 615.71.10 and the `--vnc` display cannot be created. It works with the WebRTC method above.)
 `render` places the computed people as person models (10 kinds, with clothing color varied per person), renders each camera, and writes mp4 files.
 Rendering speed (test renders on 2026-10-22, 1280×720, 1 GPU): about 5.7 frames per second for the office with 30 people, about 1.9 frames for the warehouse with 15 people, about 1.1 frames for the hospital with 24 people
-(the hospital is slow because it has many lights). Rough estimates for 5 minutes (9,000 frames) × 2 cameras: office about 1 hour, warehouse about 2.6 hours, hospital about 4.5 hours.
+(the hospital is slow because it has many lights). Rough estimates for 5 minutes (9,000 frames) × 2 cameras: office about 1.5 hours, warehouse about 2.6 hours, hospital about 4.5 hours.
 Placed objects: gate machines (boxes separating the lanes; automatic), signage (`render.props`), lights (the space's `lights`; for USDs with no lights inside the rooms).
 For long renders, state the expected duration and the GPUs and get confirmation before starting (the GPUs are shared with other users).
 
@@ -175,13 +175,13 @@ For long renders, state the expected duration and the GPUs and get confirmation 
 
 The distributions of people are built from literature values, and every run is compared with the literature values (`validity.*`). The list of values and sources, the verification criteria, the engine verification results,
 and the values without literature (provisional) and how to calibrate them with real data are in [validity.en.md](validity.en.md). Verification templates: `verify_corridor_speed` (equivalent to RiMEA test 1),
-`verify_fundamental_diagram` (speed and density), `verify_groups` (groups), `verify_gate_capacity` (a crowded gate).
+`verify_fundamental_diagram` (speed and density), `verify_groups` (groups), `verify_gate_capacity` (a crowded gate), `verify_counterflow` (passing in opposite directions), `verify_bottleneck` (an opening).
 
 ## 10. Known limitations
 
 - Walking uses a simple "step sideways off the path to avoid others" model (an extension of hospital-sim), with added following speed behind the person in front (Seyfried et al. 2005),
   the speed–density relation (Weidmann 1993), overtaking and group cohesion. When people pass each other they come as close as 0.25–0.4 m.
-  At 0.25–1 persons/m², speeds are about 0.1 m/s slower than in the literature. Of the RiMEA test cases, only the equivalent of test 1 is covered. Bidirectional flow, stairs and evacuation have not been verified.
+  At 0.25–1 persons/m², speeds are about 0.1 m/s slower than in the literature. Corners, stairs and evacuation have not been checked (passing in opposite directions and openings have; see section 5 of [validity.en.md](validity.en.md)).
 - If the entrance (spawn place) is blocked, people wait outside until it clears (`events.spawn_wait_s`). When a queue extends outside the building, those people are counted as waiting outside.
 - The visible fraction (9th column of MOT) is approximate. Exact values would be taken from the rendered depth (not implemented).
 - Single floor only. Elevators only make people disappear and appear at the doors; there are no cars and no other floors. Door open/close animations are not used (one of the office elevators has an open/close animation).

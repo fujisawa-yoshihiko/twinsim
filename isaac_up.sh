@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 描画のための Isaac Sim を、twinsim の受け付けで起動する（共用の GPU なので、空きを確かめてから）。
 #   ./isaac_up.sh [GPU の番号]      止めるとき: isim down
-#   番号を省くと、動いている MOPF と同じ GPU に載せる（one-gpu が選ぶ。既定は GPU 3）
+#   番号を省くと、one-gpu があれば、自分のほかの計算と同じ GPU に載せる（既定は GPU 3）。なければ isim が空きを選ぶ
 set -e
 if command -v one-gpu >/dev/null; then GPU=$(one-gpu isim "${1:-}"); else GPU=${1:+--gpu $1}; fi   # 他の人のジョブがある GPU なら、ここで止まる
 nvidia-smi --query-gpu=index,memory.used,utilization.gpu --format=csv,noheader

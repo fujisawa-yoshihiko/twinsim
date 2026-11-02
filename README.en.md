@@ -13,8 +13,14 @@ It can be called as a Python library. When video is needed, it is rendered with 
 pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git"   # private repository: read access is required
 ```
 
-Python 3.10 or later. The only dependencies are numpy, scipy, pyyaml, pillow, networkx and matplotlib. No GPU is needed (only rendering needs Isaac Sim and a GPU).
-The spaces and templates are included in the package.
+Python 3.10 or later. The dependencies are numpy, scipy, pyyaml, pillow, networkx and matplotlib. No GPU is needed (only rendering needs Isaac Sim and a GPU).
+The spaces and templates are included in the package. Reading videos needs ffmpeg. Japanese text in figures uses Noto Sans CJK (`fonts-noto-cjk` on Ubuntu; without it the labels in figures are harder to read).
+
+The examples (`examples/`) and documents are not in the package, so get the repository to run the examples.
+
+```bash
+git clone https://github.com/fujisawa-yoshihiko/twinsim.git && cd twinsim && uv sync
+```
 
 ## Using it from Python
 
@@ -55,7 +61,7 @@ Inside this repository, use `./run.sh <command>` (results go to `~/dt-data/twins
 
 ## GUI
 
-`./run.sh serve` starts the GUI (127.0.0.1:8770); `./run.sh serve --url` shows the URL to open. From your own PC, keep `ssh -N -L 8770:localhost:8770 ampb` running while you open it.
+`twinsim serve` starts the GUI (127.0.0.1:8770); `twinsim serve --url` shows the URL to open. From another PC, keep `ssh -N -L 8770:localhost:8770 <server>` running while you open it. Inside the repository, `./run.sh serve` also works (it keeps results in `~/dt-data/twinsim`).
 There are two tabs: Settings (scenario, distribution of people, cameras) and Results (summary, check figure, comparison with the literature, videos, downloads). The top right switches between 日本語 and English.
 
 ## Rendering (GPU)
@@ -64,6 +70,8 @@ There are two tabs: Settings (scenario, distribution of people, cameras) and Res
 ./isaac_up.sh                                      # start Isaac Sim (one-gpu chooses the GPU; stop it with isim down)
 ./run.sh render runs/test --frames 7395 7544       # a test render (twinsim.render from code)
 ```
+
+Rendering needs the repository's `./isaac_up.sh` and the Isaac Sim environment `isim`.
 
 | Stage | office_gate_ev (5 min, 94 people, 2 cameras, 1280×720) | Relative to video length |
 |---|---|---|
@@ -75,7 +83,7 @@ Rendering speed depends on the space (frames per second: office 3.5–5.7, wareh
 
 ## Output formats (training data and ground-truth labels)
 
-Ground-truth labels for object detection and tracking, and training data for people-flow prediction, GNNs and VLMs. Details are in [docs/formats.md](docs/formats.md).
+Ground-truth labels for object detection and tracking, and training data for people-flow prediction, GNNs and VLMs. Details are in [docs/formats.en.md](docs/formats.en.md).
 Coordinates are world meters (Z up); simulator frames start at 0 (seconds = frame ÷ 30).
 
 | File | Format | Contents |
@@ -88,7 +96,7 @@ Coordinates are world meters (Z up); simulator frames start at 0 (seconds = fram
 | `video/<camera>.mp4` | H.264 | Rendered video (1280×720, 30 fps). Frame k = `frames[0]` in `render_log.json` + k |
 | `tasks.json` | JSON | Ground truth for the six tasks on p. 7 of the research plan (counts, gate crossings, dwelling, groups, congestion, destinations, elevator waits) |
 | `graph/` | JSON, CSV, NPZ, GraphML | Zone graph and 2 m grid graph, per-second counts, per-minute flows, what each camera sees |
-| `logs/` | CSV | Gate crossing logs and elevator operation logs (the same format as real data) |
+| `logs/` | CSV | Gate crossing logs and elevator operation logs (the same format as real data). Made with `twinsim export-logs <run>` |
 | `<TWINSIM_DATA>/ward/<space>_ward_layout.json` | JSON | Ward beds, nurse-station layouts, and the walkable distances and paths between them (`twinsim ward-layout`) |
 
 States: `pass`, `gate_queue`, `ev_approach`, `ev_wait`, `alight`, `reception`, `dwell`, `sign_check`, `companion_wait` (warehouse: `work`, `wait`).
@@ -129,3 +137,7 @@ The sources, the check results and the assumed values are in [docs/validity.en.m
 | `warehouse_picking` | Warehouse picking ("work, wait, move" in the factory diagram). Receiving → shelf → packing → wait → shelf → packing → leave |
 | `simple_room_smoke` | Operation check (small room, 20 s) |
 | `verify_corridor_speed`, `verify_fundamental_diagram`, `verify_groups`, `verify_gate_capacity`, `verify_counterflow`, `verify_bottleneck` | Engine verification (walking straight, speed and density, groups, a crowded gate, counterflow, a 1 m wide doorway). The results are in section 5 of docs/validity.en.md |
+
+## Assets
+
+The images and walkable maps of the spaces `office`, `hospital`, `warehouse`, `warehouse_small` and `simple_room` are made from NVIDIA Isaac Sim assets (CC BY 4.0, https://creativecommons.org/licenses/by/4.0/ ). See [NOTICE.md](NOTICE.md).

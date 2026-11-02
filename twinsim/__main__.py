@@ -23,8 +23,8 @@ from pathlib import Path
 
 import yaml
 
-from . import api, config
-from .scenario import TEMPLATES, load_config, load_scenario, read_config
+from . import __version__, api, config
+from .scenario import TEMPLATES, deep_merge, load_config, load_scenario, read_config
 from .space import list_spaces
 
 
@@ -42,11 +42,19 @@ def parse_set(items):
 
 
 def main(argv=None):
-    argv = sys.argv[1:] if argv is None else argv
+    try:
+        return cli(sys.argv[1:] if argv is None else argv)
+    except (ValueError, FileNotFoundError) as e:  # 設定の誤りは、スタックトレースなしで知らせる
+        print(e, file=sys.stderr)
+        return 1
+
+
+def cli(argv):
     if argv[:1] == ["serve"]:
         from .server import main as serve
         return serve(argv[1:])
     ap = argparse.ArgumentParser(prog="twinsim")
+    ap.add_argument("--version", action="version", version=f"twinsim {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("spaces")
     sub.add_parser("templates")
@@ -145,14 +153,12 @@ def main(argv=None):
         print("validity:", Path(a.run_dir).expanduser() / "validity.md")
     elif a.cmd == "run":
         over = parse_set(a.set)
-        # streams.0.x のような番号つきの指定は、読んだシナリオに直接当てる
-        spec = load_scenario(a.scenario)
-        for key in [k for k in over if k == "streams"]:
-            for idx, sub_over in over.pop(key).items():
-                from .scenario import deep_merge
-                spec["streams"][int(idx)] = deep_merge(spec["streams"][int(idx)], sub_over)
+        streams = over.pop("streams", {})
+        spec = load_scenario(a.scenario, over)  # people.profile の順の決まりどおりに重ねる
+        for idx, sub_over in streams.items():  # streams.0.x のような番号つきの指定は、読んだシナリオに直接当てる
+            spec["streams"][int(idx)] = deep_merge(spec["streams"][int(idx)], sub_over)
         out = a.out or str(config.RUNS / (spec.get("name") or Path(a.scenario).stem))
-        summary = api.run(spec, out, overrides=over)
+        summary = api.run(spec, out)
         print(json.dumps({k: summary[k] for k in ("people", "groups", "max_present", "elevator", "gate_passes", "timing_s")},
                          ensure_ascii=False, default=str))
         print("out:", out)

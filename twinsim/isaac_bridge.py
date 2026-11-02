@@ -38,11 +38,12 @@ def ready(max_age_s=30):
 def submit(script, job, name, wait_s=4 * 3600, poll=5):
     """job（dict）を jobs/<name>.json に書き、isaac/<script> を JOB つきで実行させて、outbox の結果（文字列）を返す。"""
     sync()
-    (WORK / "jobs" / f"{name}.json").write_text(json.dumps(job, ensure_ascii=False))
+    (WORK / "jobs" / f"{name}.json").write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
     out = WORK / "outbox" / f"{name}.txt"
     out.unlink(missing_ok=True)
-    body = (f'JOB = "{CONTAINER}/jobs/{name}.json"\n'
-            f'exec(compile(open("{CONTAINER}/isaac/{script}", encoding="utf-8").read(), "{script}", "exec"))\n')
+    # 名前は設定から来るので、json.dumps で文字列として埋める（そのまま埋めると Isaac Sim の中で Python として動いてしまう）
+    body = (f'JOB = {json.dumps(f"{CONTAINER}/jobs/{name}.json")}\n'
+            f'exec(compile(open({json.dumps(f"{CONTAINER}/isaac/{script}")}, encoding="utf-8").read(), {json.dumps(script)}, "exec"))\n')
     tmp = WORK / "inbox" / f"{name}.py.tmp"
     tmp.write_text(body)
     tmp.rename(WORK / "inbox" / f"{name}.py")
@@ -73,21 +74,42 @@ def encode(frames_dir, mp4, fps, frames=None):
         pngs = [p for p in pngs if frames[0] <= frame_no(p) <= frames[1]]
     if not pngs:
         return None
-    lst = Path(mp4).with_suffix(".txt")
-    lst.write_text("".join(f"file '{p}'\nduration {1 / fps:.6f}\n" for p in pngs))
-    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lst), "-r", str(fps),
-                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", str(mp4)], check=True)
-    lst.unlink()
+    numbers = [frame_no(p) for p in pngs]
+    if numbers != list(range(numbers[0], numbers[0] + len(numbers))):  # 抜けたまま動画にすると、以降が正解とずれる
+        raise RuntimeError(f"描画のコマが抜けている（{frames_dir}: {len(numbers)} 枚、{numbers[0]}〜{numbers[-1]}）")
+    # 画像を順に流し込み、入力の時点で一定の間隔にする（concat の duration は丸められ、-r で途中に 1 コマ増えて、以降が正解とずれる）
+    cmd = ["ffmpeg", "-loglevel", "error", "-y", "-f", "image2pipe", "-framerate", str(fps), "-c:v", "png", "-i", "-",
+           "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", str(mp4)]
+    with subprocess.Popen(cmd, stdin=subprocess.PIPE) as proc:
+        for p in pngs:
+            proc.stdin.write(p.read_bytes())
+        proc.stdin.close()
+    if proc.returncode:
+        raise RuntimeError(f"ffmpeg が失敗（終了コード {proc.returncode}）: {mp4}")
     return len(pngs)
+
+
+def check_render_args(gt, frames, cameras):
+    """描くコマとカメラが、この結果にあるものか。"""
+    if not isinstance(cameras, (list, tuple, type(None))):
+        raise ValueError("cameras はカメラの名前の配列")
+    unknown = [c for c in cameras or [] if c not in gt["cameras"]]
+    if unknown:
+        raise ValueError(f"カメラ {unknown} がない（あるのは {', '.join(gt['cameras'])}）")
+    if frames is not None:
+        a, b = frames
+        if not (isinstance(a, int) and isinstance(b, int) and 0 <= a <= b < gt["total_frames"]):
+            raise ValueError(f"frames は 0 以上 {gt['total_frames']} 未満の [始まり, 終わり]（今は {frames}）")
 
 
 def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None):
     """計算の結果（run_dir）を描画し、run_dir/video/<カメラ>.mp4 を作る。frames=(始まり, 終わり) で範囲を絞る（試し撮り）。
     tint は人ごとに服の色を変えるか。None なら設定の render.tint に従う。"""
-    run = Path(run_dir).expanduser()
+    run = Path(run_dir).expanduser().resolve()
     gt = json.loads((run / "ground_truth.json").read_text())
     spec = yaml.safe_load((run / "scenario_resolved.yaml").read_text(encoding="utf-8"))
-    sp = load_space(gt["space"])
+    sp = load_space(spec.get("space", gt["space"]))
+    check_render_args(gt, frames, cameras)
     if tint is None:
         tint = bool(spec.get("render", {}).get("tint", "per_person"))
     name = run.name
@@ -109,7 +131,12 @@ def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None):
            "cameras": cameras or [], "props": props, "tint": tint, "preset": preset, "z": sp.z, "lights": sp.spec.get("lights", [])}
     t0 = time.monotonic()
     log = submit("render.py", job, f"render_{name}")
+    if log == "timeout" or "[error]" in log:
+        raise RuntimeError(f"描画に失敗した: {log[-500:]}")
     r = finish_render(run, log, (f0, f1), cameras)
+    missing = [c for c, n in r["videos"].items() if n is None]
+    if missing:
+        raise RuntimeError(f"描画の画像がない: {', '.join(missing)}")
     r["seconds"] = round(time.monotonic() - t0, 1)
     return r
 

@@ -4,6 +4,7 @@ import copy
 import json
 import math
 import random
+import re
 from pathlib import Path
 
 import numpy as np
@@ -43,8 +44,20 @@ ORIGIN_FORMS = '場所の名前か、{"xy": [x, y]}・{"line": [[x0, y0], [x1, y
 def deep_merge(base, over):
     out = copy.deepcopy(base)
     for k, v in (over or {}).items():
-        out[k] = deep_merge(out[k], v) if isinstance(v, dict) and isinstance(out.get(k), dict) else copy.deepcopy(v)
+        # 分布（type を持つ dict）は丸ごと置き換える。混ぜると、既定の min・max が書いた分布を黙って切ってしまう
+        out[k] = deep_merge(out[k], v) if isinstance(v, dict) and "type" not in v and isinstance(out.get(k), dict) else copy.deepcopy(v)
     return out
+
+
+def plain(v):
+    """numpy の数や Path を、JSON と YAML に書ける形にする。"""
+    if isinstance(v, dict):
+        return {k: plain(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [plain(x) for x in v]
+    if isinstance(v, Path):
+        return str(v)
+    return v.item() if hasattr(v, "dtype") and hasattr(v, "item") else v
 
 
 def _parse_json(text, where):
@@ -91,6 +104,7 @@ def load_scenario(src, overrides=None):
     spec = deep_merge(base, spec)
     if overrides:
         spec = deep_merge(spec, overrides)
+    spec = plain(spec)
     if "space" not in spec:
         raise ValueError("設定に space（空間の名前かフォルダの場所）がない")
     apply_variant(spec)
@@ -100,6 +114,11 @@ def load_scenario(src, overrides=None):
 
 
 load_config = load_scenario
+
+
+def is_safe_name(name):
+    """ファイルの名前に使う名前（設定の name・カメラの名前）か。/ や .. を通すと結果の外に書いてしまう。"""
+    return isinstance(name, str) and re.fullmatch(r"[\w-]+", name) is not None
 
 
 def is_xy(p):
@@ -154,20 +173,43 @@ def validate(spec):
     for k in ("duration_s", "fps"):
         if not isinstance(spec.get(k), (int, float)) or isinstance(spec.get(k), bool) or spec[k] <= 0:
             errs.append(f"{k} は正の数（今は {spec.get(k)!r}）")
+    if isinstance(spec.get("fps"), float) and not spec["fps"].is_integer():
+        errs.append(f"fps は正の整数（今は {spec['fps']!r}）")
+    if not isinstance(spec.get("seed"), int) or isinstance(spec.get("seed"), bool):
+        errs.append(f"seed は整数（今は {spec.get('seed')!r}）")  # null だと実行ごとに結果が変わる
     errs += [f"outputs に知らない名前 {o}（使えるのは {', '.join(OUTPUTS)}）" for o in spec["outputs"] if o not in OUTPUTS]
+    if "aicity" in spec["outputs"] and "mot" not in spec["outputs"]:
+        errs.append("outputs の aicity には mot も要る")
+    stride = spec.get("mot_stride", 1)
+    if not isinstance(stride, int) or isinstance(stride, bool) or stride < 1:
+        errs.append(f"mot_stride は 1 以上の整数（今は {stride!r}）")
+    cell = (spec.get("graph") or {}).get("cell_m", 2.0)
+    if not isinstance(cell, (int, float)) or cell <= 0 or abs(cell / space.res - round(cell / space.res)) > 1e-9:
+        errs.append(f"graph.cell_m は空間の格子 {space.res} m の倍数（今は {cell!r}）")
+    if spec.get("variant") is not None and spec["variant"] not in (spec.get("variants") or {}):
+        errs.append(f"variant {spec['variant']} が variants にない")
+    errs += [f"gates: {k} はゲートの場所ではない" for k in spec["gates"] if space.pois.get(k, {}).get("kind") != "gate"]
+    errs += [f"render.props: 場所 {k} がない" for k in spec["render"].get("props", []) if k not in space.pois]
+    if spec.get("name") is not None and not is_safe_name(spec["name"]):
+        errs.append(f"name に使えるのは文字・数字・_・- だけ（今は {spec['name']!r}）")
 
     def check_to(d, where):
         to = d.get("to") if isinstance(d, dict) else d
         if to is None:
             errs.append(f"{where}: to がない")
             return
-        if to != "elevator" and to not in space.pois and not any(k.startswith(to + "_") for k in space.pois):
+        if to == "elevator":
+            if not spec.get("elevator"):
+                errs.append(f"{where}: 行き先 elevator には elevator の設定が要る")
+        elif to not in space.pois and not any(k.startswith(to + "_") for k in space.pois):
             errs.append(f"{where}: 行き先 {to} が空間 {space.name} にない")
         if isinstance(d, dict):
-            for g in d.get("via", []):
-                if g not in space.pois:
+            for g in [*d.get("via", []), *(d.get("meet") or {}).get("via", [])]:
+                if space.pois.get(g, {}).get("kind") != "gate":
                     errs.append(f"{where}: ゲート {g} がない")
             if d.get("then"):
+                if isinstance(d["then"], dict) and d["then"].get("meet"):
+                    errs.append(f"{where}.then: meet は一番上の行き先にだけ書ける")
                 check_to(d["then"], where + ".then")
 
     def check_origin(o, where):
@@ -194,38 +236,66 @@ def validate(spec):
                 return False
         return True
 
-    def check_reach(start, dests, where):
+    def origin_ends(o):
+        return [o["xy"]] if "xy" in o else o["line"]
+
+    def check_reach(starts, names, where):
         """座標で置いた発生位置から、行き先へ歩いて行けるか（別の部屋に置くと途中で止まるので、計算の前に知らせる）。"""
-        for d in dests:
-            names = list(d.get("via", [])) + [d.get("to")] if isinstance(d, dict) else [d]
+        for start in starts:
             for name in names:
                 if name in space.pois:
                     try:
                         space.route(start, space.poi_xy(name))
                     except ValueError:
-                        errs.append(f"{where}: origin から {name} へ歩いて行けない")
+                        errs.append(f"{where}: {start} から {name} へ歩いて行けない")
 
-    for i, s in enumerate(spec["streams"]):
-        placed = check_origin(s.get("origin"), f"streams[{i}]")
-        for j, d in enumerate(s.get("destinations", [])):
-            check_to(d, f"streams[{i}].destinations[{j}]")
-            frm = d.get("meet", {}).get("from") if isinstance(d, dict) else None
-            if frm is not None:
-                check_origin(frm, f"streams[{i}].destinations[{j}].meet.from")
+    if not isinstance(spec["streams"], list):
+        errs.append("streams は配列")
+    for i, s in enumerate(spec["streams"] if isinstance(spec["streams"], list) else []):
+        where = f"streams[{i}]"
+        placed = check_origin(s.get("origin"), where)
+        rate = s.get("rate")
+        if rate is None:
+            errs.append(f"{where}: rate がない")
+        elif isinstance(rate, dict) and rate.get("type", "constant") not in ("constant", "piecewise", "lift_demand", "times"):
+            errs.append(f"{where}: rate の type {rate['type']} は使えない（constant・piecewise・lift_demand・times）")
+        if not s.get("destinations"):
+            errs.append(f"{where}: destinations がない")
+        names = []
+        for j, d in enumerate(s.get("destinations") or []):
+            check_to(d, f"{where}.destinations[{j}]")
+            names += [*d.get("via", []), d.get("to")] if isinstance(d, dict) else [d]
+            meet = d.get("meet") if isinstance(d, dict) else None
+            if meet and "from" in meet and check_origin(meet["from"], f"{where}.destinations[{j}].meet.from"):
+                check_reach(origin_ends(meet["from"]), [d.get("to")], f"{where}.destinations[{j}].meet.from")
         if placed:
-            check_reach(origin_center(s["origin"], space.pois), s.get("destinations", []), f"streams[{i}]")
+            check_reach(origin_ends(s["origin"]), names, where)
     ev = spec.get("elevator")
     if ev:
+        if not ev.get("cars"):
+            errs.append("elevator: cars がない")
         for c in ev.get("cars", []):
-            if c not in space.pois:
+            if space.pois.get(c, {}).get("kind") != "elevator":
                 errs.append(f"elevator: 扉 {c} がない")
-        for j, d in enumerate(ev.get("alight", {}).get("destinations", [])):
+        if not any(p.get("kind") == "wait_zone" for p in space.pois.values()):
+            errs.append(f"elevator: 空間 {space.name} に EV を待つ場所がない")
+        kind = (ev.get("schedule") or {}).get("type", "interval")
+        if kind not in ("interval", "times", "on_demand"):
+            errs.append(f"elevator.schedule の type {kind} は使えない（interval・times・on_demand）")
+        for j, d in enumerate((ev.get("alight") or {}).get("destinations", [])):
             check_to(d, f"elevator.alight.destinations[{j}]")
+            if isinstance(d, dict) and d.get("meet"):
+                errs.append(f"elevator.alight.destinations[{j}]: meet は流れの行き先にだけ書ける")
+    if not isinstance(spec["cameras"], list) or not all(isinstance(c, dict) for c in spec["cameras"]):
+        raise ValueError("シナリオの誤り:\n  " + "\n  ".join([*errs, "cameras はカメラのオブジェクトの配列"]))
     names = [c.get("name") for c in spec["cameras"]]
     for c in spec["cameras"]:
         n = c.get("name")
         if not n:
             errs.append("cameras: name がない")
+            continue
+        if not is_safe_name(n):
+            errs.append(f"cameras: 名前に使えるのは文字・数字・_・- だけ（今は {n!r}）")
             continue
         if names.count(n) > 1:
             errs.append(f"cameras: {n} が 2 回ある")
@@ -272,7 +342,7 @@ def resolve_rate(spec, rate, size_spec):
     """rate → arrival_times が読める形（グループ/分）と、その根拠の記録。
     rate の per_min はグループ（まとまり）の数/分。unit: persons なら人/分として、平均の人数で割る。
     type: lift_demand は demand（建物の人数・混む 5 分の割合・時間帯）から人/分を出す（Peters ら 2011）。"""
-    mean_size = dists.mean(size_spec) if size_spec else 1.0
+    mean_size = max(dists.mean(size_spec), 1.0) if size_spec else 1.0
     if isinstance(rate, dict) and rate.get("type") == "lift_demand":
         d = deep_merge(spec.get("demand") or {}, {k: v for k, v in rate.items() if k not in ("type", "flow", "share")})
         persons = lift_demand_per_min(d, rate.get("flow", "incoming")) * float(rate.get("share", 1.0))
@@ -395,7 +465,7 @@ class Builder:
         typ = dists.sample(typ_spec, self.rng) if typ_spec else "person"
         d = self.pick_destination(dests, typ)
         size_spec = size_spec or self.spec["people"].get("group_size")
-        size = int(dists.sample(size_spec, self.rng)) if size_spec else 1
+        size = max(int(dists.sample(size_spec, self.rng)), 1) if size_spec else 1  # 0 が出る分布でも 1 組は 1 人以上
         group = None
         if size > 1:
             self.group_n += 1
@@ -458,7 +528,10 @@ class Builder:
                 t = float(dists.sample(sch.get("offset", {"type": "uniform", "min": 3, "max": 30}), self.rng))
                 while t < total_s:
                     c.arrivals.append(round(t, 2))
-                    t += float(dists.sample(sch["interval"], self.rng))
+                    step = float(dists.sample(sch["interval"], self.rng))
+                    if step <= 0:  # 0 のままだと終わらない
+                        raise ValueError(f"elevator.schedule.interval は正の値（{step} が出た）")
+                    t += step
         elif sch["type"] == "times":
             for c in cars:
                 c.arrivals = [float(x) for x in sch.get("times", {}).get(c.name, [])]

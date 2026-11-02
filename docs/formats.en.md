@@ -3,19 +3,19 @@
 [日本語](formats.md)
 
 The formats of the files written out by twinsim's computation and rendering. Intended for people who use them for other purposes, such as detection, tracking, multi-camera tracking, person re-identification, people-flow prediction, graph learning, and state classification (VLM).
-This is the 2026-10-23 version (v0.4).
+
 
 ## 0. Common conventions
 
 | Item | Convention |
 |---|---|
-| Location | `~/dt-data/twinsim/runs/<run-name>/` (can be changed with the environment variable `TWINSIM_DATA`). Not put in git |
+| Location | `<TWINSIM_DATA>/runs/<run-name>/` or the place set with `out_dir` (`TWINSIM_DATA` defaults to `~/.twinsim`). Not put in git |
 | Coordinates | World coordinates (m). Z is up. The floor height is the space's `levels[0].z` (0 for office). x and y are the same as in `twinsim/spaces/<space>/space.yaml` |
 | Heading (yaw) | Degrees. Counterclockwise from +X (`atan2(dy, dx)`). −180 to 180. While walking, the direction of travel; while stopped, the direction the person is facing |
 | Time | Simulator frames start at 0; seconds = frame ÷ fps (default 30). Times in `events` and elsewhere are in seconds |
 | Frame number offset | The MOT and AI City formats are 1-based (= simulator frame + 1). Frame k of the video = simulator frame `frames[0]` of `render_log.json` + k (identical when all frames are rendered) |
 | Person names | `P0001`… (reassigned for each run). The numeric IDs in MOT and AI City map to names via `mot/ids.json` (the same across cameras) |
-| Groups | Ground-truth groups are `G001`… (sets of people who walk together). Global IDs from inference are `M001`… (`links.json`; a different thing) |
+| Groups | Ground-truth groups are `G001`… (sets of people who walk together) |
 | Person box | The box obtained by projecting a box centered at the feet, with a radius of 0.25 m and the person's height (`height_m`). Not tight to the rendered person's outline but slightly larger (an IoU of 0.3 is a guideline for matching) |
 | Visibility | Approximate. Walls: 0 if the line on the floor from directly below the camera to the feet or head passes through non-walkable area for 1 m or more. People: the fraction overlapped by the boxes of people in front (8×16 points within the box). Rendering depth is not used |
 
@@ -33,7 +33,7 @@ def project(cam, pts):                       # pts: (N, 3) world coordinates →
 ```
 
 No lens distortion (pinhole). Other values: `eye` and `target` (world coordinates), `focal_mm` and `h_aperture_mm`, `width` and `height` (default 1280×720),
-`h_fov_deg`, `tilt_down_deg`, `fps`. `Camera` in `twinsim/camera.py` and `cctv_eval_lib.Camera` in the research code can read them as is.
+`h_fov_deg`, `tilt_down_deg`, `fps`. `Camera` in `twinsim/camera.py` can read them as is.
 
 ## 1. List of files
 
@@ -46,8 +46,8 @@ No lens distortion (pinhole). Other values: `eye` and `target` (world coordinate
 | `video/<camera>.mp4` and `render_log.json` | Rendered videos (H.264, same fps as the ground truth) and the rendered range | Image-based training together with the boxes above |
 | `tasks.json` | Ground-truth aggregates for the six tasks on p. 7 of the research plan | Evaluating counts, flows, dwelling, and congestion |
 | `graph/` | Zone graph and grid graph, and time series of counts and flows | GNN and time-series prediction |
-| `logs/` | Gate passage logs and elevator operation logs (same format as real data) | Example for calibrating with real data (`calibrate`) |
-| `summary.json` and `scenario_resolved.yaml` | Summary, and the scenario with defaults filled in (including the random seed) | Regeneration, logging |
+| `logs/` | Gate passage logs and elevator operation logs (same format as real data). Made with `twinsim export-logs <run>` | Example for calibrating with real data (`calibrate`) |
+| `summary.json`, `scenario_resolved.json` and `.yaml` | Summary, and the scenario with defaults filled in (including the random seed) | Regeneration, logging |
 | `validity.*` and `preview.png` | Comparison with the literature, figures for checking | Validity of the people distribution |
 
 ## 2. `ground_truth.json`
@@ -158,9 +158,18 @@ while (ok := cap.read())[0]:
 
 **State classification (VLM, etc.)**: match `people[name].states` with the boxes (`mot`) in the same video frames.
 
+## 9. Caveats for training (limitations of the current version)
+
+- The boxes are approximations obtained by projecting a box enclosing the person, and are not tight to the rendered outline. Visibility is also approximate (no depth or masks are output). Training a detector requires outputting tight boxes, masks, and depth with Isaac Sim's Replicator at rendering time (not implemented).
+- There are 10 character models, and people are told apart by giving each person a different clothing color. Training person re-identification on this data alone risks learning the shortcut of distinguishing people by clothing color alone.
+- Distortion, noise, compression, lighting changes, camera clock offsets, and frame drops are not included (`clock_offset_s` and `drop_rate` are only recorded).
+- There are no 3D boxes, poses (keypoints), faces, etc. Only a single floor.
+- Asset license terms: the spaces (office, hospital, warehouse) are CC BY 4.0 (NVIDIA Isaac Sim assets; give credit). The terms for the character models have not been confirmed, so check them before releasing generated data outside.
+  Anything made from the actual Takeshiba video or floor plans is kept separate from this data location (NDA).
+
 ## 10. Ward layout and walking distances (`ward_layout.json`)
 
-`./run.sh ward-layout [--space hospital]` → `~/dt-data/twinsim/ward/hospital_ward_layout.json`. From the space's `ward.yaml` (beds and nurse-station layouts),
+`twinsim ward-layout [--space hospital]` → `<TWINSIM_DATA>/ward/hospital_ward_layout.json`. From the space's `ward.yaml` (beds and nurse-station layouts),
 it computes the shortest walkable distances. The "ward execution delays" of the workbench in `~/digitaltwin` (`workbench/bridge/ward.py`) use them for nurses' walking times.
 
 | Key | Contents |
@@ -172,11 +181,13 @@ it computes the shortest walkable distances. The "ward execution delays" of the 
 | `dist_m` | `dist_m[i][j]` = shortest walkable distance from `names[i]` to `names[j]` (m, Dijkstra on a 0.25 m grid) |
 | `paths` | `{"layout:station|bed": [[x, y], ...]}`. Points of the shortest walkable path from the station to the bed (the grid path thinned to a 0.2 m tolerance; the way back is the reverse). The workbench uses them to draw the nurses' movements |
 
-## 9. Caveats for training (limitations of the current version)
+## 11. Format of real logs (input of `twinsim calibrate`)
 
-- The boxes are approximations obtained by projecting a box enclosing the person, and are not tight to the rendered outline. Visibility is also approximate (no depth or masks are output). Training a detector requires outputting tight boxes, masks, and depth with Isaac Sim's Replicator at rendering time (not implemented).
-- There are 10 character models, and people are told apart by giving each person a different clothing color. Training person re-identification on this data alone risks learning the shortcut of distinguishing people by clothing color alone.
-- Distortion, noise, compression, lighting changes, camera clock offsets, and frame drops are not included (`clock_offset_s` and `drop_rate` are only recorded).
-- There are no 3D boxes, poses (keypoints), faces, etc. Only a single floor.
-- Asset license terms: the spaces (office, hospital, warehouse) are CC BY 4.0 (NVIDIA Isaac Sim assets; give credit). The terms for the character models have not been confirmed, so check them before releasing generated data outside.
-  Anything made from the actual Takeshiba video or floor plans is kept separate from this data location (NDA).
+`twinsim calibrate <base scenario> --gate-log a.csv --ev-log b.csv [--ev-mode fit|replay] [--id name] [--out path]`. Results are written to `<TWINSIM_DATA>/calibration/<id>/scenario.yaml` and `report.json`.
+
+| File | Columns |
+|---|---|
+| `gate_log.csv` | `time_s, gate, lane, direction` (`in`, `out`), optionally `person` |
+| `ev_log.csv` | `time_s, car, boarded, alighted` |
+
+Times are aligned so that the earlier of the two logs starts at 0. `twinsim export-logs <run>` writes examples of these files.

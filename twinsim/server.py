@@ -36,10 +36,10 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from . import api, config, isaac_bridge
+from . import __version__, api, config, isaac_bridge
 from .camera import camera_dict
 from .literature import LIFT_MIX, PROFILES, REFS
-from .scenario import TEMPLATES, load_scenario
+from .scenario import TEMPLATES, list_templates, load_scenario
 from .space import ROOT, list_spaces, load_space
 
 STATIC = ROOT / "static"
@@ -47,6 +47,8 @@ RUNS = config.RUNS
 COOKIE = "twinsim_token"
 ALLOWED_HOSTS = {"localhost", "127.0.0.1", "[::1]"}
 RENDER_FPS_EST = 2.8  # 描画の速さの目安（コマ/秒、GPU 1 枚。hospital-sim の記録）
+CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self'; "
+       "connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
 
 
 class ApiError(Exception):
@@ -87,11 +89,18 @@ class App:
 
     # ---- 計算 ----
     def start_run(self, scenario, overrides=None, name=None):
+        # 画面から渡せるのは設定そのものかテンプレートの名前だけ（サーバーの上のファイルを読ませない）
+        if isinstance(scenario, str) and scenario not in list_templates():
+            raise ApiError(f"テンプレート {scenario} がない", HTTPStatus.NOT_FOUND)
         spec = load_scenario(scenario, overrides)  # ここで誤りを返す
         base = name or spec.get("name") or "run"
         safe = "".join(c for c in base if c.isalnum() or c in "-_")[:40] or "run"
-        rid = f"{safe}-{time.strftime('%Y%m%d-%H%M%S')}"
-        with self.lock:
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        with self.lock:  # 同じ秒に始めた計算が同じ場所に書かないように
+            rid, n = f"{safe}-{stamp}", 1
+            while rid in self.jobs or (RUNS / rid).exists():
+                n += 1
+                rid = f"{safe}-{stamp}-{n}"
             self.jobs[rid] = {"kind": "run", "status": "running", "started": time.time()}
 
         def work():
@@ -122,6 +131,8 @@ class App:
 
     def run_info(self, rid):
         d = self.run_dir(rid)
+        if rid not in self.jobs and not d.is_dir():
+            raise ApiError("結果がない", HTTPStatus.NOT_FOUND)
         j = {k: v for k, v in self.jobs.get(rid, {}).items() if k != "summary"}
         s = json.loads((d / "summary.json").read_text()) if (d / "summary.json").exists() else None
         render = self.jobs.get(f"render:{rid}")
@@ -133,11 +144,13 @@ class App:
         import io
         import zipfile
         d = self.run_dir(rid)
+        if not d.is_dir():
+            raise ApiError("結果がない", HTTPStatus.NOT_FOUND)
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
             for p in sorted(d.rglob("*")):
                 rel = p.relative_to(d)
-                if not p.is_file() or rel.parts[0].startswith(("before_", "video_before_")):
+                if p.is_symlink() or not p.is_file() or rel.parts[0].startswith(("before_", "video_before_")):
                     continue
                 if p.suffix == ".mp4" and not videos:
                     continue
@@ -162,6 +175,7 @@ class App:
                        key=lambda f: sum(a <= f + n_f // 2 <= b for a, b in spans))
             frames = [best, min(best + n_f - 1, gt["total_frames"] - 1)]
         cams = body.get("cameras") or list(gt["cameras"])
+        isaac_bridge.check_render_args(gt, frames, cams)
         n = (int(frames[1]) - int(frames[0]) + 1) * len(cams)
         est = {"frames": n, "range": [int(frames[0]), int(frames[1])], "estimate_s": round(n / RENDER_FPS_EST + 120),
                "gpu": "1 枚（isim up のときに選んだもの）",
@@ -169,7 +183,7 @@ class App:
         if not body.get("confirm"):
             return {"estimate": est}
         if not est["isaac_ready"]:
-            raise ApiError("Isaac Sim が動いていない（ampb で ./isaac_up.sh）")
+            raise ApiError("Isaac Sim が動いていない（./isaac_up.sh で起動する）")
         key = f"render:{rid}"
         if self.jobs.get(key, {}).get("status") == "running":
             raise ApiError("この結果の描画は実行中")
@@ -189,27 +203,36 @@ class App:
 def load_token(path):
     path = Path(path).expanduser()
     if path.exists() and path.read_text().strip():
+        if path.stat().st_mode & 0o077:  # 他の利用者が読めると、画面を開けてしまう
+            os.chmod(path, 0o600)
         return path.read_text().strip()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    os.chmod(path.parent, 0o700)
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True)
+        os.chmod(path.parent, 0o700)
     token = secrets.token_urlsafe(24)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as f:
+        os.fchmod(f.fileno(), 0o600)
         f.write(token + "\n")
     return token
+
+
+def same_token(a, b):
+    return secrets.compare_digest(a.encode("utf-8", "replace"), b.encode("utf-8", "replace"))
 
 
 UNAUTHORIZED = """<!doctype html><html lang="ja"><meta charset="utf-8"><title>twinsim</title>
 <body style="font-family:sans-serif;max-width:40em;margin:3em auto;line-height:1.7">
 <h1 style="font-size:1.2em">トークン付きの URL で開いてください</h1>
 <p>他の利用者もいるマシンで動いているので、起動した本人だけが開けるようにしています。
-ampb で <code>python -m twinsim serve --url</code> を実行すると、開く URL が表示されます。</p></body></html>"""
+サーバーで <code>twinsim serve --url</code> を実行すると、開く URL が表示されます。</p></body></html>"""
 
 
 def make_handler(app, token):
     class H(BaseHTTPRequestHandler):
-        server_version = "twinsim/0.1"
+        server_version = f"twinsim/{__version__}"
         protocol_version = "HTTP/1.1"
+        timeout = 120  # 開いたままの接続を残さない
 
         def log_message(self, fmt, *args):
             path = urllib.parse.urlsplit(getattr(self, "path", "")).path
@@ -218,8 +241,14 @@ def make_handler(app, token):
         def log_request(self, code="-", size="-"):
             self.log_message("%s", code.value if isinstance(code, HTTPStatus) else code)
 
+        def _length(self):
+            try:
+                return max(int(self.headers.get("Content-Length") or 0), 0)
+            except ValueError:
+                return 0
+
         def _send(self, status, body, ctype, extra=None):
-            if int(self.headers.get("Content-Length") or 0) and not getattr(self, "_consumed", False):
+            if self._length() and not getattr(self, "_consumed", False):
                 self.close_connection = True
                 extra = {**(extra or {}), "Connection": "close"}
             if len(body) > 1024 and "gzip" in self.headers.get("Accept-Encoding", "") and not ctype.startswith(("image/", "video/")):
@@ -231,6 +260,7 @@ def make_handler(app, token):
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("Content-Security-Policy", CSP)
             for k, v in (extra or {}).items():
                 self.send_header(k, v)
             self.end_headers()
@@ -245,15 +275,28 @@ def make_handler(app, token):
             name = host.rsplit(":", 1)[0] if not host.startswith("[") else host.split("]")[0] + "]"
             return name in ALLOWED_HOSTS
 
-        def _authorized(self):
+        def _bearer(self):
             auth = self.headers.get("Authorization") or ""
-            if auth.startswith("Bearer ") and secrets.compare_digest(auth[7:].strip(), token):
+            return auth.startswith("Bearer ") and same_token(auth[7:].strip(), token)
+
+        def _authorized(self):
+            if self._bearer():
                 return True
-            c = SimpleCookie(self.headers.get("Cookie") or "")
-            return COOKIE in c and secrets.compare_digest(c[COOKIE].value, token)
+            for part in (self.headers.get("Cookie") or "").split(";"):  # 別のアプリの Cookie があっても読めるように、1 つずつ見る
+                c = SimpleCookie(part.strip())
+                if COOKIE in c:
+                    return same_token(c[COOKIE].value, token)
+            return False
+
+        def _same_origin(self):
+            """Cookie での POST は、この画面から来たものだけ受ける（同じ PC の別のポートのページからの CSRF を防ぐ）。"""
+            origin = self.headers.get("Origin")
+            if origin and urllib.parse.urlsplit(origin).netloc != (self.headers.get("Host") or ""):
+                return False
+            return (self.headers.get("Content-Type") or "").split(";")[0].strip() == "application/json"
 
         def _body(self):
-            n = int(self.headers.get("Content-Length") or 0)
+            n = self._length()
             if n > 4 << 20:
                 raise ApiError("要求が大きすぎる", HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
             raw = self.rfile.read(n) if n else b"{}"
@@ -278,7 +321,7 @@ def make_handler(app, token):
             if url.path == "/api/health":
                 return self._json({"ok": True})
             if "token" in query:
-                if secrets.compare_digest(query["token"][0], token):
+                if same_token(query["token"][0], token):
                     return self._send(HTTPStatus.SEE_OTHER, b"", "text/plain", {
                         "Location": url.path, "Set-Cookie": f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000"})
                 return self._send(HTTPStatus.UNAUTHORIZED, UNAUTHORIZED.encode(), "text/html; charset=utf-8")
@@ -286,6 +329,8 @@ def make_handler(app, token):
                 if url.path.startswith("/api/"):
                     return self._json({"ok": False, "error": "トークンが要る"}, HTTPStatus.UNAUTHORIZED)
                 return self._send(HTTPStatus.UNAUTHORIZED, UNAUTHORIZED.encode(), "text/html; charset=utf-8")
+            if method == "POST" and not self._bearer() and not self._same_origin():
+                return self._json({"ok": False, "error": "この画面からの要求ではない"}, HTTPStatus.FORBIDDEN)
             try:
                 if url.path.startswith("/api/"):
                     return self._api(method, url.path, {k: v[0] for k, v in query.items()})
@@ -312,6 +357,8 @@ def make_handler(app, token):
         def _file(self, p, download=False):
             """ファイルを返す。Range（動画の早送り・途中から）に対応。download でダウンロード（保存）にする。"""
             ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
+            if ctype.startswith("text/"):
+                ctype += "; charset=utf-8"
             extra = {"Accept-Ranges": "bytes"}
             if download:
                 extra["Content-Disposition"] = f"attachment; filename*=UTF-8''{urllib.parse.quote(p.name)}"
@@ -330,7 +377,7 @@ def make_handler(app, token):
             return self._send(200, p.read_bytes(), ctype, extra)
 
         def _api(self, method, path, q):
-            parts = path.strip("/").split("/")[1:]
+            parts = [urllib.parse.unquote(p) for p in path.strip("/").split("/")[1:]]  # 日本語の名前の結果も開けるように
             if method in ("GET", "HEAD"):
                 if parts == ["profiles"]:
                     profiles = {k: {"title": v["title"], "title_en": v.get("title_en"), "sources": v["sources"], "notes": v.get("notes", []),
@@ -339,6 +386,8 @@ def make_handler(app, token):
                                        "periods": list(LIFT_MIX), "refs": {k: r["cite"] for k, r in REFS.items()}})
                 if parts == ["spaces"]:
                     return self._json([{"name": n, "title": load_space(n).spec.get("title")} for n in list_spaces()])
+                if len(parts) >= 2 and parts[0] == "spaces" and parts[1] not in list_spaces():
+                    raise ApiError("空間がない", HTTPStatus.NOT_FOUND)  # load_space はフォルダの場所も読むので、一覧の名前だけにする
                 if len(parts) == 2 and parts[0] == "spaces":
                     return self._json(app.space(parts[1]))
                 if len(parts) == 3 and parts[0] == "spaces" and parts[2] == "top":
@@ -347,6 +396,8 @@ def make_handler(app, token):
                 if parts == ["templates"]:
                     return self._json(app.templates())
                 if len(parts) == 2 and parts[0] == "templates":
+                    if parts[1] not in list_templates():
+                        raise ApiError("テンプレートがない", HTTPStatus.NOT_FOUND)
                     return self._json(load_scenario(parts[1]))
                 if parts == ["runs"]:
                     return self._json(app.runs())
@@ -364,6 +415,10 @@ def make_handler(app, token):
                 body = self._body()
                 if parts == ["runs"]:
                     return self._json({"id": app.start_run(body["scenario"], body.get("overrides"), body.get("name"))})
+                if parts == ["validate"]:  # 既定の値を足した設定を返す（画面の「この JSON を反映」）
+                    if not isinstance(body.get("scenario"), dict):
+                        raise ApiError("scenario は設定のオブジェクト")
+                    return self._json({"scenario": load_scenario(body["scenario"])})
                 if len(parts) == 3 and parts[0] == "runs" and parts[2] == "render":
                     return self._json(app.render(parts[1], body))
             raise ApiError("ない API", HTTPStatus.NOT_FOUND)
@@ -383,6 +438,6 @@ def main(argv=None):
         return 0
     RUNS.mkdir(parents=True, exist_ok=True)
     srv = ThreadingHTTPServer(("127.0.0.1", a.port), make_handler(App(), token))
-    print(f"twinsim: 127.0.0.1:{a.port} で待ち受け中。手元の PC で ssh -N -L {a.port}:localhost:{a.port} ampb を実行し、"
-          f"python -m twinsim serve --url で表示される URL を開く", flush=True)
+    print(f"twinsim: 127.0.0.1:{a.port} で待ち受け中。twinsim serve --port {a.port} --url で表示される URL を開く"
+          f"（別の PC からは ssh -N -L {a.port}:localhost:{a.port} <サーバー> でつなぐ）", flush=True)
     srv.serve_forever()

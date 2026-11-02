@@ -82,7 +82,9 @@ def poisson(lam, rng):
 
 
 def poisson_ge1_minus1(lam, rng):
-    """0 を除いたポアソン分布から引いた値 − 1。"""
+    """0 を除いたポアソン分布から引いた値 − 1。lam が 0 以下なら 0（mean と同じ扱い）。"""
+    if lam <= 0:
+        return 0
     while True:
         k = poisson(lam, rng)
         if k >= 1:

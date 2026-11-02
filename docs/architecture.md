@@ -41,7 +41,7 @@ twinsim/spaces/<名前>/ ──→ space.load_space（歩ける所の格子・�
 ```bash
 cd ~/twinsim-lib
 uv run --group dev ruff check          # 書き方（設定は pyproject.toml）
-uv run --group dev pytest -q           # 動作確認（CPU、十数秒）。分割・名前の変更の取りこぼしは tests/test_imports.py が見つける
+uv run --group dev pytest -q           # 動作確認（CPU、1 分ほど）。分割・名前の変更の取りこぼしは tests/test_imports.py が見つける
 uv run --group gui-test python tools/gui_shot.py [出力] [ポート]   # 画面の確かめ（サーバーを起動してから）
 ```
 

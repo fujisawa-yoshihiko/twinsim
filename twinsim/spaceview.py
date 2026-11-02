@@ -4,19 +4,21 @@
 
 import json
 import math
+from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
+from . import config
 from .camera import Camera, camera_dict
 from .space import load_space
-
-FONT = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
 
 
 def draw(name, scale=1.0):
     sp = load_space(name)
     lv = sp.spec["levels"][0]
+    if "top_view" not in lv:
+        raise ValueError(f"空間 {name} には真上の図がない")
     tv = lv["top_view"]
     img = Image.open(sp.folder / lv["top_image"]).convert("RGB")
     W, H = img.size
@@ -36,8 +38,8 @@ def draw(name, scale=1.0):
         d.rectangle([min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1])], fill=(40, 110, 230, 70))
     img = Image.alpha_composite(img.convert("RGBA"), over).convert("RGB")
     d = ImageDraw.Draw(img)
-    f = ImageFont.truetype(FONT, 11)
-    fb = ImageFont.truetype(FONT, 13)
+    f = config.font(11)
+    fb = config.font(13)
     x0, x1, y0, y1 = sp.bounds()
     for gx in np.arange(math.ceil(x0 / 2) * 2, x1 + 0.01, 2):
         major = int(round(gx)) % 10 == 0
@@ -71,5 +73,9 @@ def draw(name, scale=1.0):
     if scale != 1.0:
         img = img.resize((int(W * scale), int(H * scale)))
     out = sp.folder / "annotate.png"
-    img.save(out)
+    try:
+        img.save(out)
+    except OSError:  # pip で入れた空間のフォルダには書けないことがある
+        out = Path.cwd() / f"{sp.name}_annotate.png"
+        img.save(out)
     return out

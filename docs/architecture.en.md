@@ -32,8 +32,8 @@ twinsim/spaces/<name>/ ──→ space.load_space (grid of the walkable area, se
 | `twinsim/validity.py`, `quality.py` | Comparison with the literature, ledger / wall and proximity checks | `evaluate`, `check` |
 | `twinsim/calibrate.py` | Calibration with real data, writing out in the log format | `calibrate`, `export_logs` |
 | `twinsim/camera.py` | Cameras (USD matrices), bounding boxes, visible fraction, projection onto the floor | `Camera` |
-| `twinsim/isaac_bridge.py`, `isaac/` | Rendering in Isaac Sim, space assets (what runs inside Isaac Sim is `isaac/`) | `render`, `finish_render`, `export_space` |
-| `twinsim/api.py`, `__main__.py` | Python entry point and commands (`twinsim <subcommand>`) | `api.run` |
+| `twinsim/isaac_bridge.py`, `twinsim/isaac/` | Rendering in Isaac Sim, space assets (what runs inside Isaac Sim is `twinsim/isaac/`) | `render`, `finish_render`, `export_space` |
+| `twinsim/api.py`, `__init__.py`, `__main__.py` | Python entry point ([library.en.md](library.en.md)), commands (`twinsim <subcommand>`) | `simulate`, `Result`, `run` |
 | `twinsim/server.py`, `twinsim/static/` | GUI and REST API (`app.js`: Settings and Results, `i18n.js`: switching between 日本語 and English. On-screen text uses `tr("日本語", "English")` and `data-en` in the HTML. English for templates, spaces and literature profiles is in `title_en`, `license_en`, `note_en` and `notes_en`) | `serve` |
 
 ## Development procedure
@@ -41,7 +41,7 @@ twinsim/spaces/<name>/ ──→ space.load_space (grid of the walkable area, se
 ```bash
 cd ~/twinsim-lib
 uv run --group dev ruff check          # style (configured in pyproject.toml)
-uv run --group dev pytest -q           # operation checks (CPU, 10-odd seconds). tests/test_imports.py catches anything missed when splitting or renaming
+uv run --group dev pytest -q           # operation checks (CPU, about a minute). tests/test_imports.py catches anything missed when splitting or renaming
 uv run --group gui-test python tools/gui_shot.py [output] [port]   # screen check (start the server first)
 ```
 

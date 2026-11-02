@@ -28,7 +28,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 |---|---|---|---|
 | [`space`](#space) | 文字列 | 必須 | 空間の名前か、空間のフォルダの場所 |
 | `seed` | 整数 | `0` | 乱数の種 |
-| `fps` | 整数 | `30` | 1 秒のコマ数 |
+| `fps` | 正の整数 | `30` | 1 秒のコマ数 |
 | `duration_s` | 数 | `120` | 計算する長さ（秒） |
 | [`people`](#people) | オブジェクト | 下を参照 | 人の分布 |
 | [`demand`](#demand) | オブジェクト | なし | EV を使う人の量 |
@@ -54,7 +54,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 3. 設定ファイル
 4. `overrides`（Python）・`--set`（コマンド）
 
-オブジェクトはキーごとに重なります。配列は全部置き換わります。計算に使った値の全部は `scenario_resolved.json` に書かれます。
+オブジェクトはキーごとに重なります。配列と分布（`type` を持つオブジェクト）は全部置き換わります。計算に使った値の全部は `scenario_resolved.json` に書かれます。
 
 <a id="space"></a>
 
@@ -75,7 +75,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | `group_lateral_m` | 数 | `0.66` | 2 人連れの横の間隔（m） |
 | `lateral_max_m` | 数 | `1.0` | 経路から横へよけられる幅（m） |
 | `speed_density` | オブジェクトか `null` | `{"v0": 1.34, "gamma": 1.913, "rho_max": 5.4}` | 密度で遅くなる式（Weidmann 1993）。`null` で切る |
-| `models` | `"all"` か配列 | `"all"` | 使う人物モデルの名前 |
+| `models` | `"all"` か配列 | `"all"` | 使う人物モデルの名前（`twinsim/characters.py` の 10 種類） |
 
 `profile` の値の組:
 
@@ -167,7 +167,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | `state` | 文字列 | 場所で決まる | 止まる間の状態。受付 `reception`、案内板 `sign_check`、ほかは `dwell` |
 | `glance` | 数 | 止まる場所 `0`・EV `20`・待ち合わせ `45` | 止まっている間に見回す幅（度） |
 | [`meet`](#meet) | オブジェクト | なし | 待ち合わせ |
-| `then` | 文字列かオブジェクト | なし | 止まったあとの行き先（同じ形） |
+| `then` | 文字列かオブジェクト | なし | 止まったあとの行き先（同じ形。`meet` は書けない） |
 | `variant_p` | 文字列 | なし | [`variants`](#variants) で `p` を差し替える名前 |
 
 `to` に書けるもの:
@@ -370,7 +370,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 
 ## 場所の名前
 
-`origin`・`to`・`via`・`cars`・`props` に書く名前です。図で確かめるには `twinsim show-space <空間>` を実行します（空間のフォルダの `annotate.png`）。
+`origin`・`to`・`via`・`cars`・`props` に書く名前です。図で確かめるには `twinsim show-space <空間>` を実行します（空間のフォルダの `annotate.png`。書けないときは今のフォルダ）。真上の図のない `corridor` 系では使えません。
 
 | 空間 | 現れる・出る | ゲート | EV | 止まる | カメラの候補 |
 |---|---|---|---|---|---|
@@ -387,21 +387,26 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 
 ## 計算の前の検査
 
-`twinsim.validate`・`twinsim validate`・`twinsim.simulate` は、計算の前に次を確かめます。誤りは全部まとめて `ValueError` で知らせます。
+`twinsim.validate`・`twinsim validate`・`twinsim.simulate` は、計算の前に次を確かめます。誤りは全部まとめて `ValueError` で知らせます（知らない空間とテンプレートは `FileNotFoundError`）。
 
 | 検査 | 例 |
 |---|---|
 | 知らないキー | 一番上のキーと、`cameras[]` のキー |
-| 値の範囲 | `duration_s`・`fps` が正の数か、`outputs`・`render.tint` の値 |
-| 場所の名前 | `origin`・`to`・`via`・`cars` が空間にあるか |
-| 座標 | `origin`・`meet.from` の形、歩ける所の中か、行き先まで歩いて行けるか |
+| 値の範囲 | `duration_s` が正の数、`fps` が正の整数、`seed` が整数、`mot_stride`、`graph.cell_m` が空間の格子の倍数、`outputs`・`render.tint` の値 |
+| 名前 | `name` とカメラの名前は文字・数字・`_`・`-` だけ（ファイルの名前になるため） |
+| 場所の名前 | `origin`・`to`・`via`・`meet.via`・`cars`・`gates` のキー・`render.props` が空間にあるか。`via` はゲートか、`cars` は EV か |
+| 必須のもの | `rate`・`destinations`、`to: "elevator"` のときの `elevator` と `cars` |
+| 種類の綴り | `rate` と `schedule` の `type`、`variant` が `variants` にあるか |
+| 座標 | `origin`・`meet.from` の形、歩ける所の中か、線の両端も含めて行き先まで歩いて行けるか |
 | カメラ | `name`、`eye`・`target` の形、同じ名前がないか、`eye` と `target` が同じ点でないか |
+| 組み合わせ | `aicity` には `mot` が要る、`meet` は流れの一番上の行き先にだけ書ける |
 
 次は検査しません。
 
-- `to: "elevator"` なのに `elevator` がないとき。計算は動きますが、人は EV の前で待ち続けます。
-- 分布や `rate` の中身の誤り。計算の途中でエラーになります。
+- 分布の中身の誤り。計算の途中でエラーになります。
 - `people`・`elevator` などの中の知らないキー。書いても無視されます。
+
+グループの人数に 0 が出たときは 1 人にします。
 
 ---
 

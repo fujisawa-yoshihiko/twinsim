@@ -298,10 +298,11 @@ print(len(labels), "個の枠")
 "render": {"width": 1280, "height": 720, "tint": false}
 ```
 
-描画は設定とは別の操作です。
+描画は設定とは別の操作です。設定を変えたら、計算し直してから描きます。
 
 ```bash
-./isaac_up.sh                                  # Isaac Sim を起動する
+twinsim run config.json --out runs/first       # 計算し直す（CPU）
+./isaac_up.sh                                  # Isaac Sim を起動する（1 分ほど待つ）
 twinsim render runs/first --frames 300 449     # 300〜449 コマ目を描く
 isim down                                      # 終わったら GPU を返す
 ```
@@ -321,7 +322,7 @@ twinsim run config.json --out runs/s1 --set seed=1
 twinsim run config.json --out runs/s2 --set seed=2
 ```
 
-`--set` はキーを `.` でつないで書けます（`--set people.lateral_max_m=0.8`）。
+`--set` はキーを `.` でつないで書けます（`--set people.lateral_max_m=0.8`）。配列の中を番号で指定できるのは `streams` だけです（`--set streams.0.rate=30`）。
 
 2 つの条件を比べるには、`variants` を使います。行き先の `variant_p` に名前を付けると、その重みを条件ごとに差し替えます。
 
@@ -353,12 +354,12 @@ twinsim run config.json --out runs/s2 --set seed=2
 
 ```text
 $ twinsim validate config.json
-ValueError: シナリオの誤り:
+シナリオの誤り:
   知らないキー duraton_s（使えるのは calibration, cameras, ...）
   streams[0].destinations[0]: 行き先 south_exit2 が空間 office にない
 ```
 
-誤りは 1 回で全部出ます。`streams[0].destinations[0]` は、1 番目の流れの 1 番目の行き先を指します。番号は 0 から数えます。
+誤りは 1 回で全部出ます。同じ場所に計算し直すと、前の結果は置き換わります。`streams[0].destinations[0]` は、1 番目の流れの 1 番目の行き先を指します。番号は 0 から数えます。
 
 検査の一覧は[リファレンス](config-reference.md#checks)にあります。
 

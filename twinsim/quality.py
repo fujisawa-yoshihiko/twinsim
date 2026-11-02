@@ -16,7 +16,8 @@ from .space import load_space
 def check(run_dir):
     run = Path(run_dir).expanduser()
     gt = json.loads((run / "ground_truth.json").read_text())
-    sp = load_space(gt["space"])
+    resolved = run / "scenario_resolved.json"  # フォルダの場所で書いた空間は、正解には名前しか残らない
+    sp = load_space(json.loads(resolved.read_text(encoding="utf-8")).get("space", gt["space"]) if resolved.exists() else gt["space"])
     fps = gt["fps"]
     rows = list(csv.DictReader(gzip.open(run / "frames.csv.gz", "rt")))
     bad = sum(1 for r in rows if not sp.walkable(float(r["x"]), float(r["y"])))

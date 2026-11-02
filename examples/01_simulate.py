@@ -11,7 +11,7 @@
 
 設定（minimal.json）:
     オフィスの空間（office）で 60 秒。毎分 20 人が入口からゲートを通って南の出口へ歩く。カメラは CamGate と CamEV の 2 台。
-    値を変える方法は 02_change_settings.py、設定の項目は docs/library.md と docs/spec.md を参照。
+    値を変える方法は 02_change_settings.py、書き方は docs/config-tutorial.md、全部のキーは docs/config-reference.md を参照。
 
 書き出すファイル（runs/tutorial/ の下。形の説明は docs/formats.md）:
     summary.json             要約（人数、同時に最大の人数、書き出したファイルの一覧など）

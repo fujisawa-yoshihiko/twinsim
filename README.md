@@ -13,8 +13,14 @@ Python のライブラリとして呼べる。映像が要るときは Isaac Sim
 pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git"   # 非公開のリポジトリなので、読む権限が要る
 ```
 
-Python 3.10 以上。依存は numpy・scipy・pyyaml・pillow・networkx・matplotlib だけ。GPU は要らない（描画するときだけ Isaac Sim と GPU）。
-空間とテンプレートはパッケージに入っている。
+Python 3.10 以上。依存は numpy・scipy・pyyaml・pillow・networkx・matplotlib。GPU は要らない（描画するときだけ Isaac Sim と GPU）。
+空間とテンプレートはパッケージに入っている。動画を読むには ffmpeg が要る。図の日本語には Noto Sans CJK を使う（Ubuntu は `fonts-noto-cjk`。なければ図の文字が読みにくくなる）。
+
+例（`examples/`）と文書はパッケージに入っていないので、例を動かすときはリポジトリを取ってくる。
+
+```bash
+git clone https://github.com/fujisawa-yoshihiko/twinsim.git && cd twinsim && uv sync
+```
 
 ## Python から使う
 
@@ -55,7 +61,7 @@ twinsim calibrate config.json --gate-log gate_log.csv --ev-log ev_log.csv   # �
 
 ## 画面
 
-`./run.sh serve` で GUI（127.0.0.1:8770）。開く URL は `./run.sh serve --url`。手元の PC からは `ssh -N -L 8770:localhost:8770 ampb` を実行したまま開く。
+`twinsim serve` で GUI（127.0.0.1:8770）。開く URL は `twinsim serve --url`。別の PC からは `ssh -N -L 8770:localhost:8770 <サーバー>` を実行したまま開く。リポジトリの中では `./run.sh serve` でもよい（結果の置き場所を `~/dt-data/twinsim` にする）。
 画面は「設定」（シナリオ・人の分布・カメラ）と「結果」（要約・確認の図・文献との比べ・動画・ダウンロード）の 2 つのタブ。右上で日本語・English を切り替えられる。
 
 ## 描画（GPU）
@@ -64,6 +70,8 @@ twinsim calibrate config.json --gate-log gate_log.csv --ev-log ev_log.csv   # �
 ./isaac_up.sh                                      # Isaac Sim を起動（GPU は one-gpu が選ぶ。止めるのは isim down）
 ./run.sh render runs/test --frames 7395 7544       # 試し撮り（コードからは twinsim.render）
 ```
+
+描画はリポジトリの `./isaac_up.sh` と、Isaac Sim の環境 `isim` が前提。
 
 | 段 | office_gate_ev（5 分・94 人・カメラ 2 台、1280×720） | 映像の長さに対して |
 |---|---|---|
@@ -88,7 +96,7 @@ twinsim calibrate config.json --gate-log gate_log.csv --ev-log ev_log.csv   # �
 | `video/<カメラ>.mp4` | H.264 | 描いた映像（1280×720・30 fps）。k コマ目 = `render_log.json` の `frames[0]` ＋ k |
 | `tasks.json` | JSON | 計画書 p7 の 6 タスクの正解（人数・ゲートの通過・滞留・グループ・混雑・行き先、EV の待ち） |
 | `graph/` | JSON・CSV・NPZ・GraphML | ゾーンのグラフ・2 m の格子のグラフ、秒ごとの人数・1 分ごとの流れ、カメラから見える所 |
-| `logs/` | CSV | ゲートの通過記録・EV の運行記録（実データと同じ形） |
+| `logs/` | CSV | ゲートの通過記録・EV の運行記録（実データと同じ形）。`twinsim export-logs <結果>` で作る |
 | `<TWINSIM_DATA>/ward/<空間>_ward_layout.json` | JSON | 病棟のベッド・ナースステーションの置き方と、その間の歩ける所の上の道のりと道の点の列（`twinsim ward-layout`） |
 
 状態: `pass`・`gate_queue`・`ev_approach`・`ev_wait`・`alight`・`reception`・`dwell`・`sign_check`・`companion_wait`（倉庫は `work`・`wait`）。
@@ -129,3 +137,7 @@ twinsim calibrate config.json --gate-log gate_log.csv --ev-log ev_log.csv   # �
 | `warehouse_picking` | 倉庫のピッキング（工場の図の「作業・待ち・移動」）。荷受け → 棚 → 梱包 → 待ち → 棚 → 梱包 → 帰る |
 | `simple_room_smoke` | 動作確認（小部屋、20 秒） |
 | `verify_corridor_speed`・`verify_fundamental_diagram`・`verify_groups`・`verify_gate_capacity`・`verify_counterflow`・`verify_bottleneck` | エンジンの確かめ（まっすぐ歩けるか・速さと密度・グループ・混んだゲート・すれ違い・幅 1 m の出入口）。結果は docs/validity.md の 5 |
+
+## 素材
+
+空間 `office`・`hospital`・`warehouse`・`warehouse_small`・`simple_room` の図と歩ける所の地図は、NVIDIA Isaac Sim の素材（CC BY 4.0、https://creativecommons.org/licenses/by/4.0/ ）から作った。詳しくは [NOTICE.md](NOTICE.md)。

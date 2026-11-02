@@ -1,4 +1,4 @@
-# 送るたびに、書き方の確かめ（ruff）と動作確認（pytest、CPU だけ）。GPU・Isaac Sim は使わない。
+# 送るたびに、書き方の確かめ（ruff）と動作確認（pytest、CPU だけ）と、wheel からの動作確認。GPU・Isaac Sim は使わない。
 name: ci
 on:
   push:
@@ -6,9 +6,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv sync --group dev
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-noto-cjk  # 動画と図のテストを飛ばさないように
+      - run: uv sync --locked --group dev --python ${{ matrix.python }}
       - run: uv run ruff check
       - run: uv run pytest -q
+      - name: wheel からの動作確認（データがパッケージに入っているか）
+        run: |
+          uv build --wheel --out-dir dist
+          uv venv --python ${{ matrix.python }} /tmp/clean
+          uv pip install --python /tmp/clean/bin/python dist/*.whl
+          cd /tmp && /tmp/clean/bin/twinsim validate office_gate_ev && /tmp/clean/bin/twinsim run office_smoke --out /tmp/smoke
