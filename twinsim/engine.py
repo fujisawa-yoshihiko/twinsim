@@ -117,8 +117,13 @@ class Gate:
 
 
 class Car:
-    def __init__(self, name, door, inside, capacity):
+    def __init__(self, name, door, inside, capacity, depth_m=0.0):
+        """door: 扉の点、inside: 扉からかごの向き（space.yaml の face）、depth_m: 乗る人が扉からかごの中へ歩く距離（0 なら扉で消える）。"""
         self.name, self.door, self.inside, self.capacity = name, tuple(door), tuple(inside), capacity
+        d = np.subtract(inside, door)
+        d = d / max(float(np.hypot(*d)), 1e-9)
+        self.depth_m = float(depth_m)
+        self.cabin = tuple(np.asarray(door, float) + d * self.depth_m)  # 乗る人が消え、降りる人が現れる所
         self.arrivals = []
 
 
@@ -191,6 +196,24 @@ class Sim:
             return None
         return min(cand, key=lambda k: self.door_d(k) + 0.3 * math.hypot(self.spots[k][0] - p[0], self.spots[k][1] - p[1]))
 
+    def overflow_spot(self, a, p, gap=0.6):
+        """待つ場所が埋まったとき: p の近くで、待っている人・立っている人から gap m 以上離れた、歩ける所（壁から 0.2 m）。
+        前は p にそのまま立たせていて、混むと何人も同じ所に重なった。見つからなければ半径を広げ、それでもなければ p。"""
+        others = [xy for k, xy in self.alloc.items() if k != a.name] + [self.spots[i] for i, ok in enumerate(self.free) if not ok]
+        px, py = float(p[0]), float(p[1])
+        for r in (0.0, 0.6, 1.0, 1.4, 1.8, 2.3, 2.9, 3.6, 4.4):
+            n = max(1, int(2 * math.pi * r / 0.5))
+            off = a.rng.random() * 2 * math.pi
+            ring = [(px + r * math.cos(off + 2 * math.pi * k / n), py + r * math.sin(off + 2 * math.pi * k / n)) for k in range(n)]
+            ok = [(x, y) for x, y in ring if self.space.walkable(x, y) and self.space.clearance(x, y) >= 0.2
+                  and all(math.hypot(x - ox, y - oy) >= gap for ox, oy in others)]
+            if ok:  # 同じ半径なら扉に近い所
+                xy = min(ok, key=lambda q: math.hypot(*np.subtract(self.nearest_door(q), q)))
+                self.alloc[a.name] = xy
+                return xy
+        self.alloc[a.name] = (px, py)
+        return (px, py)
+
     def nearest_door(self, p):
         if not self.cars:
             return p
@@ -243,7 +266,11 @@ class Sim:
         step = a.plan[a.k]
         kind = step[0]
         nxt = a.plan[a.k + 1][0] if a.k + 1 < len(a.plan) else None
-        if kind == "walk":
+        if kind == "straight":  # 歩ける所の外（扉の向こう・EV のかごの中）との行き来は、経路を探さずまっすぐ歩く
+            a.path = Path([tuple(map(float, p)), tuple(map(float, step[1]))])
+            a.s, a.mode, a.state, a.taper, a.l = 0.0, "walk", step[2], True, 0.0
+            a.until_zone = None
+        elif kind == "walk":
             opts = step[3] if len(step) > 3 else {}
             target = self.alloc_stand(a, step[1]) if nxt in ("stop", "meet") else step[1]
             self.walk_to(a, p, target, step[2], taper=nxt in ("stop", "meet"), l0=a.l_pref if a.k == 0 else 0.0)
@@ -271,11 +298,9 @@ class Sim:
             a.events["hall"] = round(t, 2)
             i = self.pick_spot(p)
             a.wait_glance = step[1]
-            if i is None:
-                a.mode, a.spot = "wait", None
-                self.stand(a, t, p, "ev_wait", self.nearest_door(p), step[1])
-                self.queue.append(a)
-                a.events["wait_start"] = round(t, 2)
+            if i is None:  # 待つ場所が埋まっている: ほかの人から離れた所まで歩いてから待つ（着くと to_spot の扱いで列に入る）
+                a.spot = None
+                self.walk_to(a, p, self.overflow_spot(a, p), "ev_approach", mode="to_spot", taper=True, l0=0.0)
             else:
                 self.free[i] = False
                 a.spot = i
@@ -376,6 +401,7 @@ class Sim:
                     continue
                 if a.spot is not None:
                     self.free[a.spot] = True
+                self.alloc.pop(a.name, None)  # あふれて立っていた所を空ける
                 self.free[i] = False
                 a.spot = i
                 self.walk_to(a, p, self.spots[i], "ev_wait", mode="to_spot", taper=True, l0=0.0)
@@ -424,7 +450,10 @@ class Sim:
             if a.mode == "board_wait" and t >= a.until:
                 if a.spot is not None:
                     self.free[a.spot] = True
-                a.path, a.s, a.l, a.mode, a.state, a.taper = Path([tuple(p), a.board_car.door]), 0.0, 0.0, "board", "ev_wait", True
+                self.alloc.pop(a.name, None)
+                car = a.board_car  # 扉まで歩き、かごの中（cabin）へ入ってから消える
+                pts = [tuple(p), car.door] + ([car.cabin] if car.depth_m > 0 else [])
+                a.path, a.s, a.l, a.mode, a.state, a.taper = Path(pts), 0.0, 0.0, "board", "ev_wait", True
                 a.events["board_start"] = round(t, 2)
             if a.mode in ("stop", "meet", "wait", "gate_wait", "board_wait"):
                 a.dir = None

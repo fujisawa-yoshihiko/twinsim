@@ -20,7 +20,8 @@ def check(run_dir):
     sp = load_space(json.loads(resolved.read_text(encoding="utf-8")).get("space", gt["space"]) if resolved.exists() else gt["space"])
     fps = gt["fps"]
     rows = list(csv.DictReader(gzip.open(run / "frames.csv.gz", "rt")))
-    bad = sum(1 for r in rows if not sp.walkable(float(r["x"]), float(r["y"])))
+    # 出入り口の範囲（扉の向こう・EV のかごの中へまっすぐ歩く所）は歩ける所の外でもよい
+    bad = sum(1 for r in rows if not sp.walkable(float(r["x"]), float(r["y"])) and not sp.in_portal(float(r["x"]), float(r["y"])))
     byf = defaultdict(list)
     for r in rows:
         byf[int(r["frame"])].append((float(r["x"]), float(r["y"]), r["group"]))

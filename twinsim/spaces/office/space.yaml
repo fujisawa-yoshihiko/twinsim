@@ -19,10 +19,10 @@ levels:
 # 場所（名前 → 位置）。kind: spawn（人が現れる・消える）、gate（入館のゲート）、elevator（扉）、wait_zone（待つ場所の範囲）、
 # spot（止まる場所。face の方を向く）、exit（出ていく所）、prop（シミュレータが置く物）
 pois:
-  entrance:      {kind: spawn, xy: [-3.4, 23.5], note: 北の廊下の奥（建物の入口の見立て）}
+  entrance:      {kind: spawn, xy: [-3.4, 23.5], hidden: [-3.4, 26.0], note: 北の廊下の奥（建物の入口の見立て）。人は扉の向こうの部屋（hidden、歩ける所の外）に現れ、まっすぐ歩いて入る（ゲートのカメラに急に現れないように）}
   gate:          {kind: gate, line: [[-4.4, 15.5], [-1.6, 15.5]], lanes: 3, lanes_in: [0, 1], lanes_out: [2], in_dir: [0.0, -1.0], note: 廊下の中の入館のゲート（3 レーン、西の 2 つが入館、東の 1 つが退館。南向きが入館。ロビーへの出口の扉 y = 12 は幅 1.5 m なので、その北に置く）}
-  EV1:           {kind: elevator, xy: [-14.5, -4.5], face: [-15.5, -4.5], note: 扉の開閉のアニメーションつき（BP_Elevator_162）}
-  EV2:           {kind: elevator, xy: [-14.5, -1.5], face: [-15.5, -1.5], note: BP_Elevator_frame2}
+  EV1:           {kind: elevator, xy: [-14.5, -4.5], face: [-15.5, -4.5], cabin_m: 1.0, note: 扉の開閉のアニメーションつき（BP_Elevator_162。描画では開いたまま、奥は暗い）。乗る人は扉から 1 m 奥（cabin_m）まで歩いてから消え、降りる人はそこから出てくる}
+  EV2:           {kind: elevator, xy: [-14.5, -1.5], face: [-15.5, -1.5], cabin_m: 1.0, note: BP_Elevator_frame2}
   ev_wait:       {kind: wait_zone, zone: ev_hall, spacing: 0.6, door_aisle: 0.5}
   reception_w1:  {kind: spot, xy: [-8.2, -0.6], face: [-4.8, 0.0]}
   reception_w2:  {kind: spot, xy: [-8.2, 0.6], face: [-4.8, 0.0]}
@@ -32,7 +32,7 @@ pois:
   lounge_3:      {kind: spot, xy: [-7.9, 9.6], face: [-7.9, 11.0]}
   sign:          {kind: prop, xy: [-12.8, 6.6], face: [-11.6, 5.6], prop: signage, note: 床置きのデジタルサイネージ（USD にはないのでシミュレータが置く）}
   sign_view:     {kind: spot, xy: [-11.7, 5.6], face: [-12.8, 6.6]}
-  south_exit:    {kind: exit, xy: [-10.5, -15.0]}
+  south_exit:    {kind: exit, xy: [-10.5, -15.0], hidden: [-10.5, -20.0], note: 南の廊下（歩ける所は焼いた範囲の端 y = -16 まで。その先の廊下の hidden まで歩いてから消える）}
   west_corridor: {kind: exit, xy: [-15.0, 20.0]}
   east_room:     {kind: exit, xy: [0.0, 22.5]}
 

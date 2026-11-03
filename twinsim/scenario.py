@@ -427,7 +427,11 @@ class Builder:
         kind = poi.get("kind")
         xy = sp.poi_xy(name)
         if kind in ("exit", "spawn"):
-            steps += [("walk", self.poi_point(name), "pass"), ("exit",)]
+            steps += [("walk", self.poi_point(name), "pass")]
+            hidden = sp.pois[name].get("hidden")
+            if hidden:  # カメラに映らない所（扉の向こうなど）まで歩いてから消える
+                steps.append(("straight", tuple(map(float, hidden)), "pass"))
+            steps.append(("exit",))
             return steps
         face = tuple(poi["face"]) if "face" in poi else None
         state = d.get("state") or STATE_OF_GROUP.get(group.split("_")[0], "dwell")
@@ -480,6 +484,10 @@ class Builder:
         label = origin if isinstance(origin, str) else origin.get("name") or stream  # 記録の出発地（OD の集計に使う）
         comp = []
         base_plan = self.plan_for(d, comp)
+        hidden = self.space.pois[origin].get("hidden") if isinstance(origin, str) and origin_xy is None else None
+        if hidden:  # カメラに映らない所（扉の向こうなど）に現れ、現れる場所までまっすぐ歩いて入る
+            base_plan = [("straight", tuple(oxy), "pass")] + base_plan
+            oxy = tuple(map(float, hidden))
         made = []
         for k in range(size):
             l_pref = (k - (size - 1) / 2) * lat if size > 1 else self.rng.uniform(-0.3, 0.3)
@@ -580,7 +588,7 @@ class Builder:
             self.meta["elevator"].update(timing)
             for c in ev["cars"]:
                 p = sp.poi(c)
-                cars.append(Car(c, tuple(p["xy"]), tuple(p["face"]), int(ev.get("capacity", 8))))
+                cars.append(Car(c, tuple(p["xy"]), tuple(p["face"]), int(ev.get("capacity", 8)), float(p.get("cabin_m", 0.0))))
             spots = wait_spots(sp, self.ev_poi)
             if ev.get("schedule", {}).get("type") == "on_demand":
                 policy = self.on_demand_policy(ev)
@@ -603,7 +611,12 @@ class Builder:
                         typ = dists.sample(alight.get("types"), self.rng) if alight.get("types") else "person"
                         d = self.pick_destination(alight["destinations"], typ)
                         plan = [("walk", tuple(door + out_dir * 3.0), "alight")] + self.plan_for(d)  # 扉から 3 m 出るまでは降車
-                        oxy = door + out_dir * (0.4 + 0.5 * k) + np.array([-out_dir[1], out_dir[0]]) * self.rng.uniform(-0.3, 0.3)
+                        side = np.array([-out_dir[1], out_dir[0]]) * self.rng.uniform(-0.3, 0.3)
+                        if car.depth_m > 0:  # かごの中から歩いて出る（扉の前に急に現れないように）
+                            oxy = np.array(car.cabin) - out_dir * 0.3 * k + side
+                            plan = [("straight", tuple(door + out_dir * 0.4 + side), "alight")] + plan
+                        else:
+                            oxy = door + out_dir * (0.4 + 0.5 * k) + side
                         t_out = t + timing["door_open_s"] + timing["transfer_s"] * k  # 扉が開いてから 1 人ずつ
                         a = self.new_agent(plan, t_out, oxy, float(dists.sample(spec["people"]["speed"], self.rng)),
                                            self.rng.uniform(-0.3, 0.3), None,

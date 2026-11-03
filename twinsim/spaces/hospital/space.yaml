@@ -17,9 +17,9 @@ levels:
     top_view: {eye: [-11.5, 16.24, 80.0], target: [-11.5, 16.25, 0.0], focal_mm: 20.735, h_aperture_mm: 20.955, width: 1280, height: 720}
 
 pois:
-  lobby_entrance: {kind: spawn, xy: [8.5, -1.0], note: ロビーのカメラの手前（hospital-sim の GATE）}
+  lobby_entrance: {kind: spawn, xy: [8.5, -1.0], hidden: [11.8, -1.0], note: ロビーのカメラの手前（hospital-sim の GATE）。人はカメラの後ろ（hidden）に現れ、カメラの下をくぐって入る}
   west:           {kind: spawn, xy: [-35.5, 11.2], note: 西の廊下}
-  EV:             {kind: elevator, xy: [-28.5, 13.2], face: [-28.5, 14.4], note: 階段室の前（見立て）}
+  EV:             {kind: elevator, xy: [-28.5, 13.2], face: [-28.5, 14.4], note: 階段室の前（見立て。USD に EV がないので、乗る人は扉の点で消え、降りる人はそこに現れる。評価では portals の範囲として外す）}
   ev_wait:        {kind: wait_zone, zone: ev_hall, spacing: 0.8, door_aisle: 0.6}
   reception_1:    {kind: spot, xy: [2.0, 3.0], face: [2.0, 4.0], note: ロビーの受付の前}
   reception_2:    {kind: spot, xy: [2.75, 3.0], face: [3.0, 4.0]}

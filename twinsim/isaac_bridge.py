@@ -124,9 +124,29 @@ def chunks(f0, f1, size):
     return [(a, min(a + size - 1, f1)) for a in range(f0, f1 + 1, size)]
 
 
-def plan_render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None):
+def near_camera(gt, cam, a, b, margin=0.5):
+    """コマ a〜b に、カメラ cam の画面（上下左右に margin 倍ずつ広げた範囲）へ枠がかかる人の名前。
+    画面の外のすぐ近くの人も入れる（床に映る影・映り込みのため）。カメラの後ろの人は入れない。"""
+    from .camera import Camera
+    c = Camera(gt["cameras"][cam], floor_z=0.0)
+    names = []
+    for name, p in gt["people"].items():
+        s0, tr = p["start_frame"], gt["tracks"][name]
+        lo, hi = max(a, s0), min(b, s0 + len(tr) - 1)
+        for f in range(lo, hi + 1, 5) if lo <= hi else ():
+            x, y = tr[f - s0][0], tr[f - s0][1]
+            bx = c.person_box(x, y, float(p.get("height_m", 1.75)))
+            if bx and bx[2] > -margin * c.w and bx[0] < (1 + margin) * c.w and bx[3] > -margin * c.h and bx[1] < (1 + margin) * c.h:
+                names.append(name)
+                break
+    return names
+
+
+def plan_render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, labels=False, preroll=0, cull=False):
     """描画のジョブの一覧を作る（まだ投入しない）。chunk_s を渡すと、カメラごと・chunk_s 秒ごとに分けて、いくつもの受け付けで並べて描ける。
-    分けないときは、全部のカメラを 1 つのジョブで描く（舞台の読み込みが 1 回で済む）。"""
+    分けないときは、全部のカメラを 1 つのジョブで描く（舞台の読み込みが 1 回で済む）。
+    labels: 描画から人ごとの枠と隠れの割合を出す（labels/<カメラ>.csv）。preroll: 区間ごとに前の何コマかを余分に描いて捨てる。
+    cull: カメラごとの区間で、そのカメラの近くの人だけを置く（人が多いと 1 本の描画が遅くなるため。chunk_s のときだけ）。"""
     run = Path(run_dir).expanduser().resolve()
     gt = json.loads((run / "ground_truth.json").read_text())
     spec = yaml.safe_load((run / "scenario_resolved.yaml").read_text(encoding="utf-8"))
@@ -147,16 +167,17 @@ def plan_render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=Non
         if spec.get("render", {}).get("gate_props", True):
             props.append({"kind": "gate", "line": sp.poi(k)["line"], "lanes": len(g["lanes"]), "in_dir": g["in_dir"]})
     base = {"run_dir": f"{CONTAINER}/runs/{name}", "usd": sp.spec["usd"], "props": props, "tint": tint, "preset": preset,
-            "z": sp.z, "lights": sp.spec.get("lights", [])}
+            "z": sp.z, "lights": sp.spec.get("lights", []), "labels": bool(labels), "preroll": int(preroll)}
     cams = list(cameras or gt["cameras"])
     if chunk_s is None:
         parts = [(f"render_{name}", {**base, "frames": [int(f0), int(f1)], "cameras": list(cameras or [])})]
     else:
         size = max(1, round(chunk_s * gt["fps"]))
         parts = [(f"render_{name}__{cam}__{a:06d}", {**base, "frames": [int(a), int(b)], "cameras": [cam],
-                                                     "frames_dir": f"{cam}/{a:06d}", "log_name": f"render_log.{cam}.{a:06d}.json"})
+                                                     "frames_dir": f"{cam}/{a:06d}", "log_name": f"render_log.{cam}.{a:06d}.json",
+                                                     **({"people": near_camera(gt, cam, a - int(preroll) - 5, b + 5)} if cull else {})})
                  for cam in cams for a, b in chunks(int(f0), int(f1), size)]
-    return {"run": str(run), "name": name, "frames": [int(f0), int(f1)], "cameras": cams, "parts": parts}
+    return {"run": str(run), "name": name, "frames": [int(f0), int(f1)], "cameras": cams, "parts": parts, "labels": bool(labels)}
 
 
 def prepare_render(plan):
@@ -165,7 +186,8 @@ def prepare_render(plan):
     dst = WORK / "runs" / plan["name"]
     dst.mkdir(parents=True, exist_ok=True)
     fix_perms()
-    shutil.rmtree(dst / "frames", ignore_errors=True)  # 前回の画像が混ざらないように
+    shutil.rmtree(dst / "frames", ignore_errors=True)  # 前回の画像と注釈が混ざらないように
+    shutil.rmtree(dst / "labels_raw", ignore_errors=True)
     for f in dst.glob("render_log*.json"):
         f.unlink()
     shutil.copy(run / "ground_truth.json", dst / "ground_truth.json")
@@ -235,17 +257,40 @@ def finish_plan(plan, keep_frames=True):
         rl = {"frames": [f0, f1], "cameras": cams, "people_placed": max((p["people_placed"] for p in parts), default=0),
               "total_s": round(sum(p["total_s"] for p in parts), 1), "parts": len(parts),
               "workers": sorted({p.get("worker", "main") for p in parts})}
+    if plan.get("labels"):
+        rl["labels"] = finish_labels(plan, dst, run)
     (run / "render_log.json").write_text(json.dumps(rl, ensure_ascii=False))
     if not keep_frames:
         shutil.rmtree(dst / "frames", ignore_errors=True)
     return {"log": log, "videos": vids}
 
 
-def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, keep_frames=True):
+OCC_INCLUDES_TRUNCATION = False  # Replicator の occlusionRatio が画面の外の分を数えないこと（2026-11-03 に描画で確かめる）
+
+
+def finish_labels(plan, dst, run):
+    """描画の注釈（作業場所の labels_raw/<カメラ>/<区間>.json）を、カメラごとの正解の表 labels/<カメラ>.csv にまとめる。
+    コマの抜けがあれば止まる（動画とずれた正解を作らないように）。"""
+    from . import labels
+    f0, f1 = plan["frames"]
+    raw = {}
+    for cam in plan["cameras"]:
+        one = dst / "labels_raw" / f"{cam}.json"  # 分けずに描いたとき
+        files = sorted((dst / "labels_raw").glob(f"{cam}/*.json")) + ([one] if one.exists() else [])
+        parts = [json.loads(p.read_text()) for p in files]
+        got = sorted(int(r["frame"]) for part in parts for r in part["rows"])
+        if got != list(range(f0, f1 + 1)):
+            raise RuntimeError(f"{cam} の注釈のコマが足りない・重なっている（{len(got)} コマ、要るのは {f0}〜{f1} の {f1 - f0 + 1}）")
+        raw[cam] = parts
+    return labels.build_all(run, raw, OCC_INCLUDES_TRUNCATION)
+
+
+def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, keep_frames=True, labels=False, preroll=0, cull=False):
     """計算の結果（run_dir）を描画し、run_dir/video/<カメラ>.mp4 を作る。frames=(始まり, 終わり) で範囲を絞る（試し撮り）。
     tint は人ごとに服の色を変えるか。None なら設定の render.tint に従う。
-    chunk_s を渡すと、カメラごと・chunk_s 秒ごとに分けて投入する（受け付けがいくつも動いていれば、並べて描く。tools/render_farm.sh）。"""
-    plan = plan_render(run_dir, frames, cameras, preset, tint, chunk_s)
+    chunk_s を渡すと、カメラごと・chunk_s 秒ごとに分けて投入する（受け付けがいくつも動いていれば、並べて描く。tools/render_farm.sh）。
+    labels=True で、描画から人ごとの枠と隠れの割合を出して labels/<カメラ>.csv を作る（plan_render）。"""
+    plan = plan_render(run_dir, frames, cameras, preset, tint, chunk_s, labels, preroll, cull)
     t0 = time.monotonic()
     start_render(plan)
     wait_render(plan)

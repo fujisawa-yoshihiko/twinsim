@@ -190,12 +190,14 @@ def template(name):
     return read_config(name)
 
 
-def render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, keep_frames=True):
+def render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, keep_frames=True, labels=False, preroll=0, cull=False):
     """計算の結果を Isaac Sim で描画して video/<カメラ>.mp4 を作る（GPU。Isaac Sim の受け付けが動いているとき）。
     tint=False で服の色を変えない。None なら設定の render.tint に従う。
     chunk_s（秒）を渡すと、カメラごと・その長さごとに分けて投入し、動いている受け付け全部で並べて描く（tools/render_farm.sh）。
-    keep_frames=False なら、mp4 にしたあとで作業場所の画像（1 コマ約 1.6 MB）を消す。"""
+    keep_frames=False なら、mp4 にしたあとで作業場所の画像（1 コマ約 1.6 MB）を消す。
+    labels=True で、描画から人ごとの枠（見えている部分・全身）と隠れの割合を出し、labels/<カメラ>.csv を作る（docs/formats.md の 4）。
+    preroll（コマ）は区間ごとに前を余分に描いて捨てる数、cull=True はカメラごとの区間でそのカメラの近くの人だけを置く（chunk_s のとき。速くなる）。"""
     from . import isaac_bridge
     if not isaac_bridge.ready():
         raise RuntimeError("Isaac Sim が動いていない。先に ./isaac_up.sh か tools/render_farm.sh up を実行する（終わったら isim down・render_farm.sh down）")
-    return isaac_bridge.render(out_dir, frames, cameras, preset, tint, chunk_s, keep_frames)
+    return isaac_bridge.render(out_dir, frames, cameras, preset, tint, chunk_s, keep_frames, labels, preroll, cull)

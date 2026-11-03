@@ -115,6 +115,45 @@ class Space:
                     n += 1
         return n * self.res ** 2
 
+    PORTAL_R = 0.8  # 出入り口の範囲の半径（m）
+
+    def portals(self):
+        """人が現れる・消える所（spawn・exit・elevator）の範囲: [{name, kind, a, b}]。a〜b の線分から PORTAL_R 以内。
+        spawn・exit は xy〜hidden（hidden がなければ xy の点）、elevator は扉〜かごの中（cabin_m、なければ扉の点）。"""
+        out = []
+        for k, p in self.pois.items():
+            kind = p.get("kind")
+            if kind not in ("spawn", "exit", "elevator") or "xy" not in p:
+                continue
+            a = tuple(map(float, p["xy"]))
+            b = a
+            if p.get("hidden"):
+                b = tuple(map(float, p["hidden"]))
+            elif kind == "elevator" and float(p.get("cabin_m", 0) or 0) > 0 and "face" in p:
+                dx, dy = p["face"][0] - a[0], p["face"][1] - a[1]
+                n = math.hypot(dx, dy) or 1.0
+                b = (a[0] + dx / n * float(p["cabin_m"]), a[1] + dy / n * float(p["cabin_m"]))
+            out.append({"name": k, "kind": kind, "a": a, "b": b})
+        return out
+
+    def in_portal(self, x, y, r=None):
+        """(x, y) が出入り口の範囲（portals）の中なら、その名前。外なら None。"""
+        r = self.PORTAL_R if r is None else r
+        for q in self.portals_cache():
+            ax, ay = q["a"]
+            bx, by = q["b"]
+            vx, vy = bx - ax, by - ay
+            L = vx * vx + vy * vy
+            t = 0.0 if L == 0 else max(0.0, min(1.0, ((x - ax) * vx + (y - ay) * vy) / L))
+            if math.hypot(x - (ax + t * vx), y - (ay + t * vy)) <= r:
+                return q["name"]
+        return None
+
+    def portals_cache(self):
+        if not hasattr(self, "_portals"):
+            self._portals = self.portals()
+        return self._portals
+
     def poi(self, name):
         if name not in self.pois:
             raise KeyError(f"空間 {self.name} に場所 {name} がない（あるもの: {sorted(self.pois)}）")

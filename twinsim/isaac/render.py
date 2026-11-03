@@ -10,10 +10,14 @@
   preset    描画の方式（RAY_TRACE か PATH_TRACE）
   frames_dir  画像の置き場所（run_dir/frames/ の下。省くとカメラの名前）。1 本を分けて描くときに、分けた単位ごとに替える
   log_name    描画の記録の名前（省くと render_log.json）
-出力: run_dir/frames/<frames_dir>/f.<コマ>.png と run_dir/<log_name>
+  preroll     描く前に余分に描いて捨てるコマの数（区間の最初の 1〜2 コマだけ見え方が違うのを避ける。省くと 0）
+  people      置く人の名前（省くと全員）。カメラごとの区間では、そのカメラの近くの人だけを置いて速くする
+  labels      true なら、描いたあと同じコマを流して、人ごとの枠（見えている部分・全身）と隠れの割合を Replicator で出す
+出力: run_dir/frames/<frames_dir>/f.<コマ>.png と run_dir/<log_name>。labels のときは run_dir/labels_raw/<frames_dir>.json
 """
 
 import colorsys
+import glob
 import json
 import math
 import os
@@ -158,6 +162,41 @@ async def capture(app, cam, folder, start, end, fps, w, h, preset):
     return time.monotonic() - t0
 
 
+def label_person(prim):
+    """人の一番上の prim に「class: person」の印を付ける（Replicator の枠は、この印の付いた prim ごとに 1 つ）。"""
+    from pxr import UsdSemantics
+    UsdSemantics.LabelsAPI.Apply(prim, "class").CreateLabelsAttr().Set(["person"])
+
+
+async def labels(app, cam, f0, f1, fps, w, h, out):
+    """描いたのと同じコマを順に流し、人ごとの枠を取る。tight = 見えている画素の枠（完全に隠れた人は出ない）、
+    loose = 隠れた部分も含む全身の枠、occ = Replicator の隠れの割合（0 = 全部見える、1 = 全部隠れる）。"""
+    import omni.replicator.core as rep
+    import omni.timeline
+    rp = rep.create.render_product(cam, (w, h))
+    anns = {k: rep.AnnotatorRegistry.get_annotator(f"bounding_box_2d_{k}", init_params={"semanticTypes": ["class"]}) for k in ("tight", "loose")}
+    for a in anns.values():
+        a.attach([rp])
+    tl = omni.timeline.get_timeline_interface()
+    rows, t0 = [], time.monotonic()
+    for f in range(f0, f1 + 1):
+        tl.set_current_time(f / fps)
+        await rep.orchestrator.step_async(rt_subframes=1, delta_time=0.0, pause_timeline=True)
+        got = {}
+        for k, a in anns.items():
+            d = a.get_data()
+            for r, path in zip(d["data"], d["info"]["primPaths"]):
+                name = path.rsplit("/", 1)[-1]
+                got.setdefault(name, {})[k] = [int(r["x_min"]), int(r["y_min"]), int(r["x_max"]), int(r["y_max"]), round(float(r["occlusionRatio"]), 4)]
+        rows.append({"frame": f, "people": got})
+    for a in anns.values():
+        a.detach()
+    rp.destroy()
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    json.dump({"camera": cam, "frames": [f0, f1], "width": w, "height": h, "rows": rows}, open(out, "w"))
+    return time.monotonic() - t0
+
+
 async def main():
     import omni.kit.app
     app = omni.kit.app.get_app()
@@ -179,10 +218,14 @@ async def main():
     walker = cl.Walker(stage, dl, fps)
     placed, tinted = 0, 0
     t0 = time.monotonic()
+    pre = int(job.get("preroll", 0))
+    only = set(job["people"]) if job.get("people") is not None else None
     for name, p in gt["people"].items():
+        if only is not None and name not in only:
+            continue
         s0 = p["start_frame"]
         tr, mv = gt["tracks"][name], gt["moving"][name]
-        a, b = max(f0 - 5, s0), min(f1 + 5, s0 + len(tr) - 1)  # 描く範囲にいる間だけ置く（速さのため）
+        a, b = max(f0 - pre - 5, s0), min(f1 + 5, s0 + len(tr) - 1)  # 描く範囲にいる間だけ置く（速さのため）
         if a > b:
             continue
         # 歩く姿勢は、最後に止まった所（か現れた所）から進んだ距離で決まる（crowd_lib.add_track）。
@@ -191,6 +234,8 @@ async def main():
             a -= 1
         frames = [(f, tr[f - s0][0], tr[f - s0][1], tr[f - s0][2], bool(mv[f - s0])) for f in range(a, b + 1)]
         cl.add_track(walker, name, p["model"], frames, z=float(job.get("z", 0.0)))
+        if job.get("labels"):
+            label_person(stage.GetPrimAtPath(f"/Root/{name}"))
         placed += 1
         if job.get("tint", True):
             part = 0
@@ -210,18 +255,27 @@ async def main():
     stage.SetStartTimeCode(0)
     stage.SetEndTimeCode(max(f1, 1))
     cams = job.get("cameras") or list(gt["cameras"])
-    times = {}
+    times, label_times = {}, {}
     for cname in cams:
         c = gt["cameras"][cname]
         look_at_camera(stage, f"/Root/TS_{cname}", c)
         for _ in range(30):
             await app.next_update_async()
         folder = f"{run}/frames/{job.get('frames_dir') or cname}"
-        sec = await capture(app, f"/Root/TS_{cname}", folder, f0, f1, fps, c["width"], c["height"], job.get("preset", "RAY_TRACE"))
+        a = max(0, f0 - pre)
+        sec = await capture(app, f"/Root/TS_{cname}", folder, a, f1, fps, c["width"], c["height"], job.get("preset", "RAY_TRACE"))
+        for k in range(a, f0):  # 余分に描いた分は捨てる（隣の区間の画像と重ならないように。画像は folder/f_frames/f.<コマ>.png）
+            for fn in glob.glob(f"{folder}/**/f.{k}.png", recursive=True):
+                os.remove(fn)
         times[cname] = round(sec, 1)
-        log(cname, "rendered", f1 - f0 + 1, "frames in", round(sec, 1), "s")
-    json.dump({"frames": [f0, f1], "cameras": times, "people_placed": placed, "total_s": round(time.monotonic() - t_start, 1),
-               "worker": os.environ.get("TWINSIM_WORKER", "main")},
+        log(cname, "rendered", f1 - a + 1, "frames in", round(sec, 1), "s", f"(preroll {f0 - a})" if f0 > a else "")
+        if job.get("labels"):
+            out = f"{run}/labels_raw/{job.get('frames_dir') or cname}.json"
+            lsec = await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out)
+            label_times[cname] = round(lsec, 1)
+            log(cname, "labels", f1 - f0 + 1, "frames in", round(lsec, 1), "s")
+    json.dump({"frames": [f0, f1], "cameras": times, "labels": label_times, "people_placed": placed, "preroll": pre,
+               "total_s": round(time.monotonic() - t_start, 1), "worker": os.environ.get("TWINSIM_WORKER", "main")},
               open(f"{run}/{job.get('log_name') or 'render_log.json'}", "w"))
     # 次のジョブを待つ間も、読み込んだ舞台を描き続けて GPU を使う（8 本で使用率 8 割ほど）。空の舞台にしておく
     try:
