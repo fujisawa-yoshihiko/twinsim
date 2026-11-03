@@ -81,6 +81,32 @@ Rendering needs the repository's `./isaac_up.sh` and the Isaac Sim environment `
 
 Rendering speed depends on the space (frames per second: office 3.5–5.7, warehouse 1.9, hospital 1.1). See `./stop.sh` and [docs/operations.en.md](docs/operations.en.md) for stopping.
 
+<a id="parallel"></a>
+
+### Rendering in parallel
+
+Rendering is limited by work outside the GPU (updating the people and so on); one renderer uses only about a tenth of the GPU. Running several render-only Isaac Sim instances (no window, no ports) on the same GPU, and splitting one render per camera and per time span, makes it faster.
+
+```bash
+tools/render_farm.sh up --gpu 0 --workers 8 --wait      # 8 render-only Isaac Sim instances (1–2 min)
+./run.sh render runs/test --chunk-s 120 --drop-frames    # split per camera and per 120 s; every running instance renders
+tools/render_farm.sh status                              # receivers, queue, GPU
+tools/render_farm.sh down                                # stop
+```
+
+| Instances on one GPU | Capture speed (frames/s, total) | Compared with 1 | GPU utilization | Power (mean) | Temperature (max) | GPU memory |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 8.4 | 1.0× | 7% | 51 W | 41 °C | 6 GiB |
+| 2 | 14.8 | 1.8× | 15% | 62 W | 45 °C | 13 GiB |
+| 4 | 23.7 | 2.8× | 35% | 90 W | 53 °C | 27 GiB |
+| 8 | 33.2 | 4.0× | 57% | 123 W | 57 °C | 54 GiB |
+
+Office, one camera, 300 frames (about 25 people in view), with as many renders at once as instances (2026-11-03, RTX PRO 6000, one run each). Capture speed excludes loading the stage (about 1 min per job).
+
+- Each split part loads the stage, so do not split too finely (60–120 s).
+- The walking pose is decided from the last place a person stopped, so split renders give the same positions and poses as one render. Only the first 1–2 frames of a part look slightly different, because the renderer has no accumulated history yet.
+- This runs separately from `isim up` (interactive, one per person). The containers carry the `isim.user` and `isim.gpu` labels, so `one-gpu` and `isim` treat the GPU as in use. It does not start on a GPU with someone else's job, and you can use at most 2 GPUs of your own in total (`render_farm.sh` refuses more).
+
 ## Output formats (training data and ground-truth labels)
 
 Ground-truth labels for object detection and tracking, and training data for people-flow prediction, GNNs and VLMs. Details are in [docs/formats.en.md](docs/formats.en.md).

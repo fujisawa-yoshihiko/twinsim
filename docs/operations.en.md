@@ -36,6 +36,7 @@ cd ~/twinsim-lib && ./status.sh     # GUI server, Isaac Sim (GPU), free GPUs
 |---|---|---|---|
 | twinsim GUI server | `./run.sh serve` (to keep it running after closing the terminal: `setsid nohup ./run.sh serve > ~/dt-data/twinsim/serve.log 2>&1 &`) | `Ctrl+C` in the terminal that started it, or `./stop.sh gui` | none |
 | Isaac Sim (rendering) | `./isaac_up.sh` (`./isaac_up.sh 2` to choose another GPU) | `./stop.sh isaac` (= `isim down`) | 1 (the same GPU as detection and the rest) |
+| Render-only Isaac Sim (rendering in parallel) | `tools/render_farm.sh up --gpu N --workers K --wait` | `tools/render_farm.sh down` | Several on one GPU; at most 2 GPUs of your own in total ([README](../README.en.md#parallel)) |
 | Everything at once | - | `./stop.sh` (GUI), `./stop.sh all` (Isaac Sim too) | - |
 
 Run the commands in the repository folder.

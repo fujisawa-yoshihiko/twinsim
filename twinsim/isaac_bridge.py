@@ -19,7 +19,7 @@ CONTAINER = "/workspace/twinsim"
 
 
 def sync():
-    for d in ("isaac/vendor", "inbox", "outbox", "done", "jobs", "runs"):
+    for d in ("isaac/vendor", "inbox", "outbox", "done", "running", "jobs", "runs"):
         (WORK / d).mkdir(parents=True, exist_ok=True)
     for p in (ROOT / "isaac").glob("*.py"):
         shutil.copy(p, WORK / "isaac" / p.name)
@@ -35,8 +35,8 @@ def ready(max_age_s=30):
     return any((WORK / "inbox").glob("*.py")) and alive.exists() and time.time() - alive.stat().st_mtime < 6 * 3600
 
 
-def submit(script, job, name, wait_s=4 * 3600, poll=5):
-    """job（dict）を jobs/<name>.json に書き、isaac/<script> を JOB つきで実行させて、outbox の結果（文字列）を返す。"""
+def enqueue(script, job, name):
+    """job（dict）を jobs/<name>.json に書き、isaac/<script> を JOB つきで実行させるジョブを inbox に置く（待たない）。結果の場所を返す。"""
     sync()
     (WORK / "jobs" / f"{name}.json").write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
     out = WORK / "outbox" / f"{name}.txt"
@@ -47,6 +47,12 @@ def submit(script, job, name, wait_s=4 * 3600, poll=5):
     tmp = WORK / "inbox" / f"{name}.py.tmp"
     tmp.write_text(body)
     tmp.rename(WORK / "inbox" / f"{name}.py")
+    return out
+
+
+def submit(script, job, name, wait_s=4 * 3600, poll=5):
+    """enqueue して、outbox の結果（文字列）を返す。時間切れなら "timeout"。"""
+    out = enqueue(script, job, name)
     t0 = time.monotonic()
     while time.monotonic() - t0 < wait_s:
         if out.exists():
@@ -54,6 +60,17 @@ def submit(script, job, name, wait_s=4 * 3600, poll=5):
             return out.read_text()
         time.sleep(poll)
     return "timeout"
+
+
+def workers(max_age_s=30):
+    """動いている受け付けの名前（_alive.<名前>.txt が新しいもの。描画の最中は書かれないので、走っているジョブの受け付けも数える）。"""
+    alive = set()
+    for p in (WORK / "outbox").glob("_alive.*.txt"):
+        if time.time() - p.stat().st_mtime < max_age_s:
+            alive.add(p.name[len("_alive."):-len(".txt")])
+    for p in (WORK / "running").glob("*@*.py"):
+        alive.add(p.stem.rsplit("@", 1)[1])
+    return sorted(alive)
 
 
 def fix_perms():
@@ -102,22 +119,24 @@ def check_render_args(gt, frames, cameras):
             raise ValueError(f"frames は 0 以上 {gt['total_frames']} 未満の [始まり, 終わり]（今は {frames}）")
 
 
-def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None):
-    """計算の結果（run_dir）を描画し、run_dir/video/<カメラ>.mp4 を作る。frames=(始まり, 終わり) で範囲を絞る（試し撮り）。
-    tint は人ごとに服の色を変えるか。None なら設定の render.tint に従う。"""
+def chunks(f0, f1, size):
+    """[f0, f1] を size コマずつの区間に分ける（最後は短くなる）。"""
+    return [(a, min(a + size - 1, f1)) for a in range(f0, f1 + 1, size)]
+
+
+def plan_render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None):
+    """描画のジョブの一覧を作る（まだ投入しない）。chunk_s を渡すと、カメラごと・chunk_s 秒ごとに分けて、いくつもの受け付けで並べて描ける。
+    分けないときは、全部のカメラを 1 つのジョブで描く（舞台の読み込みが 1 回で済む）。"""
     run = Path(run_dir).expanduser().resolve()
     gt = json.loads((run / "ground_truth.json").read_text())
     spec = yaml.safe_load((run / "scenario_resolved.yaml").read_text(encoding="utf-8"))
     sp = load_space(spec.get("space", gt["space"]))
     check_render_args(gt, frames, cameras)
+    if chunk_s is not None and not chunk_s > 0:
+        raise ValueError(f"chunk_s は正の秒数（今は {chunk_s}）")
     if tint is None:
         tint = bool(spec.get("render", {}).get("tint", "per_person"))
     name = run.name
-    dst = WORK / "runs" / name
-    dst.mkdir(parents=True, exist_ok=True)
-    fix_perms()
-    shutil.rmtree(dst / "frames", ignore_errors=True)  # 前回の画像が混ざらないように
-    shutil.copy(run / "ground_truth.json", dst / "ground_truth.json")
     f0, f1 = frames or (0, gt["total_frames"] - 1)
     props = []
     for pr in spec.get("render", {}).get("props", []):
@@ -127,13 +146,110 @@ def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None):
     for k, g in gt.get("gates", {}).items():  # ゲートの機械（USD にないので置く）
         if spec.get("render", {}).get("gate_props", True):
             props.append({"kind": "gate", "line": sp.poi(k)["line"], "lanes": len(g["lanes"]), "in_dir": g["in_dir"]})
-    job = {"run_dir": f"{CONTAINER}/runs/{name}", "usd": sp.spec["usd"], "frames": [int(f0), int(f1)],
-           "cameras": cameras or [], "props": props, "tint": tint, "preset": preset, "z": sp.z, "lights": sp.spec.get("lights", [])}
+    base = {"run_dir": f"{CONTAINER}/runs/{name}", "usd": sp.spec["usd"], "props": props, "tint": tint, "preset": preset,
+            "z": sp.z, "lights": sp.spec.get("lights", [])}
+    cams = list(cameras or gt["cameras"])
+    if chunk_s is None:
+        parts = [(f"render_{name}", {**base, "frames": [int(f0), int(f1)], "cameras": list(cameras or [])})]
+    else:
+        size = max(1, round(chunk_s * gt["fps"]))
+        parts = [(f"render_{name}__{cam}__{a:06d}", {**base, "frames": [int(a), int(b)], "cameras": [cam],
+                                                     "frames_dir": f"{cam}/{a:06d}", "log_name": f"render_log.{cam}.{a:06d}.json"})
+                 for cam in cams for a, b in chunks(int(f0), int(f1), size)]
+    return {"run": str(run), "name": name, "frames": [int(f0), int(f1)], "cameras": cams, "parts": parts}
+
+
+def prepare_render(plan):
+    """描画の作業場所を用意する（前回の画像と記録は消す）。"""
+    run = Path(plan["run"])
+    dst = WORK / "runs" / plan["name"]
+    dst.mkdir(parents=True, exist_ok=True)
+    fix_perms()
+    shutil.rmtree(dst / "frames", ignore_errors=True)  # 前回の画像が混ざらないように
+    for f in dst.glob("render_log*.json"):
+        f.unlink()
+    shutil.copy(run / "ground_truth.json", dst / "ground_truth.json")
+
+
+def start_render(plan):
+    """作業場所を用意して、ジョブを全部 inbox に置く。少しずつ置くときは prepare_render のあと enqueue("render.py", job, 名前) を順に。"""
+    prepare_render(plan)
+    for key, job in plan["parts"]:
+        enqueue("render.py", job, key)
+
+
+def render_state(plan):
+    """{"done": 終わったジョブの数, "total": 全部の数, "errors": [失敗したジョブの名前]}"""
+    done, errors = 0, []
+    for key, _ in plan["parts"]:
+        out = WORK / "outbox" / f"{key}.txt"
+        if out.exists():
+            done += 1
+            if "[error]" in out.read_text():
+                errors.append(key)
+    return {"done": done, "total": len(plan["parts"]), "errors": errors}
+
+
+def wait_render(plan, wait_s=12 * 3600, poll=5):
     t0 = time.monotonic()
-    log = submit("render.py", job, f"render_{name}")
-    if log == "timeout" or "[error]" in log:
-        raise RuntimeError(f"描画に失敗した: {log[-500:]}")
-    r = finish_render(run, log, (f0, f1), cameras)
+    while time.monotonic() - t0 < wait_s:
+        st = render_state(plan)
+        if st["errors"]:
+            log = (WORK / "outbox" / f"{st['errors'][0]}.txt").read_text()
+            raise RuntimeError(f"描画に失敗した（{len(st['errors'])} 件、最初は {st['errors'][0]}）: {log[-500:]}")
+        if st["done"] == st["total"]:
+            return
+        time.sleep(poll)
+    raise RuntimeError(f"描画が時間内に終わらなかった（{render_state(plan)}）")
+
+
+def finish_plan(plan, keep_frames=True):
+    """全部のジョブが終わったあと: カメラごとに mp4 にし（コマの抜けがあれば止まる）、記録をまとめて結果の場所に写す。
+    keep_frames=False なら、mp4 にしたあとで作業場所の画像を消す。"""
+    run = Path(plan["run"])
+    gt = json.loads((run / "ground_truth.json").read_text())
+    dst = WORK / "runs" / plan["name"]
+    if (dst / "ground_truth.json").read_bytes() != (run / "ground_truth.json").read_bytes():
+        raise RuntimeError(f"{dst} の正解が {run} の正解と違う（描き直しが要る）")
+    fix_perms()
+    logs = []
+    for key, _ in plan["parts"]:
+        out = WORK / "outbox" / f"{key}.txt"
+        logs.append(f"== {key}\n" + (out.read_text() if out.exists() else ""))
+    log = "\n".join(logs) if len(plan["parts"]) > 1 else logs[0].split("\n", 1)[1]
+    (run / "render_stdout.txt").write_text(log)
+    f0, f1 = plan["frames"]
+    vids = {}
+    (run / "video").mkdir(exist_ok=True)
+    for cam in plan["cameras"]:
+        vids[cam] = encode(dst / "frames" / cam, run / "video" / f"{cam}.mp4", gt["fps"], (f0, f1))
+    parts = [json.loads((dst / (job.get("log_name") or "render_log.json")).read_text())
+             for _, job in plan["parts"] if (dst / (job.get("log_name") or "render_log.json")).exists()]
+    if len(plan["parts"]) == 1 and parts:
+        rl = parts[0]
+    else:
+        cams = {}
+        for p in parts:
+            for c, s in p["cameras"].items():
+                cams[c] = round(cams.get(c, 0.0) + s, 1)
+        rl = {"frames": [f0, f1], "cameras": cams, "people_placed": max((p["people_placed"] for p in parts), default=0),
+              "total_s": round(sum(p["total_s"] for p in parts), 1), "parts": len(parts),
+              "workers": sorted({p.get("worker", "main") for p in parts})}
+    (run / "render_log.json").write_text(json.dumps(rl, ensure_ascii=False))
+    if not keep_frames:
+        shutil.rmtree(dst / "frames", ignore_errors=True)
+    return {"log": log, "videos": vids}
+
+
+def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, keep_frames=True):
+    """計算の結果（run_dir）を描画し、run_dir/video/<カメラ>.mp4 を作る。frames=(始まり, 終わり) で範囲を絞る（試し撮り）。
+    tint は人ごとに服の色を変えるか。None なら設定の render.tint に従う。
+    chunk_s を渡すと、カメラごと・chunk_s 秒ごとに分けて投入する（受け付けがいくつも動いていれば、並べて描く。tools/render_farm.sh）。"""
+    plan = plan_render(run_dir, frames, cameras, preset, tint, chunk_s)
+    t0 = time.monotonic()
+    start_render(plan)
+    wait_render(plan)
+    r = finish_plan(plan, keep_frames)
     missing = [c for c, n in r["videos"].items() if n is None]
     if missing:
         raise RuntimeError(f"描画の画像がない: {', '.join(missing)}")
@@ -141,28 +257,12 @@ def render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None):
     return r
 
 
-def finish_render(run_dir, log=None, frames=None, cameras=None):
-    """描画のあとの手順: コマを mp4 にし、描画の記録を写す。Isaac Sim の描画が終わったあとに止まったときは、これだけやり直せる
-    （描画に使った正解が今の正解と同じことを確かめる）。"""
-    run = Path(run_dir).expanduser()
-    gt = json.loads((run / "ground_truth.json").read_text())
-    dst = WORK / "runs" / run.name
-    if (dst / "ground_truth.json").read_bytes() != (run / "ground_truth.json").read_bytes():
-        raise RuntimeError(f"{dst} の正解が {run} の正解と違う（描き直しが要る）")
-    fix_perms()
-    if log is None:
-        out = WORK / "outbox" / f"render_{run.name}.txt"
-        log = out.read_text() if out.exists() else ""
-    (run / "render_stdout.txt").write_text(log)
-    rl = json.loads((dst / "render_log.json").read_text()) if (dst / "render_log.json").exists() else {}
-    f0, f1 = frames or rl.get("frames") or (0, gt["total_frames"] - 1)
-    vids = {}
-    (run / "video").mkdir(exist_ok=True)
-    for cam in (cameras or list(gt["cameras"])):
-        vids[cam] = encode(dst / "frames" / cam, run / "video" / f"{cam}.mp4", gt["fps"], (f0, f1))
-    if (dst / "render_log.json").exists():
-        shutil.copy(dst / "render_log.json", run / "render_log.json")
-    return {"log": log, "videos": vids}
+def finish_render(run_dir, log=None, frames=None, cameras=None, chunk_s=None):
+    """描画のあとの手順だけをやり直す（Isaac Sim の描画が終わったあとに止まったとき）。描画したときと同じ frames・cameras・chunk_s を渡す。"""
+    plan = plan_render(run_dir, frames, cameras, chunk_s=chunk_s)
+    if log is not None and len(plan["parts"]) == 1:
+        (WORK / "outbox" / f"{plan['parts'][0][0]}.txt").write_text(log)
+    return finish_plan(plan)
 
 
 def export_space(name, usd, region, res=0.25):

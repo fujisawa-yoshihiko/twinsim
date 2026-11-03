@@ -8,12 +8,15 @@
   props     置く物 [{kind: signage, xy, face}]
   tint      true なら人ごとに服の色を変える（characters.tint と同じ式）
   preset    描画の方式（RAY_TRACE か PATH_TRACE）
-出力: run_dir/frames/<カメラ>/f.<コマ>.png と run_dir/render_log.json
+  frames_dir  画像の置き場所（run_dir/frames/ の下。省くとカメラの名前）。1 本を分けて描くときに、分けた単位ごとに替える
+  log_name    描画の記録の名前（省くと render_log.json）
+出力: run_dir/frames/<frames_dir>/f.<コマ>.png と run_dir/<log_name>
 """
 
 import colorsys
 import json
 import math
+import os
 import time
 import types
 
@@ -182,6 +185,10 @@ async def main():
         a, b = max(f0 - 5, s0), min(f1 + 5, s0 + len(tr) - 1)  # 描く範囲にいる間だけ置く（速さのため）
         if a > b:
             continue
+        # 歩く姿勢は、最後に止まった所（か現れた所）から進んだ距離で決まる（crowd_lib.add_track）。
+        # 途中から描くときもそこから置き、分けて描いた区間の境目で姿勢が飛ばないようにする（全部を 1 本で描いたときと同じ姿勢）
+        while a > s0 and mv[a - s0]:
+            a -= 1
         frames = [(f, tr[f - s0][0], tr[f - s0][1], tr[f - s0][2], bool(mv[f - s0])) for f in range(a, b + 1)]
         cl.add_track(walker, name, p["model"], frames, z=float(job.get("z", 0.0)))
         placed += 1
@@ -209,8 +216,10 @@ async def main():
         look_at_camera(stage, f"/Root/TS_{cname}", c)
         for _ in range(30):
             await app.next_update_async()
-        sec = await capture(app, f"/Root/TS_{cname}", f"{run}/frames/{cname}", f0, f1, fps, c["width"], c["height"], job.get("preset", "RAY_TRACE"))
+        folder = f"{run}/frames/{job.get('frames_dir') or cname}"
+        sec = await capture(app, f"/Root/TS_{cname}", folder, f0, f1, fps, c["width"], c["height"], job.get("preset", "RAY_TRACE"))
         times[cname] = round(sec, 1)
         log(cname, "rendered", f1 - f0 + 1, "frames in", round(sec, 1), "s")
-    json.dump({"frames": [f0, f1], "cameras": times, "people_placed": placed, "total_s": round(time.monotonic() - t_start, 1)},
-              open(f"{run}/render_log.json", "w"))
+    json.dump({"frames": [f0, f1], "cameras": times, "people_placed": placed, "total_s": round(time.monotonic() - t_start, 1),
+               "worker": os.environ.get("TWINSIM_WORKER", "main")},
+              open(f"{run}/{job.get('log_name') or 'render_log.json'}", "w"))

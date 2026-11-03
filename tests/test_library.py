@@ -351,8 +351,9 @@ def test_render_tint_comes_from_the_config(tmp_path, monkeypatch):
     seen = []
     monkeypatch.setattr(isaac_bridge, "WORK", tmp_path / "work")
     monkeypatch.setattr(isaac_bridge, "fix_perms", lambda: None)
-    monkeypatch.setattr(isaac_bridge, "submit", lambda script, job, name: seen.append(job["tint"]) or "")
-    monkeypatch.setattr(isaac_bridge, "finish_render", lambda *a: {"log": "", "videos": {}})
+    monkeypatch.setattr(isaac_bridge, "enqueue", lambda script, job, name: seen.append(job["tint"]))
+    monkeypatch.setattr(isaac_bridge, "wait_render", lambda plan: None)
+    monkeypatch.setattr(isaac_bridge, "finish_plan", lambda *a: {"log": "", "videos": {}})
     isaac_bridge.render(r.out_dir)
     isaac_bridge.render(r.out_dir, tint=True)  # 引数が優先
     assert seen == [False, True]

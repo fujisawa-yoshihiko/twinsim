@@ -36,7 +36,7 @@ result = twinsim.simulate(config, out_dir="runs/short")
 | `twinsim.template(name)` | テンプレートを dict で返す（既定の値は足さない） |
 | `twinsim.list_templates()`・`twinsim.list_spaces()` | テンプレート・空間の名前の一覧 |
 | `twinsim.open_result(out_dir)` | 計算済みの結果のフォルダを開いて `Result` を返す。計算し直さない |
-| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None)` | 計算の結果を Isaac Sim で描画して `video/<カメラ>.mp4` を作る。GPU を使う。Isaac Sim が動いていなければ `RuntimeError`。`frames` はシミュレータのコマの範囲（端を含む）、`tint=False` で服の色を変えない（`None` なら設定の `render.tint` に従う） |
+| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, keep_frames=True)` | 計算の結果を Isaac Sim で描画して `video/<カメラ>.mp4` を作る。GPU を使う。Isaac Sim が動いていなければ `RuntimeError`。`frames` はシミュレータのコマの範囲（端を含む）、`tint=False` で服の色を変えない（`None` なら設定の `render.tint` に従う）。`chunk_s`（秒）を渡すと、カメラごと・その長さごとに分けて投入し、動いている受け付け全部で並べて描く（[README の「並べて描く」](../README.md#parallel)）。`keep_frames=False` で、mp4 にしたあと作業場所の画像を消す |
 
 `config` に渡せるもの:
 

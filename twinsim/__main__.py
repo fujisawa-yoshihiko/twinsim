@@ -9,7 +9,8 @@
   python -m twinsim export-logs <結果の場所>         ゲートの通過記録・EV の運行記録の形で書き出す（実データの形の見本・往復の確かめ）
   python -m twinsim ward-layout [--space hospital] [--out 場所]   病棟のベッド・ナースステーションの置き方と、その間の道のり
   python -m twinsim calibrate <元のシナリオ> --gate-log a.csv --ev-log b.csv [--ev-mode replay]   記録で値を合わせたシナリオを作る
-  python -m twinsim render <結果の場所> [--frames 始まり 終わり] [--cameras A,B]   Isaac Sim で描画して video/<カメラ>.mp4 を作る（GPU）
+  python -m twinsim render <結果の場所> [--frames 始まり 終わり] [--cameras A,B] [--chunk-s 秒] [--drop-frames]
+                                                Isaac Sim で描画して video/<カメラ>.mp4 を作る（GPU）。--chunk-s で分けて、動いている受け付け全部で並べて描く
   python -m twinsim export-space <名前> --usd URL --region x0 x1 y0 y1 z0 z1 [--res 0.25]   USD から空間の材料を作る（GPU）
   python -m twinsim serve [--port 8770] [--url]       GUI と REST API（127.0.0.1 だけ、トークンつき）
   python -m twinsim show-space <名前>                 真上の図に歩ける所・目盛り・候補・場所・ゾーンを重ねた図（spaces/<名前>/annotate.png）
@@ -75,6 +76,8 @@ def cli(argv):
     rd.add_argument("--frames", nargs=2, type=int)
     rd.add_argument("--cameras")
     rd.add_argument("--preset", default="RAY_TRACE")
+    rd.add_argument("--chunk-s", type=float)
+    rd.add_argument("--drop-frames", action="store_true")
     ss = sub.add_parser("show-space")
     ss.add_argument("name")
     el = sub.add_parser("export-logs")
@@ -115,10 +118,11 @@ def cli(argv):
         from . import isaac_bridge as ib
         ib.sync()
         if not ib.ready():
-            print("Isaac Sim が動いていない。先に ./isaac_up.sh を実行する（終わったら isim down）")
+            print("Isaac Sim が動いていない。先に ./isaac_up.sh か tools/render_farm.sh up を実行する（終わったら isim down・render_farm.sh down）")
             return 1
         if a.cmd == "render":
-            r = ib.render(a.run_dir, a.frames, a.cameras.split(",") if a.cameras else None, a.preset)
+            r = ib.render(a.run_dir, a.frames, a.cameras.split(",") if a.cameras else None, a.preset,
+                          chunk_s=a.chunk_s, keep_frames=not a.drop_frames)
         else:
             r = ib.export_space(a.name, a.usd, a.region, a.res)
         print(r["log"])

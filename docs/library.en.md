@@ -36,7 +36,7 @@ result = twinsim.simulate(config, out_dir="runs/short")
 | `twinsim.template(name)` | Returns a template as a dict (defaults are not filled in) |
 | `twinsim.list_templates()`, `twinsim.list_spaces()` | Names of the templates and spaces |
 | `twinsim.open_result(out_dir)` | Open a finished result folder and return a `Result`, without simulating again |
-| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None)` | Renders a result with Isaac Sim and writes `video/<camera>.mp4`. Uses a GPU. Raises `RuntimeError` if Isaac Sim is not running. `frames` is a range of simulator frames (both ends included); `tint=False` keeps the original clothing colors (`None` follows `render.tint` in the configuration) |
+| `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, keep_frames=True)` | Renders a result with Isaac Sim and writes `video/<camera>.mp4`. Uses a GPU. Raises `RuntimeError` if Isaac Sim is not running. `frames` is a range of simulator frames (both ends included); `tint=False` keeps the original clothing colors (`None` follows `render.tint` in the configuration). With `chunk_s` (seconds), the work is split per camera and per that length, and every running receiver renders in parallel ([README, "Rendering in parallel"](../README.en.md#parallel)). `keep_frames=False` deletes the working images after encoding the mp4 |
 
 What `config` accepts:
 
