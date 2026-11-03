@@ -102,15 +102,17 @@ class Result:
         cmd = ["ffmpeg", "-v", "error", "-ss", f"{max(start - first - 0.5, 0) / gt['fps']:.4f}", "-i", str(self.videos[camera]),
                "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
         with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
-            frame = start
-            while stop is None or frame <= stop:
-                data = proc.stdout.read(w * h * 3)
-                if len(data) < w * h * 3:
-                    break
-                if (frame - start) % step == 0:
-                    yield frame, np.frombuffer(data, np.uint8).reshape(h, w, 3)
-                frame += 1
-            proc.kill()
+            try:
+                frame = start
+                while stop is None or frame <= stop:
+                    data = proc.stdout.read(w * h * 3)
+                    if len(data) < w * h * 3:
+                        break
+                    if (frame - start) % step == 0:
+                        yield frame, np.frombuffer(data, np.uint8).reshape(h, w, 3)
+                    frame += 1
+            finally:  # 途中でやめたとき（next で 1 コマだけ読んだときなど）も、ffmpeg を先に止める（パイプが閉じたという誤りを出さない）
+                proc.kill()
 
 
 # 同じ場所に計算し直すとき、前の結果から消すもの（設定によっては書かれないので、残すと新しい結果と混ざる）
