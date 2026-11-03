@@ -220,7 +220,7 @@ def test_people_getting_off_at_the_very_end_are_not_in_the_events(tmp_path):
 
 
 def test_camera_above_a_wall_still_sees_people(tmp_path):
-    camera = {"name": "OnWall", "eye": [6.5, 2.5, 3.0], "target": [-4.0, 7.0, 0.5]}
+    camera = {"name": "OnWall", "eye": [6.5, 2.5, 2.8], "target": [-4.0, 7.0, 0.5]}
     stream = {"origin": {"xy": [-2.0, 6.0]}, "rate": 30, "destinations": ["south_exit"]}
     labels = twinsim.simulate({**CONFIG, "cameras": [camera], "streams": [stream]}, out_dir=tmp_path).mot("OnWall")
     assert (labels[:, 8] >= 0.4).sum() > 0
@@ -324,8 +324,8 @@ def test_origin_errors_before_simulating(origin, message):
 
 
 def test_custom_camera_position_changes_the_labels(tmp_path):
-    placed = {"name": "MyCam", "eye": [-1.0, 8.0, 3.0], "target": [-3.0, 14.0, 0.8], "focal_mm": 8.0}
-    moved = {"name": "CamGate", "eye": [-1.0, 8.0, 3.0]}  # 候補の一部だけ変える
+    placed = {"name": "MyCam", "eye": [-1.0, 8.0, 2.8], "target": [-3.0, 14.0, 0.8], "focal_mm": 8.0}
+    moved = {"name": "CamGate", "eye": [-1.0, 8.0, 2.8]}  # 候補の一部だけ変える
     r = twinsim.simulate({**CONFIG, "cameras": [placed, moved]}, out_dir=tmp_path / "cam")
     cams = r.ground_truth()["cameras"]
     assert r.cameras == ["CamGate", "MyCam"] and len(r.mot("MyCam")) > 0
@@ -339,6 +339,7 @@ def test_custom_camera_position_changes_the_labels(tmp_path):
     ({"name": "MyCam", "eye": [1, 1, 1], "target": [1, 1, 1]}, "同じ点"),
     ({"name": "CamGate", "eyes": [1, 1, 1]}, "知らないキー eyes"),
     ({"eye": [1, 1, 1], "target": [2, 2, 2]}, "name がない"),
+    ({"name": "Roof", "eye": [-1.0, 8.0, 3.5], "target": [-3.0, 14.5, 0.8]}, "天井（3.0 m）以上"),  # 天井の上から撮ることになる
 ])
 def test_camera_errors_before_simulating(camera, message):
     with pytest.raises(ValueError, match=message):

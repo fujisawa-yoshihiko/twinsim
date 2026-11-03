@@ -258,7 +258,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | キー | 型 | 既定 | 中身 |
 |---|---|---|---|
 | `name` | 文字列 | 必須 | 空間の候補の名前か、新しい名前 |
-| `eye` | `[x, y, z]` | 候補の値 | カメラの位置。新しい名前なら必須 |
+| `eye` | `[x, y, z]` | 候補の値 | カメラの位置。新しい名前なら必須。高さ `z` は空間の天井（`space.yaml` の `ceiling_m`。office 3.0 m・hospital 2.97 m・simple_room 3.99 m・warehouse 5.8 m）より低く |
 | `target` | `[x, y, z]` | 候補の値 | 見る点。新しい名前なら必須 |
 | `focal_mm` | 数 | 候補の値、なければ `12.0` | 焦点距離（mm） |
 | `h_aperture_mm` | 数 | `20.955` | センサーの横幅（mm） |
@@ -271,7 +271,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 ```json
 "cameras": [
   {"name": "CamGate"},
-  {"name": "CamEV", "eye": [-8.0, 3.0, 3.0]},
+  {"name": "CamEV", "eye": [-8.0, 3.0, 2.8]},
   {"name": "MyCam", "eye": [-6.0, 6.0, 2.7], "target": [-3.0, 14.5, 0.8], "focal_mm": 10.0}
 ]
 ```
@@ -398,7 +398,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | 必須のもの | `rate`・`destinations`、`to: "elevator"` のときの `elevator` と `cars` |
 | 種類の綴り | `rate` と `schedule` の `type`、`variant` が `variants` にあるか |
 | 座標 | `origin`・`meet.from` の形、歩ける所の中か、線の両端も含めて行き先まで歩いて行けるか |
-| カメラ | `name`、`eye`・`target` の形、同じ名前がないか、`eye` と `target` が同じ点でないか |
+| カメラ | `name`、`eye`・`target` の形、同じ名前がないか、`eye` と `target` が同じ点でないか、天井より低いか（天井より上だと、映っていない人に正解の枠が付く） |
 | 組み合わせ | `aicity` には `mot` が要る、`meet` は流れの一番上の行き先にだけ書ける |
 
 次は検査しません。

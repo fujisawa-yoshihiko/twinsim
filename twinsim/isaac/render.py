@@ -223,3 +223,8 @@ async def main():
     json.dump({"frames": [f0, f1], "cameras": times, "people_placed": placed, "total_s": round(time.monotonic() - t_start, 1),
                "worker": os.environ.get("TWINSIM_WORKER", "main")},
               open(f"{run}/{job.get('log_name') or 'render_log.json'}", "w"))
+    # 次のジョブを待つ間も、読み込んだ舞台を描き続けて GPU を使う（8 本で使用率 8 割ほど）。空の舞台にしておく
+    try:
+        await ctx.new_stage_async()
+    except Exception as e:  # 描いた結果には関わらないので、失敗しても記録だけ
+        log("空の舞台にできなかった:", e)

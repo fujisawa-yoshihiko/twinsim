@@ -307,6 +307,9 @@ def validate(spec):
             errs.append(f"cameras: {n} の eye・target は [x, y, z]")
         elif list(full["eye"]) == list(full["target"]):
             errs.append(f"cameras: {n} の eye と target が同じ点")
+        elif space.spec.get("ceiling_m") and float(full["eye"][2]) - space.z >= float(space.spec["ceiling_m"]) - 0.05:
+            # 正解の枠は天井を知らないので、天井より上のカメラでは、映っていない人に枠が付いてしまう
+            errs.append(f"cameras: {n} の高さ {float(full['eye'][2]) - space.z:g} m が、空間 {space.name} の天井（{space.spec['ceiling_m']} m）以上")
     if spec["render"].get("tint") not in ("per_person", False, None):
         errs.append(f"render.tint は per_person か false（今は {spec['render'].get('tint')!r}）")
     if errs:

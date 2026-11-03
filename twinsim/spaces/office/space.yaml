@@ -7,6 +7,7 @@ title_en: "Office lobby (entrance → gate → reception → elevator)"
 usd: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Office/office.usd
 license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジットを書く）
 license_en: "CC BY 4.0 (NVIDIA Isaac Sim assets; give credit when distributing)"
+ceiling_m: 3.0            # 天井の高さ（床から）。これより上のカメラは誤り（正解の枠が天井を知らないため）。SM_Ceiling（2026-11-03 に USD の外枠で測った）
 navmesh_region: [-30.0, 12.0, -16.0, 32.0, 0.0, 3.0]   # x0 x1 y0 y1 z0 z1（シーンは外の建物まで含み 1 km 四方あるので、焼く範囲を絞る）
 levels:
   - name: 1F

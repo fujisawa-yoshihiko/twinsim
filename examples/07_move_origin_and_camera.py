@@ -37,7 +37,7 @@ config["streams"][0]["origin"] = {"line": line, "name": "north_door"}
 
 # カメラ: 候補の CamGate は位置だけ変え、新しいカメラ MyCam を足す
 config["cameras"] = [
-    {"name": "CamGate", "eye": [-1.0, 8.0, 3.0]},
+    {"name": "CamGate", "eye": [-1.0, 8.0, 2.8]},
     {"name": "MyCam", "eye": [-6.0, 6.0, 2.7], "target": [-3.0, 14.5, 0.8], "focal_mm": 10.0},
 ]
 

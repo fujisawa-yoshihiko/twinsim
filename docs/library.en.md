@@ -142,7 +142,7 @@ For cameras (`cameras[]`), values added to a candidate name override only those 
 
 ```json
 "cameras": [
-  {"name": "CamGate", "eye": [-1.0, 8.0, 3.0]},
+  {"name": "CamGate", "eye": [-1.0, 8.0, 2.8]},
   {"name": "MyCam", "eye": [-6.0, 6.0, 2.7], "target": [-3.0, 14.5, 0.8], "focal_mm": 10.0}
 ]
 ```

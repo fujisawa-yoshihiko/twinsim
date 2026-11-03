@@ -6,6 +6,7 @@ title_en: "Small room (for operation checks)"
 usd: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Simple_Room/simple_room.usd
 license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジットを書く）
 license_en: "CC BY 4.0 (NVIDIA Isaac Sim assets; give credit when distributing)"
+ceiling_m: 3.99            # 天井の高さ（床から）。これより上のカメラは誤り（正解の枠が天井を知らないため）。3.99〜4.25 m（同）
 navmesh_region: [-5.0, 5.0, -5.0, 5.2, -0.8, 2.2]
 levels:
   - name: 1F

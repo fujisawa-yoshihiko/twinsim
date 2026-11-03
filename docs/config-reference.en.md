@@ -258,7 +258,7 @@ The keys are gate place names.
 | Key | Type | Default | Contents |
 |---|---|---|---|
 | `name` | string | required | A candidate name from the space, or a new name |
-| `eye` | `[x, y, z]` | candidate's value | Camera position. Required for a new name |
+| `eye` | `[x, y, z]` | candidate's value | Camera position. Required for a new name. The height `z` must be below the space's ceiling (`ceiling_m` in `space.yaml`: office 3.0 m, hospital 2.97 m, simple_room 3.99 m, warehouse 5.8 m) |
 | `target` | `[x, y, z]` | candidate's value | Look-at point. Required for a new name |
 | `focal_mm` | number | candidate's value, otherwise `12.0` | Focal length (mm) |
 | `h_aperture_mm` | number | `20.955` | Sensor width (mm) |
@@ -271,7 +271,7 @@ Values added to a candidate name override only those values.
 ```json
 "cameras": [
   {"name": "CamGate"},
-  {"name": "CamEV", "eye": [-8.0, 3.0, 3.0]},
+  {"name": "CamEV", "eye": [-8.0, 3.0, 2.8]},
   {"name": "MyCam", "eye": [-6.0, 6.0, 2.7], "target": [-3.0, 14.5, 0.8], "focal_mm": 10.0}
 ]
 ```
@@ -398,7 +398,7 @@ The office map is in the [tutorial](config-tutorial.en.md#origin).
 | Required items | `rate`, `destinations`, and `elevator` with `cars` when `to` is `"elevator"` |
 | Spelling of kinds | `type` of `rate` and `schedule`; `variant` exists in `variants` |
 | Coordinates | Form of `origin` and `meet.from`; inside the walkable area; destinations reachable, including from both ends of a line |
-| Cameras | `name`; form of `eye` and `target`; no duplicate names; `eye` differs from `target` |
+| Cameras | `name`; form of `eye` and `target`; no duplicate names; `eye` differs from `target`; below the ceiling (above it, people who are not in the picture would get ground-truth boxes) |
 | Combinations | `aicity` needs `mot`; `meet` can only be written on a stream's top-level destination |
 
 These are not checked.

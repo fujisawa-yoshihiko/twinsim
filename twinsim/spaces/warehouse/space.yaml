@@ -6,6 +6,7 @@ title_en: "Warehouse (picking in shelf aisles → packing → waiting)"
 usd: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Simple_Warehouse/full_warehouse.usd
 license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジットを書く）
 license_en: "CC BY 4.0 (NVIDIA Isaac Sim assets; give credit when distributing)"
+ceiling_m: 5.8            # 天井の高さ（床から）。これより上のカメラは誤り（正解の枠が天井を知らないため）。場所によって 5.83〜9.0 m（同）。低い方
 navmesh_region: [-28.0, 8.0, -41.5, 33.5, 0.0, 3.0]
 levels:
   - name: 1F
