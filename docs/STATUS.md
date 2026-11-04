@@ -11,6 +11,12 @@
 - 待つ場所が埋まったら、ほかの人から 0.6 m 離れた所まで歩いて待つ（前は着いた所に立ち、重なった）
 - 作業場所とジョブの名前に結果の場所のハッシュ（同じ名前の別の版の「済み」を見誤った）
 - 確かめ: ~/MOPF_ALL_video/research/video_corpus/audit/README.md（v0 の問題）と、v1 の確かめ（同じフォルダ）
+- 11/4 夕の直し（aa0c866・9c43c29・1d27d21）:
+  - すりガラスの奥の隠れは計算機で数える（`glass.py`、`spaces/*/glass.json`、`space.yaml` の `glass.occluding`、表の `glass` 列）。注釈の間ガラスを不透明にする方法は、Replicator が人を返さなくなって使えなかった
+  - 注釈は描画と別のジョブで取る（`capture: false`）。描いたあとに同じ Isaac Sim で取ると、途中で現れた人が数百コマ抜けた
+  - Replicator の名前の取り違えは、計算の枠と突き合わせて直す（`labels.fix_names`、`labels/identity.json`）
+  - 空の区間があれば `finish_labels` が止まる（前の表を残す）。空の区間はたまたま出るので、取り直す側（research の relabel.py）が 3 回まで入れ直す
+  - 固まった受け付けの見張り（`isaac_bridge.unstick`）。部品の写しは名前の付け替えで（書きかけの render.py を読ませた）
 
 ### 残り（ベンチマーク）
 1. 歩く人が待つ人をすり抜ける（中心 0.3 m 未満が人×コマの約 1%）。直すには人どうしのよけ方のモデルを入れ替える（文献との比べのやり直し）
