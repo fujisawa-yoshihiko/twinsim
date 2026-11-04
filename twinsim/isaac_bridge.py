@@ -273,12 +273,20 @@ def unstick(max_s=STUCK_S, retries=1, log=print, every_s=60):
     done = []
     for name, worker, why in stuck:
         tries[name] = tries.get(name, 0) + 1
-        if tries[name] > retries:  # 起動し直した受け付けが inbox に戻さないように、先に done へ
-            run = WORK / "running" / f"{name}@{worker}.py"
+        run = WORK / "running" / f"{name}@{worker}.py"
+        give_up = tries[name] > retries
+        if give_up:  # 起動し直した受け付けが inbox に戻さないように、先に done へ
             if run.exists():
                 run.replace(WORK / "done" / f"{name}.py")
             (WORK / "outbox" / f"{name}.txt").write_text(f"[error] 受け付け {worker} が固まった（{why}）。{tries[name]} 回目なので、やり直さない\n")
         _docker("restart", "-t", "20", FARM + worker)
+        if not give_up:
+            # ジョブはここで inbox に戻す。受け付けが戻すのは Isaac Sim が立ち上がってから（約 100 秒）で、それまで running に古い時刻のまま残り、
+            # 次の見回りが同じジョブを「2 回目」と数えて諦めていた（2026-11-04）
+            try:
+                run.replace(WORK / "inbox" / f"{name}.py")
+            except FileNotFoundError:
+                pass
         log(f"受け付け {worker} を起動し直した（{name}、{why}、{tries[name]} 回目）")
         done.append(worker)
     tp.write_text(json.dumps(tries))

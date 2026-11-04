@@ -61,7 +61,7 @@ cd ~/twinsim-lib && ./status.sh     # GUI のサーバー・Isaac Sim（GPU）�
 | 「Isaac Sim が動いていない」 | `./isaac_up.sh` で起動し、1 分ほど待ってから `./status.sh` で確かめる |
 | 画面の新しい欄が出ない | GUI のサーバーが古いコードのまま。`./stop.sh gui` → `./run.sh serve` → ブラウザを読み直す |
 | サーバーの記録に BrokenPipeError | ブラウザが動画を途中で閉じただけ。問題ない |
-| 描画のジョブが進まない（描画専用の Isaac Sim） | Isaac Sim が描画の資源切れ（ログに `[Fatal] … Out of resource descriptors`）のあと、終わらずに固まることがある。待つ側（`isaac_bridge.wait_render`、`unstick`）が、ログの `[Fatal]` か長すぎる時間（1 コマ 4 秒、30 分以上）で見つけて、コンテナを起動し直す（ジョブは 1 回だけやり直し、2 回目は失敗にする）。手で直すなら `docker restart twinsim-render-<受け付け>` |
+| 描画のジョブが進まない（描画専用の Isaac Sim） | Isaac Sim が描画の資源切れ（ログに `[Fatal] … Out of resource descriptors`）のあと、終わらずに固まることがある。待つ側（`isaac_bridge.wait_render`、`unstick`）が、ログの `[Fatal]` か長すぎる時間（1 コマ 4 秒、30 分以上）で見つけて、コンテナを起動し直し、ジョブを inbox に戻す（1 回だけやり直し、2 回目は失敗にする）。手で直すなら `docker restart twinsim-render-<受け付け>` |
 | ジョブを置いたあとで `twinsim/isaac/` を直した | 待っているジョブも、動くときの作業場所の部品（新しい版）を使う。試していない版を混ぜないよう、描画が残っている間は直さない |
 
 くわしくは [README.md](../README.md)（構成・出力の形・映像を作るのにかかる時間）、[library.md](library.md)（Python から使う）。

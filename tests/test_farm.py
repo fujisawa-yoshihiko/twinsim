@@ -174,7 +174,7 @@ def test_workers_are_listed_by_alive_marks(work):
 
 
 def test_unstick_restarts_hung_worker_then_gives_up(work, monkeypatch):
-    """[Fatal] が出て固まった受け付けは起動し直す（ジョブは受け付けが inbox に戻す）。同じジョブで 2 回目なら [error] にして、やり直さない。"""
+    """[Fatal] が出て固まった受け付けは起動し直し、ジョブを inbox に戻す。同じジョブで 2 回目なら [error] にして、やり直さない。"""
     calls = []
 
     def docker(*args):
@@ -188,7 +188,11 @@ def test_unstick_restarts_hung_worker_then_gives_up(work, monkeypatch):
     run.write_text("")
     assert isaac_bridge.unstick(every_s=0, log=lambda *_: None) == ["g0-3"]
     assert ("restart", "-t", "20", "twinsim-render-g0-3") in calls
-    assert run.exists() and not (work / "outbox" / "render_x__h22p15__001800.txt").exists()
+    queued = work / "inbox" / "render_x__h22p15__001800.py"
+    assert not run.exists() and queued.exists() and not (work / "outbox" / "render_x__h22p15__001800.txt").exists()
+    # 受け付けが立ち上がる前の見回りで、同じジョブを数え直さない
+    assert isaac_bridge.unstick(every_s=0, log=lambda *_: None) == []
+    queued.replace(run)  # 受け付けがもう一度取って、また固まった
     assert isaac_bridge.unstick(every_s=0, log=lambda *_: None) == ["g0-3"]
     assert not run.exists() and (work / "done" / "render_x__h22p15__001800.py").exists()
     assert "[error]" in (work / "outbox" / "render_x__h22p15__001800.txt").read_text()
