@@ -8,6 +8,7 @@
 # 決まり（CLAUDE.md）: 他の人のジョブがある GPU には載せない（one-gpu check）。自分の GPU は全部で 2 枚まで。
 # isim up（対話用、1 人 1 つ）とは別に数える。コンテナには isim.user・isim.gpu のラベルを付けるので、one-gpu と isim の空きの判定はこの GPU を使用中として扱う。
 # 1 本あたり GPU のメモリ約 3〜7 GiB・CPU 16 スレッドまで（SIM_CPUS）。シェーダーなどのキャッシュは isim と共用し、ログと設定は 1 本ずつ分ける。
+# 正解の注釈（labels）を出したジョブのあとは Isaac Sim が終わり、コンテナが自動で起動し直す（--restart unless-stopped。down で止めると起動し直さない）。
 set -euo pipefail
 
 ISIM_HOME=/opt/isaac-sim
@@ -58,7 +59,7 @@ cmd_up() {
     docker rm -f "$name" >/dev/null 2>&1 || true
     rm -f "$WORK/twinsim/outbox/_alive.g$gpu-$k.txt"   # 前に動いていた同じ名前の印で、起動したと見誤らないように
     mkdir -p "$DATA/farm/$name"/{logs,config,data,pkg} "$DATA"/cache/{main,computecache,kit} "$DATA/hub"
-    docker run -d --name "$name" --runtime nvidia --restart no -u 1234:1234 --cpus "$CPUS" --network bridge \
+    docker run -d --name "$name" --runtime nvidia --restart unless-stopped -u 1234:1234 --cpus "$CPUS" --network bridge \
       -e NVIDIA_VISIBLE_DEVICES="$gpu" -e ACCEPT_EULA=Y -e TWINSIM_WORKER="g$gpu-$k" \
       -e OMP_NUM_THREADS="$CPUS" -e OPENBLAS_NUM_THREADS="$CPUS" -e MKL_NUM_THREADS="$CPUS" \
       -l "$LABEL=1" -l "isim.user=$ME" -l "isim.gpu=$gpu" \

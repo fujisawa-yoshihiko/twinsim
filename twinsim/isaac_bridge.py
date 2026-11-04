@@ -250,13 +250,15 @@ def finish_plan(plan, keep_frames=True):
     if len(plan["parts"]) == 1 and parts:
         rl = parts[0]
     else:
-        cams = {}
+        cams, lab = {}, {}
         for p in parts:
             for c, s in p["cameras"].items():
                 cams[c] = round(cams.get(c, 0.0) + s, 1)
+            for c, s in p.get("labels_s", {}).items():
+                lab[c] = round(lab.get(c, 0.0) + s, 1)
         rl = {"frames": [f0, f1], "cameras": cams, "people_placed": max((p["people_placed"] for p in parts), default=0),
               "total_s": round(sum(p["total_s"] for p in parts), 1), "parts": len(parts),
-              "workers": sorted({p.get("worker", "main") for p in parts})}
+              "workers": sorted({p.get("worker", "main") for p in parts}), **({"labels_s": lab} if lab else {})}
     if plan.get("labels"):
         rl["labels"] = finish_labels(plan, dst, run)
     (run / "render_log.json").write_text(json.dumps(rl, ensure_ascii=False))

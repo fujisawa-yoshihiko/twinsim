@@ -168,17 +168,100 @@ def label_person(prim):
     UsdSemantics.LabelsAPI.Apply(prim, "class").CreateLabelsAttr().Set(["person"])
 
 
-async def labels(app, cam, f0, f1, fps, w, h, out):
-    """描いたのと同じコマを順に流し、人ごとの枠を取る。tight = 見えている画素の枠（完全に隠れた人は出ない）、
-    loose = 隠れた部分も含む全身の枠、occ = Replicator の隠れの割合（0 = 全部見える、1 = 全部隠れる）。"""
+# 全身の画素を測るコマの間隔。間のコマは、全身の枠の面積に対する比を前後から補う（labels.py）。描き直しは 1 回 1.5〜2 秒かかる。
+# 10 コマおきの測りから見積もった補いの誤差: 30 コマおきで中央値 0.9%・9 割が 9% 以内（2026-11-04）
+FULL_EVERY = 30
+
+
+def seg_counts(seg, h, w):
+    """意味の単位の塗り分け（印を付けた prim ごとに 1 つの番号）から、人の名前 → 見えている画素の数。"""
+    sd = seg.get_data()
+    img = np.asarray(sd["data"]).reshape(-1).astype(np.int64)
+    cnt = np.bincount(img) if img.size else np.zeros(0, np.int64)
+    out = {}
+    for k, path in sd["info"].get("idToLabels", {}).items():
+        i, path = int(k), str(path)
+        if path.startswith("/Root/") and i < len(cnt) and cnt[i]:
+            out[path.rsplit("/", 1)[-1]] = int(cnt[i])
+    return out
+
+
+def passes(boxes):
+    """全身の枠が重ならない人の組に分ける（同じ組の人どうしは画面で重ならないので、組ごとに描けば全身の画素が数えられる）。"""
+    groups = []
+    for name, b in sorted(boxes.items(), key=lambda kv: -(kv[1][2] - kv[1][0]) * (kv[1][3] - kv[1][1])):
+        for g in groups:
+            if all(b[2] < c[0] or c[2] < b[0] or b[3] < c[1] or c[3] < b[1] for c in g.values()):
+                g[name] = b
+                break
+        else:
+            groups.append({name: b})
+    return groups
+
+
+async def full_silhouettes(stage, people, samples, seg, h, w, fps):
+    """背景（空間の USD と置いた物）を消し、全身の枠が重ならない組ごとに人だけを描いて、人ごとの全身の画素の数を数える。
+    samples: {コマ: {名前: 全身の枠}}。消すのはセッションのレイヤーの既定の値（time samples より強い）で、全部のコマを数えてから元に戻す
+    （コマごとに消して戻すと、そのたびに場面全体を読み直して、1 コマ数秒かかった）。→ {コマ: {名前: 画素の数}}"""
+    import omni.kit.app
+    import omni.replicator.core as rep
+    import omni.timeline
+    tl = omni.timeline.get_timeline_interface()
+    session = stage.GetSessionLayer()
+    root = stage.GetPrimAtPath("/Root")
+    env = [p for p in stage.GetPseudoRoot().GetChildren() if p.GetPath().pathString != "/Root"]
+    env += [p for p in (root.GetChildren() if root else []) if p.GetName() not in people]
+    env = [p for p in env if p.IsA(UsdGeom.Imageable) and not p.IsA(UsdGeom.Camera)]
+    out = {}
+    with Usd.EditContext(stage, session):
+        touched = []
+        for p in env:
+            a = UsdGeom.Imageable(p).GetVisibilityAttr()
+            a.Set(UsdGeom.Tokens.invisible)
+            touched.append(a)
+        # 組に入らない人は、表示を消す代わりに床の 1 km 下へ動かす（骨格つきの人物の表示の切り替えは、描き直しのたびに約 1.5 秒かかった）
+        moves = {n: stage.GetPrimAtPath(f"/Root/{n}").GetAttribute("xformOp:translate") for n in people}
+        away = Gf.Vec3d(0.0, 0.0, -1000.0)
+        app = omni.kit.app.get_app()
+        shown = None
+        for f, boxes in sorted(samples.items()):
+            tl.set_current_time(f / fps)
+            out[f] = {}
+            for g in passes(boxes):
+                with Sdf.ChangeBlock():
+                    for n, a in moves.items():
+                        want = n in g
+                        if shown is None or (n in shown) != want:
+                            if want:
+                                a.ClearDefault()  # 時刻ごとの位置に戻す
+                            else:
+                                a.Set(away)
+                shown = set(g)
+                await app.next_update_async()  # 動かしたのが描画に届いてから描く（届く前に描くと、前の組の画素になった）
+                await rep.orchestrator.step_async(rt_subframes=1, delta_time=0.0, pause_timeline=True)
+                c = seg_counts(seg, h, w)
+                for n in g:
+                    out[f][n] = c.get(n, 0)
+        for a in moves.values():
+            a.ClearDefault()
+        for a in touched:
+            a.ClearDefault()
+    return out
+
+
+async def labels(app, cam, f0, f1, fps, w, h, out, stage=None, people=()):
+    """描いたのと同じコマを順に流し、人ごとの枠と画素を取る。tight = 見えている画素の枠（完全に隠れた人は出ない）、
+    loose = 隠れた部分も含む全身の枠（画面で切られる）、px = 見えている画素の数、full = 全身の画素の数（FULL_EVERY コマごと）。
+    Replicator の occlusionRatio・occlusion の注釈はこの人物モデルでは -1（計算されない）ので、隠れの割合は px と full から出す（labels.py）。"""
     import omni.replicator.core as rep
     import omni.timeline
     rp = rep.create.render_product(cam, (w, h))
     anns = {k: rep.AnnotatorRegistry.get_annotator(f"bounding_box_2d_{k}", init_params={"semanticTypes": ["class"]}) for k in ("tight", "loose")}
-    for a in anns.values():
+    seg = rep.AnnotatorRegistry.get_annotator("instance_segmentation", init_params={"semanticTypes": ["class"], "colorize": False})
+    for a in [*anns.values(), seg]:
         a.attach([rp])
     tl = omni.timeline.get_timeline_interface()
-    rows, t0 = [], time.monotonic()
+    rows, t0, t_full = [], time.monotonic(), 0.0
     for f in range(f0, f1 + 1):
         tl.set_current_time(f / fps)
         await rep.orchestrator.step_async(rt_subframes=1, delta_time=0.0, pause_timeline=True)
@@ -186,14 +269,24 @@ async def labels(app, cam, f0, f1, fps, w, h, out):
         for k, a in anns.items():
             d = a.get_data()
             for r, path in zip(d["data"], d["info"]["primPaths"]):
-                name = path.rsplit("/", 1)[-1]
-                got.setdefault(name, {})[k] = [int(r["x_min"]), int(r["y_min"]), int(r["x_max"]), int(r["y_max"]), round(float(r["occlusionRatio"]), 4)]
+                got.setdefault(path.rsplit("/", 1)[-1], {})[k] = [int(r["x_min"]), int(r["y_min"]), int(r["x_max"]), int(r["y_max"])]
+        for name, n in seg_counts(seg, h, w).items():
+            got.setdefault(name, {})["px"] = n
         rows.append({"frame": f, "people": got})
-    for a in anns.values():
+    if stage is not None:  # 全身の画素は、全部のコマを描いたあとでまとめて数える
+        t1 = time.monotonic()
+        samples = {r["frame"]: {n: v["loose"] for n, v in r["people"].items() if "loose" in v and n in people}
+                   for r in rows if (r["frame"] - f0) % FULL_EVERY == 0 or r["frame"] == f1}
+        full = await full_silhouettes(stage, list(people), {f: b for f, b in samples.items() if b}, seg, h, w, fps)
+        for r in rows:
+            for n, v in full.get(r["frame"], {}).items():
+                r["people"][n]["full"] = v
+        t_full = time.monotonic() - t1
+    for a in [*anns.values(), seg]:
         a.detach()
     rp.destroy()
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    json.dump({"camera": cam, "frames": [f0, f1], "width": w, "height": h, "rows": rows}, open(out, "w"))
+    json.dump({"camera": cam, "frames": [f0, f1], "width": w, "height": h, "full_every": FULL_EVERY, "full_s": round(t_full, 1), "rows": rows}, open(out, "w"))
     return time.monotonic() - t0
 
 
@@ -216,7 +309,7 @@ async def main():
     log("stage loaded", round(time.monotonic() - t_start, 1), "s")
     dl, cl = _load("demo_lib"), _load("crowd_lib")
     walker = cl.Walker(stage, dl, fps)
-    placed, tinted = 0, 0
+    placed, tinted, placed_names = 0, 0, []
     t0 = time.monotonic()
     pre = int(job.get("preroll", 0))
     only = set(job["people"]) if job.get("people") is not None else None
@@ -234,6 +327,7 @@ async def main():
             a -= 1
         frames = [(f, tr[f - s0][0], tr[f - s0][1], tr[f - s0][2], bool(mv[f - s0])) for f in range(a, b + 1)]
         cl.add_track(walker, name, p["model"], frames, z=float(job.get("z", 0.0)))
+        placed_names.append(name)
         if job.get("labels"):
             label_person(stage.GetPrimAtPath(f"/Root/{name}"))
         placed += 1
@@ -271,10 +365,11 @@ async def main():
         log(cname, "rendered", f1 - a + 1, "frames in", round(sec, 1), "s", f"(preroll {f0 - a})" if f0 > a else "")
         if job.get("labels"):
             out = f"{run}/labels_raw/{job.get('frames_dir') or cname}.json"
-            lsec = await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out)
+            lsec = await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out, stage, placed_names)
+            SHARED["restart"] = True  # 次のジョブでは注釈が空・誤りになるので、受け付けを起動し直す（agent_runner.py）
             label_times[cname] = round(lsec, 1)
             log(cname, "labels", f1 - f0 + 1, "frames in", round(lsec, 1), "s")
-    json.dump({"frames": [f0, f1], "cameras": times, "labels": label_times, "people_placed": placed, "preroll": pre,
+    json.dump({"frames": [f0, f1], "cameras": times, "labels_s": label_times, "people_placed": placed, "preroll": pre,
                "total_s": round(time.monotonic() - t_start, 1), "worker": os.environ.get("TWINSIM_WORKER", "main")},
               open(f"{run}/{job.get('log_name') or 'render_log.json'}", "w"))
     # 次のジョブを待つ間も、読み込んだ舞台を描き続けて GPU を使う（8 本で使用率 8 割ほど）。空の舞台にしておく

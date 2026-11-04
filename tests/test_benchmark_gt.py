@@ -20,7 +20,8 @@ CONFIG = {"space": "office", "duration_s": 40, "fps": 10, "seed": 5,
 
 
 def fake_labels(work):  # noqa: F811
-    """偽の描画の注釈: 計算の枠を画面で切ったものを loose、その真ん中 6 割を tight、隠れ 0.1 とする（render.py の labels と同じ形）。"""
+    """偽の描画の注釈（render.py の labels と同じ形）: 計算の枠を画面で切ったものを loose、その真ん中 6 割を tight、
+    見えている画素 px = tight の面積の 0.3 倍、全身の画素 full = loose の面積の 0.4 倍（10 コマごと）。"""
     for p in sorted((work / "inbox").glob("*.py")):
         job = json.loads((work / "jobs" / f"{p.stem}.json").read_text())
         if not job.get("labels"):
@@ -44,7 +45,11 @@ def fake_labels(work):  # noqa: F811
                         continue
                     x0, y0, x1, y1 = max(b[0], 0), max(b[1], 0), min(b[2], c.w - 1), min(b[3], c.h - 1)
                     mx, my = (x1 - x0) * 0.2, (y1 - y0) * 0.2
-                    got[name] = {"loose": [int(x0), int(y0), int(x1), int(y1), 0.1], "tight": [int(x0 + mx), int(y0 + my), int(x1 - mx), int(y1 - my), 0.1]}
+                    lo = [int(x0), int(y0), int(x1), int(y1)]
+                    ti = [int(x0 + mx), int(y0 + my), int(x1 - mx), int(y1 - my)]
+                    got[name] = {"loose": lo, "tight": ti, "px": int(0.3 * (ti[2] - ti[0] + 1) * (ti[3] - ti[1] + 1))}
+                    if (f - f0) % 10 == 0:
+                        got[name]["full"] = int(0.4 * (lo[2] - lo[0] + 1) * (lo[3] - lo[1] + 1))
                 rows.append({"frame": f, "people": got})
             out = run / "labels_raw" / f"{job.get('frames_dir') or cam}.json"
             out.parent.mkdir(parents=True, exist_ok=True)
@@ -78,6 +83,13 @@ def test_labels_table_from_rendered_boxes(tmp_path, work):  # noqa: F811
             if x["tight_x0"] != "":
                 assert float(x["amodal_x0"]) <= float(x["tight_x0"]) and float(x["tight_x1"]) <= float(x["amodal_x1"])
         assert any(float(x["truncation"]) > 0.01 for x in rows)  # 画面の端の人は外の分が数えられる
+        src = {x["occ_source"] for x in rows}
+        assert "silhouette" in src and "silhouette_interp" in src
+        for x in rows:  # 偽の注釈では、全身の画素 ÷ 全身の枠の面積が 0.4 で一定なので、補ったコマも測ったコマと同じ式になる
+            if x["occ_source"] in ("silhouette", "silhouette_interp") and float(x["tight_x0"]) > 0:
+                t = [float(x[f"tight_{k}"]) for k in ("x0", "y0", "x1", "y1")]
+                px = int(x["visible_px"])
+                assert px == pytest.approx(0.3 * (t[2] - t[0]) * (t[3] - t[1]), abs=2)
         mot = np.loadtxt(r.out_dir / "labels" / f"{cam}_mot.txt", delimiter=",", ndmin=2)
         assert len(mot) == len(rows)
 

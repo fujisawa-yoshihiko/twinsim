@@ -4,7 +4,8 @@ mot/<カメラ>.txt（計算だけで作る近似の枠）と違い、描かれ�
 列: frame（MOT と同じ 1 始まり = シミュレータのコマ + 1）、id（labels/ids.json。mot/ids.json の番号はそのまま、新しく映る人には続きの番号）、name、
 tight_x0〜y1（見えている画素の枠。画面の中だけ。見えない人は空）、amodal_x0〜y1（隠れた部分も含む全身の枠。画面の外へはみ出す分も含む）、
 visibility（全身のうち見えている割合 = (1 - occlusion) × (1 - truncation)）、occlusion（画面の中の部分のうち、ほかの物・人に隠れた割合）、
-truncation（全身のうち画面の外の割合）、portal（現れる・消える所の範囲にいるか、space.portals）、state（その人の状態）。
+truncation（全身のうち画面の外の割合）、portal（現れる・消える所の範囲にいるか、space.portals）、state（その人の状態）、
+visible_px（見えている画素の数）、occ_source（occlusion の出どころ。occlusion() の説明: silhouette・silhouette_interp・fill_median・box_ratio・hidden）。
 labels/<カメラ>_mot.txt は同じ中身の MOTChallenge の gt.txt の形（frame, id, 全身の枠 x, y, w, h, 1, 1, visibility）。
 """
 
@@ -18,7 +19,7 @@ from .camera import Camera
 from .space import load_space
 
 COLUMNS = ["frame", "id", "name", "tight_x0", "tight_y0", "tight_x1", "tight_y1", "amodal_x0", "amodal_y0", "amodal_x1", "amodal_y1",
-           "visibility", "occlusion", "truncation", "portal", "state"]
+           "visibility", "occlusion", "truncation", "portal", "state", "visible_px", "occ_source"]
 MIN_INSIDE = 0.02  # 計算の全身の枠のこれだけが画面に入れば、見えていなくても行を書く（完全に隠れた人も visibility 0 で残す）
 EDGE_PX = 1  # 描画の全身の枠がこれ以内で画面の端に触れていたら、画面の外へ続くとみて、計算の枠で外側を伸ばす
 
@@ -36,6 +37,34 @@ def _area(b):
 
 def _clip(b, w, h):
     return (max(b[0], 0.0), max(b[1], 0.0), min(b[2], float(w)), min(b[3], float(h)))
+
+
+def _box(b):
+    """Replicator の枠 [x_min, y_min, x_max, y_max(, occlusionRatio)] → (x0, y0, x1, y1)。x_max・y_max は最後の画素の番号なので +1 して右下の端にする。"""
+    return (b[0], b[1], b[2] + 1, b[3] + 1)
+
+
+def occlusion(r, tb, lb, am, f, fill, fill_median, w, h):
+    """画面の中の部分のうち隠れた割合と、その出どころ。
+    silhouette = 1 - 見えている画素 ÷ 全身の画素（全身は、背景とほかの人を消して描いて数えた、render.py の full_silhouettes）。
+    silhouette_interp = 全身の画素を測っていないコマ: 全身の画素 ÷ 全身の枠の面積を、その人の測ったコマの間で補う（fill_median は全員の中央値）。
+    box_ratio = 画素の数がない古い注釈: 見えている枠と全身の枠の面積の比（近似）。hidden = 見える画素がない。"""
+    if tb is None:
+        return 1.0, "hidden"
+    px = r.get("px")
+    lc = _clip(lb, w, h) if lb else _clip(am, w, h)
+    if px is None:
+        return min(max(1.0 - _area(tb) / max(_area(lc), 1e-9), 0.0), 1.0), "box_ratio"
+    if r.get("full"):
+        full, src = float(r["full"]), "silhouette"
+    elif fill:
+        fs = sorted(fill)
+        full, src = float(np.interp(f, [a for a, _ in fs], [v for _, v in fs])) * _area(lc), "silhouette_interp"
+    elif fill_median:
+        full, src = fill_median * _area(lc), "fill_median"
+    else:
+        return min(max(1.0 - _area(tb) / max(_area(lc), 1e-9), 0.0), 1.0), "box_ratio"
+    return min(max(1.0 - px / max(full, 1.0), 0.0), 1.0), src
 
 
 def amodal_box(loose, cpu, w, h):
@@ -66,6 +95,17 @@ def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False):
     w, h = cam.w, cam.h
     ids = dict(ids or {})
     nxt = max(ids.values(), default=0) + 1
+    # 全身の画素の数は FULL_EVERY コマごとにしか測っていない（render.py）。人ごとに「全身の画素 ÷ 全身の枠の面積」を、測ったコマの間で補う
+    fills = {}
+    for part in raw:
+        for fr in part["rows"]:
+            for name, r in fr["people"].items():
+                if r.get("full") and r.get("loose"):
+                    lb = _clip(_box(r["loose"]), w, h)
+                    if _area(lb) > 0:
+                        fills.setdefault(name, []).append((int(fr["frame"]), r["full"] / _area(lb)))
+    all_fill = [v for s_ in fills.values() for _, v in s_]
+    fill_median = float(np.median(all_fill)) if all_fill else None
     rows = []
     for part in raw:
         for fr in part["rows"]:
@@ -82,23 +122,14 @@ def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False):
                 tight, loose = r.get("tight"), r.get("loose")
                 if tight is None and loose is None and (b is None or b[4] < MIN_INSIDE):
                     continue
-                # Replicator の枠の x_max・y_max は最後の画素の番号なので、+1 して右下の端にする
-                tb = (tight[0], tight[1], tight[2] + 1, tight[3] + 1) if tight else None
-                lb = (loose[0], loose[1], loose[2] + 1, loose[3] + 1) if loose else None
+                tb = _box(tight) if tight else None
+                lb = _box(loose) if loose else None
                 am = amodal_box(lb, cpu, w, h)
                 if am is None:
                     continue
                 inside = _area(_clip(am, w, h)) / max(_area(am), 1e-9)
                 trunc = 1.0 - inside
-                if tight is not None:
-                    occ = float(tight[4])
-                elif loose is not None:
-                    occ = float(loose[4]) if loose[4] >= 0 else 1.0
-                else:
-                    occ = 1.0  # 画面の中にいるのに見える画素がない（壁・人に全部隠れた）
-                occ = min(max(occ, 0.0), 1.0)
-                if tight is None:
-                    occ = 1.0
+                occ, src = occlusion(r, tb, lb, am, f, fills.get(name), fill_median, w, h)
                 vis = (1.0 - occ) if occ_includes_truncation else (1.0 - occ) * (1.0 - trunc)
                 if name not in ids:
                     ids[name] = nxt
@@ -108,7 +139,8 @@ def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False):
                                 {"tight_x0": "", "tight_y0": "", "tight_x1": "", "tight_y1": ""}),
                              **{k: round(float(v), 1) for k, v in zip(("amodal_x0", "amodal_y0", "amodal_x1", "amodal_y1"), am)},
                              "visibility": round(max(vis, 0.0), 4), "occlusion": round(occ, 4), "truncation": round(trunc, 4),
-                             "portal": 1 if sp.in_portal(x, y) else 0, "state": _state_at(p.get("states", []), f)})
+                             "portal": 1 if sp.in_portal(x, y) else 0, "state": _state_at(p.get("states", []), f),
+                             "visible_px": int(r.get("px", 0)), "occ_source": src})
     rows.sort(key=lambda r: (r["frame"], r["id"]))
     return rows, ids
 

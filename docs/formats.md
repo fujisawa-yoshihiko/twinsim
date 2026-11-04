@@ -41,7 +41,8 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 |---|---|---|
 | `ground_truth.json` | 人ごとの軌跡・状態・出来事・属性、カメラ、EV・ゲートの出来事、ゾーン | すべての正解の元 |
 | `frames.csv.gz` | 1 コマ 1 人 1 行の表 | 軌跡の予測・集計・表計算 |
-| `mot/<カメラ>.txt`・`mot/ids.json` | カメラごとの人の枠（MOTChallenge の形） | 検出・1 台の追跡の学習と評価 |
+| `mot/<カメラ>.txt`・`mot/ids.json` | カメラごとの人の枠（MOTChallenge の形。計算だけで作る近似） | 描画しない計算の目安 |
+| `labels/<カメラ>.csv`・`labels/<カメラ>_mot.txt`・`labels/ids.json` | 描画から出した人ごとの枠と隠れの割合（`render(..., labels=True)` のとき。4 の後半） | 検出・1 台の追跡の学習と評価、隠れの程度で分けた評価 |
 | `aicity/gt.txt`・`aicity/cameras.json` | 複数カメラの枠と世界の位置（AI City Challenge の MTMC の形） | 複数カメラの追跡・人物照合 |
 | `video/<カメラ>.mp4`・`render_log.json` | 描いた動画（H.264、fps は正解と同じ）と描いた範囲 | 上の枠と合わせて画像の学習 |
 | `tasks.json` | 6 つのタスクの正解の集計 | 人数・流れ・滞留・混雑の評価 |
@@ -102,6 +103,28 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 
 `mot/ids.json`: `{"P0001": 1, …}`。番号はカメラをまたいで同じ人に同じ。
 
+**描画から出す正解（`labels/`）**: `twinsim.render(..., labels=True)`（`twinsim render --labels`）で、描いたのと同じコマの人ごとの枠と画素を
+Isaac Sim の Replicator で取り、描いた範囲のコマだけ `labels/<カメラ>.csv` に書く。`mot/` と違い、描かれた人の画素から作るので、
+枠は輪郭に合い、隠れは壁・家具・ほかの人を全部数える（2026-11-03 の確かめでは、`mot/` の枠は検出の枠より約 1.4 倍太かった）。
+
+| 列 | 中身 |
+|---|---|
+| `frame`・`id`・`name` | コマ（MOT と同じ 1 始まり）、人の番号（`labels/ids.json`。`mot/ids.json` の番号はそのまま、`mot/` になかった人には続きの番号）、人の名前 |
+| `tight_x0`〜`tight_y1` | 見えている画素を囲む枠（画素、画面の中だけ。見える画素がない人は空） |
+| `amodal_x0`〜`amodal_y1` | 隠れた部分も含む全身の枠。Replicator の loose（画面で切られる）を基にし、画面の端に触れた辺だけ計算の枠まで伸ばす（画面の外へはみ出す） |
+| `occlusion` | 画面の中の全身のうち、ほかの物・人に隠れた割合 = 1 − 見えている画素 ÷ 全身の画素 |
+| `truncation` | 全身の枠のうち画面の外の割合 |
+| `visibility` | 見えている割合 = (1 − `occlusion`) × (1 − `truncation`) |
+| `portal` | 1 なら出入り口の範囲（現れる・消える所。docs/spec.md の `pois`）。評価で外すのが目安 |
+| `state` | その人の状態（2 の `states`） |
+| `visible_px` | 見えている画素の数 |
+| `occ_source` | `occlusion` の出どころ: `silhouette`（全身の画素を測ったコマ）、`silhouette_interp`（測っていないコマ。全身の画素 ÷ 全身の枠の面積を、その人の前後の測ったコマから補う）、`fill_median`（その人を測ったコマがない。全員の中央値）、`hidden`（見える画素がない） |
+
+全身の画素は、10 コマごとに、背景（空間の USD と置いた物）とほかの人を消し、全身の枠が重ならない人の組ごとに描き直して数える
+（Replicator の `occlusionRatio` と occlusion の注釈は、この人物モデルでは計算されない値 −1 になるため）。
+`labels/<カメラ>_mot.txt` は同じ中身の MOTChallenge の gt.txt の形（`frame, id, 全身の枠 x, y, w, h, 1, 1, visibility`）。
+描画には注釈のぶん約 1.5〜2 倍の時間がかかる。
+
 `aicity/gt.txt`（AI City Challenge の MTMC と同じ、空白区切り）: `camera_id obj_id frame_id xmin ymin width height xworld yworld`。
 `camera_id` は `aicity/cameras.json`（`{"CamEV": 1, …}`）、`obj_id` は `mot/ids.json` と同じ、`frame_id` は 1 始まり、`xworld yworld` は足元の世界の座標（m）。
 
@@ -131,7 +154,8 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 
 ## 7. 動画
 
-`video/<カメラ>.mp4`: H.264、`width`×`height`、fps は正解と同じ。`render_log.json`: `{"frames": [始まり, 終わり], "cameras": {名前: 描画の秒}, "people_placed", "total_s"}`。
+`video/<カメラ>.mp4`: H.264、`width`×`height`、fps は正解と同じ。`render_log.json`: `{"frames": [始まり, 終わり], "cameras": {名前: 描画の秒}, "people_placed", "total_s"}`
+（分けて描いたときは `parts`・`workers`、注釈を出したときは `labels`（カメラごとの正解の行の数）・`labels_s`（注釈の秒）も）。
 人ごとに服の色を変えて描く（`people.tint_index`）。描画の方式は RAY_TRACE。
 
 ## 8. 学習に使うときの例
@@ -160,7 +184,8 @@ while (ok := cap.read())[0]:
 
 ## 9. 学習に使うときの注意（今の版の限界）
 
-- 枠は人を囲む箱を映した近似で、描かれた輪郭にぴったりではない。見えている割合も近似（深度・マスクは出していない）。検出器の学習には、描画のときに Isaac Sim の Replicator でぴったりの枠・マスク・深度を出すのが要る（未実装）。
+- `mot/` の枠は人を囲む箱を映した近似で、描かれた輪郭にぴったりではない。見えている割合も近似。検出・追跡の学習と評価には、描画のときに出す `labels/`（4）を使う。
+  `labels/` の `occlusion` は、10 コマごとに測った全身の画素の間を補ったコマを含む（`occ_source`）。マスク・深度は出していない。
 - 人物モデルは 10 種類で、服の色を人ごとに変えて区別している。人物照合をこのデータだけで学習すると「服の色」だけで見分ける近道を覚えるおそれがある。
 - ゆがみ・ノイズ・圧縮・照明の変化・カメラの時計のずれとコマ落ちは入れていない（`clock_offset_s`・`drop_rate` は記録だけ）。
 - 3D の枠・姿勢（キーポイント）・顔などはない。1 つの階だけ。

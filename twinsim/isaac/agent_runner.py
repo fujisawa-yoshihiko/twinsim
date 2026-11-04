@@ -8,6 +8,7 @@ isim up --kit-arg "--exec /workspace/twinsim/isaac/agent_runner.py" で読み込
 いくつ起動してもよい（tools/render_farm.sh が GPU ごとに起動する）。受け付けは環境変数 TWINSIM_WORKER の名前（既定 main）で区別し、
 inbox のジョブは名前の付け替えで 1 つずつ取る（付け替えは 1 つしか成功しないので、同じジョブを 2 つが動かすことはない）。
 取ったジョブは running/<名前>@<受け付け>.py に置き、終わったら done/ へ。途中で止まった受け付けを同じ名前で起動し直すと、自分の分を inbox に戻す。
+ジョブが SHARED["restart"] = True にしたら、そのジョブのあとで Isaac Sim を終える（render_farm.sh のコンテナは自動で起動し直す）。
 """
 
 import asyncio
@@ -78,6 +79,9 @@ async def loop():
             mine = claim(p)
             if mine is not None:
                 await run_one(mine, p.stem)
+                if SHARED.pop("restart", False):  # Replicator の注釈は、舞台を替えた 2 本目のジョブから空・誤りになる（2026-11-03）。
+                    (OUTBOX / f"_alive.{WORKER}.txt").unlink(missing_ok=True)  # Isaac Sim を終え、コンテナの再起動（render_farm.sh）で新しく始める
+                    os._exit(0)  # post_quit では画面なしの Isaac Sim が終わらず、受け付けが止まったまま GPU を押さえた（2026-11-03）
                 break  # 1 つ終えたら、生きている印を書いてから inbox を見直す
         for _ in range(15):  # 15 フレームごとに見る
             await app.next_update_async()

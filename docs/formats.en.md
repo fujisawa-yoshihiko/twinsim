@@ -41,7 +41,8 @@ No lens distortion (pinhole). Other values: `eye` and `target` (world coordinate
 |---|---|---|
 | `ground_truth.json` | Per-person trajectories, states, events, and attributes; cameras; elevator (EV) and gate events; zones | Source of all ground truth |
 | `frames.csv.gz` | A table with one row per person per frame | Trajectory prediction, aggregation, spreadsheets |
-| `mot/<camera>.txt` and `mot/ids.json` | Per-camera person boxes (MOTChallenge format) | Training and evaluating detection and single-camera tracking |
+| `mot/<camera>.txt` and `mot/ids.json` | Per-camera person boxes (MOTChallenge format; an approximation computed without rendering) | A rough guide for runs that are not rendered |
+| `labels/<camera>.csv`, `labels/<camera>_mot.txt` and `labels/ids.json` | Per-person boxes and occlusion taken from the rendering (with `render(..., labels=True)`; second half of section 4) | Training and evaluating detection and single-camera tracking, evaluation split by how hidden people are |
 | `aicity/gt.txt` and `aicity/cameras.json` | Multi-camera boxes and world positions (AI City Challenge MTMC format) | Multi-camera tracking, person re-identification |
 | `video/<camera>.mp4` and `render_log.json` | Rendered videos (H.264, same fps as the ground truth) and the rendered range | Image-based training together with the boxes above |
 | `tasks.json` | Ground-truth aggregates for the six tasks | Evaluating counts, flows, dwelling, and congestion |
@@ -102,6 +103,29 @@ Every person with at least 20% of their box inside the image is written, even if
 
 `mot/ids.json`: `{"P0001": 1, …}`. The same person gets the same number across cameras.
 
+**Ground truth from the rendering (`labels/`)**: with `twinsim.render(..., labels=True)` (`twinsim render --labels`), Isaac Sim's Replicator
+takes each person's boxes and pixels for the same frames that were rendered, and writes `labels/<camera>.csv` for the rendered frames only. Unlike `mot/`,
+it is made from the rendered pixels of each person, so the boxes fit the outline and occlusion counts walls, furniture and other people
+(in the check of 2026-11-03, the `mot/` boxes were about 1.4 times wider than detector boxes).
+
+| Column | Contents |
+|---|---|
+| `frame`, `id`, `name` | Frame (1-based, as in MOT), person number (`labels/ids.json`; numbers in `mot/ids.json` are kept, people not in `mot/` get the next numbers), person name |
+| `tight_x0` to `tight_y1` | Box around the visible pixels (pixels, inside the image only; empty if no pixel is visible) |
+| `amodal_x0` to `amodal_y1` | Full-body box including hidden parts. Based on Replicator's loose box (cut at the image border); only the sides touching the border are extended to the computed box (so it can extend outside the image) |
+| `occlusion` | Share of the full body inside the image that is hidden by other objects or people = 1 − visible pixels ÷ full-body pixels |
+| `truncation` | Share of the full-body box outside the image |
+| `visibility` | Visible share = (1 − `occlusion`) × (1 − `truncation`) |
+| `portal` | 1 if the person is in a portal area (where people appear or disappear; `pois` in docs/spec.en.md). As a guide, exclude these from evaluation |
+| `state` | The person's state (`states` in section 2) |
+| `visible_px` | Number of visible pixels |
+| `occ_source` | Where `occlusion` comes from: `silhouette` (a frame where the full-body pixels were measured), `silhouette_interp` (an unmeasured frame; the ratio of full-body pixels to full-body box area is interpolated from that person's measured frames before and after), `fill_median` (no measured frame for that person; the median over everyone), `hidden` (no visible pixel) |
+
+The full-body pixels are counted every 10 frames by rendering again with the background (the space USD and placed objects) and the other people hidden,
+one group at a time of people whose full-body boxes do not overlap (Replicator's `occlusionRatio` and its occlusion annotator give −1, i.e. not computed, for these character models).
+`labels/<camera>_mot.txt` has the same contents in the MOTChallenge gt.txt format (`frame, id, full-body box x, y, w, h, 1, 1, visibility`).
+Rendering takes about 1.5 to 2 times as long with the labels.
+
 `aicity/gt.txt` (same as AI City Challenge MTMC, space-separated): `camera_id obj_id frame_id xmin ymin width height xworld yworld`.
 `camera_id` comes from `aicity/cameras.json` (`{"CamEV": 1, …}`), `obj_id` is the same as in `mot/ids.json`, `frame_id` is 1-based, and `xworld yworld` are the world coordinates of the feet (m).
 
@@ -160,7 +184,8 @@ while (ok := cap.read())[0]:
 
 ## 9. Caveats for training (limitations of the current version)
 
-- The boxes are approximations obtained by projecting a box enclosing the person, and are not tight to the rendered outline. Visibility is also approximate (no depth or masks are output). Training a detector requires outputting tight boxes, masks, and depth with Isaac Sim's Replicator at rendering time (not implemented).
+- The `mot/` boxes are approximations obtained by projecting a box enclosing the person, and are not tight to the rendered outline. Visibility is also approximate. For training and evaluating detection and tracking, use `labels/` (section 4), produced at rendering time.
+  `occlusion` in `labels/` includes frames interpolated between the full-body pixel counts measured every 10 frames (`occ_source`). Masks and depth are not output.
 - There are 10 character models, and people are told apart by giving each person a different clothing color. Training person re-identification on this data alone risks learning the shortcut of distinguishing people by clothing color alone.
 - Distortion, noise, compression, lighting changes, camera clock offsets, and frame drops are not included (`clock_offset_s` and `drop_rate` are only recorded).
 - There are no 3D boxes, poses (keypoints), faces, etc. Only a single floor.
