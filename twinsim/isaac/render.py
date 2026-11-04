@@ -173,6 +173,48 @@ def label_person(prim):
 FULL_EVERY = 30
 
 
+GLASS_KEYS = ("glass", "transp", "window", "acryl", "frost")  # 材質の path か MDL の名前にこれが入る物はガラスの類い
+
+
+def occlude_glass(stage):
+    """注釈を取る間だけ、ガラスの類いの材質の物を不透明な材質に差し替える（セッションのレイヤー）。
+    意味の塗り分けはガラスを透かして向こうの人の画素を数えるが、描いた映像では飾りガラス・色ガラスの向こうはほとんど見えない
+    （office のゲートの横のパネルの向こうの人を「全部見えている」としていた、2026-11-04）。→ 差し替えた物の数"""
+    session = stage.GetSessionLayer()
+    targets = []
+    for prim in Usd.PrimRange.Stage(stage, Usd.TraverseInstanceProxies()):
+        if not prim.IsA(UsdGeom.Gprim) or prim.GetPath().pathString.startswith("/Root/P"):
+            continue
+        mat, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial()
+        if not mat:
+            continue
+        text = mat.GetPath().pathString.lower()
+        for sh in Usd.PrimRange(mat.GetPrim()):
+            a = sh.GetAttribute("info:mdl:sourceAsset") if sh.IsA(UsdShade.Shader) else None
+            if a and a.Get():
+                text += " " + str(a.Get().path).lower()
+        if any(k in text for k in GLASS_KEYS):
+            targets.append(prim.GetPath())
+    with Usd.EditContext(stage, session):
+        look = UsdShade.Material.Define(stage, "/TS_LabelOpaque")
+        sh = UsdShade.Shader.Define(stage, "/TS_LabelOpaque/Shader")
+        sh.CreateIdAttr("UsdPreviewSurface")
+        sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.2, 0.2, 0.2))
+        sh.CreateInput("opacity", Sdf.ValueTypeNames.Float).Set(1.0)
+        look.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
+        for path in targets:  # インスタンスの中の物は書けないので、いちばん近いインスタンスを外す
+            q = stage.GetPrimAtPath(path)
+            while q and q.IsInstanceProxy():
+                q = q.GetParent()
+            if q and q.IsInstance():
+                q.SetInstanceable(False)
+        for path in targets:
+            prim = stage.GetPrimAtPath(path)
+            if prim:
+                UsdShade.MaterialBindingAPI.Apply(prim).Bind(look, UsdShade.Tokens.strongerThanDescendants)
+    return len(targets)
+
+
 def seg_counts(seg, h, w):
     """意味の単位の塗り分け（印を付けた prim ごとに 1 つの番号）から、人の名前 → 見えている画素の数。"""
     sd = seg.get_data()
@@ -255,6 +297,7 @@ async def labels(app, cam, f0, f1, fps, w, h, out, stage=None, people=()):
     Replicator の occlusionRatio・occlusion の注釈はこの人物モデルでは -1（計算されない）ので、隠れの割合は px と full から出す（labels.py）。"""
     import omni.replicator.core as rep
     import omni.timeline
+    glass = occlude_glass(stage) if stage is not None else 0
     rp = rep.create.render_product(cam, (w, h))
     anns = {k: rep.AnnotatorRegistry.get_annotator(f"bounding_box_2d_{k}", init_params={"semanticTypes": ["class"]}) for k in ("tight", "loose")}
     seg = rep.AnnotatorRegistry.get_annotator("instance_segmentation", init_params={"semanticTypes": ["class"], "colorize": False})
@@ -286,7 +329,8 @@ async def labels(app, cam, f0, f1, fps, w, h, out, stage=None, people=()):
         a.detach()
     rp.destroy()
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    json.dump({"camera": cam, "frames": [f0, f1], "width": w, "height": h, "full_every": FULL_EVERY, "full_s": round(t_full, 1), "rows": rows}, open(out, "w"))
+    json.dump({"camera": cam, "frames": [f0, f1], "width": w, "height": h, "full_every": FULL_EVERY, "full_s": round(t_full, 1),
+               "glass_occluders": glass, "rows": rows}, open(out, "w"))
     return time.monotonic() - t0
 
 
@@ -357,6 +401,13 @@ async def main():
             await app.next_update_async()
         folder = f"{run}/frames/{job.get('frames_dir') or cname}"
         a = max(0, f0 - pre)
+        if not job.get("capture", True):  # 注釈だけを取り直す（映像は前に描いたもの。同じコマ・同じ人の置き方なら同じ姿勢）
+            times[cname] = 0.0
+            out = f"{run}/labels_raw/{job.get('frames_dir') or cname}.json"
+            label_times[cname] = round(await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out, stage, placed_names), 1)
+            SHARED["restart"] = True
+            log(cname, "labels only", f1 - f0 + 1, "frames in", label_times[cname], "s")
+            continue
         sec = await capture(app, f"/Root/TS_{cname}", folder, a, f1, fps, c["width"], c["height"], job.get("preset", "RAY_TRACE"))
         for k in range(a, f0):  # 余分に描いた分は捨てる（隣の区間の画像と重ならないように。画像は folder/f_frames/f.<コマ>.png）
             for fn in glob.glob(f"{folder}/**/f.{k}.png", recursive=True):

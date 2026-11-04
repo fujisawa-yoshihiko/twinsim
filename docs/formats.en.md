@@ -123,6 +123,8 @@ it is made from the rendered pixels of each person, so the boxes fit the outline
 
 The full-body pixels are counted every 10 frames by rendering again with the background (the space USD and placed objects) and the other people hidden,
 one group at a time of people whose full-body boxes do not overlap (Replicator's `occlusionRatio` and its occlusion annotator give −1, i.e. not computed, for these character models).
+Glass-like objects (materials whose names contain glass, transp, window and so on) are made opaque while the labels are taken (the segmentation sees through glass and counts the people behind it,
+but in the rendered video almost nothing can be seen behind the decorative or tinted glass). People behind clear glass are therefore also counted as hidden.
 `labels/<camera>_mot.txt` has the same contents in the MOTChallenge gt.txt format (`frame, id, full-body box x, y, w, h, 1, 1, visibility`).
 Rendering takes about 1.5 to 2 times as long with the labels.
 
