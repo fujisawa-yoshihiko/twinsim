@@ -35,7 +35,7 @@ Kinds of places (`pois`):
 | `elevator` | Elevator (EV) door | `xy` (in front of the door), `face` (a point inside the car), `cabin_m` (optional; how far, in m, people boarding walk from the door towards `face` before they disappear; people alighting come out from there. If omitted, people disappear and appear at the door point) |
 | `wait_zone` | Area for waiting for the elevator | `zone`, `spacing` (spacing, m), `door_aisle` (half-width, in m, of the passage kept clear in front of the door). When all waiting spots are taken, the extra people walk to a nearby walkable point at least 0.6 m from everyone else and wait there |
 
-The area around a `spawn`, `exit` or `elevator` (within 0.8 m of the segment from `xy` to `hidden` or into the car) is a "portal" (`Space.portals`).
+The area around a `spawn`, `exit` or `elevator` (within 0.8 m of the segment from `xy` to `hidden` or into the car; for an elevator without a car (`cabin_m`), out to 1 m outside the door, where alighting people appear) is a "portal" (`Space.portals`).
 It is used for the `portal` column of the rendered label table (docs/formats.en.md, section 4) and as an area excluded from evaluation.
 | `spot` | Place where people stop (reception, meeting up, in front of a sign) | `xy`, `face` (point to face). Spots can be grouped into one destination by name prefix (`reception_`, `lounge_`) |
 | `prop` | Object placed by the simulator (not in the USD) | `xy`, `face`, `prop` (`signage`) |

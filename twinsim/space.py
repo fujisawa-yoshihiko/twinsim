@@ -116,10 +116,15 @@ class Space:
         return n * self.res ** 2
 
     PORTAL_R = 0.8  # 出入り口の範囲の半径（m）
+    # かごのない EV（cabin_m なし）で、扉から外へ伸ばす長さ（m）。降りる人は扉から外へ 0.4 + 0.5 × k m・左右 ±0.3 m に現れる
+    # （scenario.py の on_arrival）ので、1 m 伸ばすと 3 人目（k = 2）まで範囲に入る。扉の点だけだと 2 人目から範囲の外で、
+    # 画面の中で急に現れる人を採点していた（hospital の見立ての EV、2026-11-04）
+    ALIGHT_OUT_M = 1.0
 
     def portals(self):
         """人が現れる・消える所（spawn・exit・elevator）の範囲: [{name, kind, a, b}]。a〜b の線分から PORTAL_R 以内。
-        spawn・exit は xy〜hidden（hidden がなければ xy の点）、elevator は扉〜かごの中（cabin_m、なければ扉の点）。"""
+        spawn・exit は xy〜hidden（hidden がなければ xy の点）、elevator は扉〜かごの中（cabin_m）。
+        かごのない elevator は、扉から外へ ALIGHT_OUT_M（降りる人が現れる所。face がなければ扉の点）。"""
         out = []
         for k, p in self.pois.items():
             kind = p.get("kind")
@@ -129,10 +134,12 @@ class Space:
             b = a
             if p.get("hidden"):
                 b = tuple(map(float, p["hidden"]))
-            elif kind == "elevator" and float(p.get("cabin_m", 0) or 0) > 0 and "face" in p:
+            elif kind == "elevator" and "face" in p:
                 dx, dy = p["face"][0] - a[0], p["face"][1] - a[1]
                 n = math.hypot(dx, dy) or 1.0
-                b = (a[0] + dx / n * float(p["cabin_m"]), a[1] + dy / n * float(p["cabin_m"]))
+                cabin = float(p.get("cabin_m", 0) or 0)
+                d = cabin if cabin > 0 else -self.ALIGHT_OUT_M  # かごの中へ、かごがなければ外へ
+                b = (a[0] + dx / n * d, a[1] + dy / n * d)
             out.append({"name": k, "kind": kind, "a": a, "b": b})
         return out
 

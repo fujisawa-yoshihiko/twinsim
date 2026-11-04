@@ -35,7 +35,7 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 | `elevator` | EV の扉 | `xy`（扉の前）、`face`（かごの中の点）、`cabin_m`（任意。乗る人が扉から `face` の向きに歩いてから消える距離 m、降りる人もそこから出てくる。省くと扉の点で消える・現れる） |
 | `wait_zone` | EV 待ちの場所の範囲 | `zone`、`spacing`（間隔 m）、`door_aisle`（扉の前に空ける通り道の半分の幅 m）。待つ場所が埋まると、あふれた人はほかの人から 0.6 m 以上離れた近くの歩ける所まで歩いてから待つ |
 
-`spawn`・`exit`・`elevator` のまわり（`xy` から `hidden`・かごの中までの線分から 0.8 m）は「出入り口の範囲」（`Space.portals`）。
+`spawn`・`exit`・`elevator` のまわり（`xy` から `hidden`・かごの中までの線分から 0.8 m。かご（`cabin_m`）のない EV は、降りる人が現れる扉の外 1 m まで）は「出入り口の範囲」（`Space.portals`）。
 描画の正解の表（docs/formats.md の 4）の `portal` と、評価で外す範囲に使う。
 | `spot` | 止まる場所（受付・待ち合わせ・案内板の前） | `xy`、`face`（向く点）。名前の頭（`reception_`・`lounge_`）でまとめて行き先にできる |
 | `prop` | シミュレータが置く物（USD にない物） | `xy`、`face`、`prop`（`signage`） |

@@ -88,8 +88,9 @@ def test_labels_table_from_rendered_boxes(tmp_path, work):  # noqa: F811
         for x in rows:  # 偽の注釈では、全身の画素 ÷ 全身の枠の面積が 0.4 で一定なので、補ったコマも測ったコマと同じ式になる
             if x["occ_source"] in ("silhouette", "silhouette_interp") and float(x["tight_x0"]) > 0:
                 t = [float(x[f"tight_{k}"]) for k in ("x0", "y0", "x1", "y1")]
-                px = int(x["visible_px"])
-                assert px == pytest.approx(0.3 * (t[2] - t[0]) * (t[3] - t[1]), abs=2)
+                px = int(x["visible_px"])  # すりガラスの奥の分は除く（glass）
+                assert px == pytest.approx(0.3 * (t[2] - t[0]) * (t[3] - t[1]) * (1 - float(x["glass"])), abs=2)
+        assert any(float(x["glass"]) > 0 for x in rows) or cam == "CamEV"
         mot = np.loadtxt(r.out_dir / "labels" / f"{cam}_mot.txt", delimiter=",", ndmin=2)
         assert len(mot) == len(rows)
 
@@ -136,6 +137,16 @@ def test_hidden_spawn_and_exit_walk_in_and_out(tmp_path):
     assert off and all(sp.in_portal(float(x["x"]), float(x["y"])) for x in off)  # 歩ける所の外は出入り口の範囲だけ
     from twinsim.quality import check
     assert check(r.out_dir)["not_walkable_frac"] < 0.005
+
+
+def test_alighting_people_appear_inside_portal(tmp_path):
+    """かごのない EV（hospital の見立て）で降りる人は、出入り口の範囲の中に現れる（範囲の外に現れると、画面の中で急に現れる人を採点する）。"""
+    r = twinsim.simulate({**twinsim.template("hospital_gate_ev"), "duration_s": 240, "seed": 3}, out_dir=tmp_path / "r")
+    sp = load_space("hospital")
+    gt = json.loads((r.out_dir / "ground_truth.json").read_text())
+    first = [gt["tracks"][n][0][:2] for n, p in gt["people"].items() if any(s[2] == "alight" for s in p.get("states", [])[:1])]
+    assert len(first) >= 5
+    assert all(sp.in_portal(x, y) == "EV" for x, y in first)
 
 
 def test_elevator_cabin_and_overflow(tmp_path):

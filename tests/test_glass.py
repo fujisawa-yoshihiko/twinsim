@@ -41,9 +41,9 @@ def test_person_touching_pane_is_behind_it():
 def test_spaces_glass_files_load():
     for name in ("office", "hospital"):
         sp = load_space(name)
-        if sp.spec.get("glass"):
+        if sp.spec.get("glass"):  # 隠す種類がない空間（hospital）は箱も 0
             b = glass.load_boxes(sp)
-            assert b is not None and len(b["center"]) > 0
+            assert b is not None and (len(b["center"]) > 0) == bool(sp.spec["glass"].get("occluding"))
         assert (sp.folder / "glass.json").exists()
 
 
