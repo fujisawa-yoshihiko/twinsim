@@ -118,7 +118,7 @@ Coordinates are world meters (Z up); simulator frames start at 0 (seconds = fram
 | `ground_truth.json` | JSON | Per-person trajectories `tracks[name] = [[x, y, yaw], …]`, whether walking, state intervals, events (gate, elevator), attributes (character model, height, type, group), cameras (4×4 matrix and field of view), zones |
 | `frames.csv.gz` | CSV | One row per frame per person: `frame, t, person, x, y, yaw, moving, state, zone, group, type` |
 | `mot/<camera>.txt`, `mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility` (frames start at 1; the id is the same across cameras; an approximation computed without rendering) |
-| `labels/<camera>.csv`, `_mot.txt` | CSV, MOTChallenge | Per-person boxes taken from the rendering (visible part and full body) with `visibility`, `occlusion`, `truncation` and `portal` (with `render --labels`) |
+| `labels/<camera>.csv`, `_mot.txt` | CSV, MOTChallenge | Per-person boxes taken from the rendering (visible part and full body) with `visibility`, `occlusion`, `truncation`, `portal` and `glass` (share behind frosted glass) (with `render --labels`; name checks counted in `identity.json`) |
 | `aicity/gt.txt` | AI City MTMC | `camera_id obj_id frame_id xmin ymin width height xworld yworld` |
 | `video/<camera>.mp4` | H.264 | Rendered video (1280×720, 30 fps). Frame k = `frames[0]` in `render_log.json` + k |
 | `tasks.json` | JSON | Ground truth for the six tasks (counts, gate crossings, dwelling, groups, congestion, destinations, elevator waits) |

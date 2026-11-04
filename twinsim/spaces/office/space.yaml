@@ -9,6 +9,9 @@ license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジ
 license_en: "CC BY 4.0 (NVIDIA Isaac Sim assets; give credit when distributing)"
 ceiling_m: 3.0            # 天井の高さ（床から）。これより上のカメラは誤り（正解の枠が天井を知らないため）。SM_Ceiling（2026-11-03 に USD の外枠で測った）
 navmesh_region: [-30.0, 12.0, -16.0, 32.0, 0.0, 3.0]   # x0 x1 y0 y1 z0 z1（シーンは外の建物まで含み 1 km 四方あるので、焼く範囲を絞る）
+glass:                    # ガラスの奥の人の隠れ（twinsim/glass.py。ガラス板の位置は glass.json）。描いた映像で奥の人が見えないガラスの材質（MDL の名前）
+  occluding: [MI_DoorGlass_glass]
+  note: ゲートの横・部屋の仕切りの飾りガラス（すりガラス）。奥に体の 8 割以上が入る人を YOLO11m は 0.1 % しか見つけない（ガラスの奥にいない人は 96 %、2026-11-04、1748 件）。入口の扉・窓（MI_DoorEntrance_glass）とブラインドは透けるとみて数えない（確かめた 54 本では、奥に人が入る場面がなかった）
 levels:
   - name: 1F
     z: 0.0

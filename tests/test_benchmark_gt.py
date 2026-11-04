@@ -199,3 +199,27 @@ def test_empty_labels_stop_and_keep_old_table(tmp_path, work):  # noqa: F811
     with pytest.raises(RuntimeError, match="注釈が空"):
         isaac_bridge.finish_labels(plan, work / "runs" / plan["name"], r.out_dir)
     assert {p.name: p.read_bytes() for p in (r.out_dir / "labels").glob("*.csv")} == before
+
+
+def test_wrong_names_from_replicator_are_fixed(tmp_path, work):  # noqa: F811
+    """Replicator が、その時刻にいない人の名前で返した注釈は、枠の合う人に付け直す（labels.fix_names、2026-11-04）。"""
+    r = twinsim.simulate(CONFIG, out_dir=tmp_path / "r")
+    plan = isaac_bridge.plan_render(r.out_dir, frames=(100, 299), chunk_s=10, labels=True)
+    isaac_bridge.start_render(plan)
+    fake_labels(work)
+    fake_worker(work)
+    gt = json.loads((r.out_dir / "ground_truth.json").read_text())
+    later = max(gt["people"], key=lambda n: gt["people"][n]["start_frame"])
+    raw_path = next(p for p in sorted((work / "runs" / plan["name"] / "labels_raw").glob("*/*.json"))
+                    if any(fr["people"] for fr in json.loads(p.read_text())["rows"]))
+    d = json.loads(raw_path.read_text())
+    fr = next(fr for fr in d["rows"] if fr["people"] and int(fr["frame"]) < gt["people"][later]["start_frame"])
+    real = next(iter(fr["people"]))
+    fr["people"] = {later if n == real else n: v for n, v in fr["people"].items()}
+    raw_path.write_text(json.dumps(d))
+    isaac_bridge.finish_labels(plan, work / "runs" / plan["name"], r.out_dir)
+    ident = json.loads((r.out_dir / "labels" / "identity.json").read_text())["cameras"][d["camera"]]
+    assert ident["renamed"] >= 1 and ident["dropped"] == 0
+    rows = list(csv.DictReader(open(r.out_dir / "labels" / f"{d['camera']}.csv")))
+    at = {x["name"]: x for x in rows if int(x["frame"]) == int(fr["frame"]) + 1}
+    assert at[real]["tight_x0"] != "" and (later not in at or at[later]["tight_x0"] == "")

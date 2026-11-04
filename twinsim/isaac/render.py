@@ -291,13 +291,16 @@ async def full_silhouettes(stage, people, samples, seg, h, w, fps):
     return out
 
 
-async def labels(app, cam, f0, f1, fps, w, h, out, stage=None, people=()):
+async def labels(app, cam, f0, f1, fps, w, h, out, stage=None, people=(), glass=False):
     """描いたのと同じコマを順に流し、人ごとの枠と画素を取る。tight = 見えている画素の枠（完全に隠れた人は出ない）、
     loose = 隠れた部分も含む全身の枠（画面で切られる）、px = 見えている画素の数、full = 全身の画素の数（FULL_EVERY コマごと）。
     Replicator の occlusionRatio・occlusion の注釈はこの人物モデルでは -1（計算されない）ので、隠れの割合は px と full から出す（labels.py）。"""
     import omni.replicator.core as rep
     import omni.timeline
-    glass = occlude_glass(stage) if stage is not None else 0
+    # ガラスを不透明にすると、Replicator が人を 1 人も返さない区間がほとんどになった（office で全部、2026-11-04）。既定では使わない。
+    # ガラスの奥の人の隠れは、ガラス板の位置から計算機で数える（twinsim/glass.py）
+    glass = occlude_glass(stage) if stage is not None and glass else 0
+    # 人の表示を切り替えずに地下へ動かす方法も試したが、名前の取り違えがかえって増えた（2026-11-04）。名前は labels.py で計算の枠と突き合わせて確かめる
     rp = rep.create.render_product(cam, (w, h))
     anns = {k: rep.AnnotatorRegistry.get_annotator(f"bounding_box_2d_{k}", init_params={"semanticTypes": ["class"]}) for k in ("tight", "loose")}
     seg = rep.AnnotatorRegistry.get_annotator("instance_segmentation", init_params={"semanticTypes": ["class"], "colorize": False})
@@ -404,7 +407,8 @@ async def main():
         if not job.get("capture", True):  # 注釈だけを取り直す（映像は前に描いたもの。同じコマ・同じ人の置き方なら同じ姿勢）
             times[cname] = 0.0
             out = f"{run}/labels_raw/{job.get('frames_dir') or cname}.json"
-            label_times[cname] = round(await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out, stage, placed_names), 1)
+            lsec = await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out, stage, placed_names, bool(job.get("occlude_glass")))
+            label_times[cname] = round(lsec, 1)
             SHARED["restart"] = True
             log(cname, "labels only", f1 - f0 + 1, "frames in", label_times[cname], "s")
             continue
@@ -416,7 +420,7 @@ async def main():
         log(cname, "rendered", f1 - a + 1, "frames in", round(sec, 1), "s", f"(preroll {f0 - a})" if f0 > a else "")
         if job.get("labels"):
             out = f"{run}/labels_raw/{job.get('frames_dir') or cname}.json"
-            lsec = await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out, stage, placed_names)
+            lsec = await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out, stage, placed_names, bool(job.get("occlude_glass")))
             SHARED["restart"] = True  # 次のジョブでは注釈が空・誤りになるので、受け付けを起動し直す（agent_runner.py）
             label_times[cname] = round(lsec, 1)
             log(cname, "labels", f1 - f0 + 1, "frames in", round(lsec, 1), "s")

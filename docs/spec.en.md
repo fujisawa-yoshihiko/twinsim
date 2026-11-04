@@ -19,6 +19,7 @@ One USD scene. The "meaning" that is not in the USD (entrances, gates, elevator 
 | `usd` | URL of the scene (e.g. an Isaac Sim asset) |
 | `license` | Terms of use of the asset (check them when producing data for distribution) |
 | `navmesh_region` | Region in which the navmesh is baked `[x0, x1, y0, y1, z0, z1]` (one floor) |
+| `glass` | Occlusion by glass (optional). `occluding` lists the glass materials (MDL names) through which people are not visible in the rendered video. The glass panes are in `glass.json` in the same folder (oriented boxes extracted inside Isaac Sim by `twinsim/isaac/probe_materials.py`). Used for the `glass` column and visibility of the rendered label table (`labels/`) |
 | `levels[]` | Floors: `z`, `walkable` (grid of the walkable area; `.txt` or `.npz`), `top_image`, `top_view` (top-down image and its viewpoint) |
 | `pois` | Places (table below) |
 | `zones` | Zones (polygons). Used for ground-truth aggregation and as graph nodes. Matched in order from the top |

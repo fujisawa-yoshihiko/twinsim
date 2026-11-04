@@ -5,7 +5,10 @@ mot/<カメラ>.txt（計算だけで作る近似の枠）と違い、描かれ�
 tight_x0〜y1（見えている画素の枠。画面の中だけ。見えない人は空）、amodal_x0〜y1（隠れた部分も含む全身の枠。画面の外へはみ出す分も含む）、
 visibility（全身のうち見えている割合 = (1 - occlusion) × (1 - truncation)）、occlusion（画面の中の部分のうち、ほかの物・人に隠れた割合）、
 truncation（全身のうち画面の外の割合）、portal（現れる・消える所の範囲にいるか、space.portals）、state（その人の状態）、
-visible_px（見えている画素の数）、occ_source（occlusion の出どころ。occlusion() の説明: silhouette・silhouette_interp・fill_median・box_ratio・hidden）。
+visible_px（見えている画素の数。隠す種類のガラスの奥の分を除く）、
+occ_source（occlusion の出どころ。occlusion() の説明: silhouette・silhouette_interp・fill_median・box_ratio・hidden）、
+glass（画面の中の体のうち、隠す種類のガラスの奥になる割合。glass.py。塗り分けはガラスを透かすので、occlusion にはこの分を足してある。
+tight の枠はガラスの奥の分も含む）。
 labels/<カメラ>_mot.txt は同じ中身の MOTChallenge の gt.txt の形（frame, id, 全身の枠 x, y, w, h, 1, 1, visibility）。
 """
 
@@ -14,15 +17,19 @@ import json
 from pathlib import Path
 
 import numpy as np
+from scipy.optimize import linear_sum_assignment
 
+from . import glass as glass_mod
 from .camera import Camera
 from .space import load_space
 
 COLUMNS = ["frame", "id", "name", "tight_x0", "tight_y0", "tight_x1", "tight_y1", "amodal_x0", "amodal_y0", "amodal_x1", "amodal_y1",
-           "visibility", "occlusion", "truncation", "portal", "state", "visible_px", "occ_source"]
+           "visibility", "occlusion", "truncation", "portal", "state", "visible_px", "occ_source", "glass"]
 MIN_INSIDE = 0.02  # 計算の全身の枠のこれだけが画面に入れば、見えていなくても行を書く（完全に隠れた人も visibility 0 で残す）
 EDGE_PX = 1  # 描画の全身の枠がこれ以内で画面の端に触れていたら、画面の外へ続くとみて、計算の枠で外側を伸ばす
 EMPTY_MIN_ROWS = 50  # 計算では画面に入る人の行がこれだけあるのに、描画の注釈がどのコマでも誰も拾っていない区間は、注釈が壊れているとみなす
+NAME_INSIDE = 0.5  # 描画の全身の枠（loose）のこれだけが計算の枠に入る、その時刻にいる人に、注釈を付け直す
+SAME_NAME_BONUS = 0.1  # 付け直すとき、Replicator の名前と同じ人を少しだけ優先する
 
 
 def _state_at(runs, f):
@@ -85,7 +92,56 @@ def amodal_box(loose, cpu, w, h):
     return (float(x0), float(y0), float(x1), float(y1))
 
 
-def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False):
+def _inside(a, b):
+    """枠 a のうち、枠 b に入る割合（近くの人が画面の端で切られると、見えている枠は計算の枠よりずっと小さいので、IoU では合わない）。"""
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    return ix * iy / max(_area(a), 1e-9)
+
+
+def fix_names(raw, gt, cam):
+    """Replicator の注釈の名前を、描画の全身の枠と計算の枠で確かめ、合う人に付け直す（コマごとに、枠の入る割合の合計が最大になる組み合わせ）。
+    Replicator は、新しく見えた人をしばらく返さないか、前に見えていた別の人の名前で返すことがある（消えた人の名前が 11 コマ出た、2026-11-04）。
+    描画の枠の NAME_INSIDE 以上が、その時刻にいるどの人の計算の枠にも入らない注釈は捨てる。→ (直した raw, {"entries", "renamed", "dropped"})"""
+    w, h = cam.w, cam.h
+    stats = {"entries": 0, "renamed": 0, "dropped": 0}
+    out = []
+    for part in raw:
+        rows = []
+        for fr in part["rows"]:
+            f = int(fr["frame"])
+            cpu = {}
+            for name, p in gt["people"].items():
+                s0, tr = p["start_frame"], gt["tracks"][name]
+                if s0 <= f < s0 + len(tr):
+                    b = cam.person_box(tr[f - s0][0], tr[f - s0][1], float(p.get("height_m", 1.75)))
+                    if b and b[4] > 0:
+                        cpu[name] = _clip(b[:4], w, h)
+            got = fr["people"]
+            stats["entries"] += len(got)
+            boxed = [n for n, r in got.items() if r.get("loose")]
+            fixed = {n: r for n, r in got.items() if not r.get("loose") and n in cpu}  # 枠のない注釈は、その時刻にいる人のものだけ残す
+            stats["dropped"] += sum(1 for n, r in got.items() if not r.get("loose") and n not in cpu)
+            cand = [n for n in cpu if n not in fixed]
+            if boxed and cand:
+                lb = {n: _clip(_box(got[n]["loose"]), w, h) for n in boxed}
+                m = np.array([[_inside(lb[a], cpu[b]) for b in cand] for a in boxed])
+                ri, ci = linear_sum_assignment(-(m + SAME_NAME_BONUS * np.array([[a == b for b in cand] for a in boxed])))
+                used = set()
+                for i, j in zip(ri, ci):
+                    if m[i, j] >= NAME_INSIDE:
+                        fixed[cand[j]] = got[boxed[i]]
+                        used.add(i)
+                        stats["renamed"] += cand[j] != boxed[i]
+                stats["dropped"] += len(boxed) - len(used)
+            else:
+                stats["dropped"] += len(boxed)
+            rows.append({**fr, "people": fixed})
+        out.append({**part, "rows": rows})
+    return out, stats
+
+
+def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False, stats=None):
     """raw: render.py の labels_raw の JSON を時刻の順に並べたもの（1 つのカメラ）。→ (表の行のリスト, ids)。
     occ_includes_truncation: Replicator の occlusionRatio が画面の外の分も隠れとして数えるなら True（そのときは visibility = 1 - occlusion）。"""
     run = Path(run_dir)
@@ -94,8 +150,13 @@ def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False):
     sp = load_space(json.loads(resolved.read_text(encoding="utf-8")).get("space", gt["space"]) if resolved.exists() else gt["space"])
     cam = Camera(gt["cameras"][camera], floor_z=sp.z)
     w, h = cam.w, cam.h
+    raw, st = fix_names(raw, gt, cam)
+    if stats is not None:
+        stats.update(st)
     ids = dict(ids or {})
     nxt = max(ids.values(), default=0) + 1
+    boxes = glass_mod.load_boxes(sp)
+    behind = glass_mod.GlassOcclusion(cam, boxes) if boxes is not None else None
     # 全身の画素の数は FULL_EVERY コマごとにしか測っていない（render.py）。人ごとに「全身の画素 ÷ 全身の枠の面積」を、測ったコマの間で補う
     fills = {}
     for part in raw:
@@ -131,6 +192,8 @@ def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False):
                 inside = _area(_clip(am, w, h)) / max(_area(am), 1e-9)
                 trunc = 1.0 - inside
                 occ, src = occlusion(r, tb, lb, am, f, fills.get(name), fill_median, w, h)
+                g = behind.fraction(x, y, float(p.get("height_m", 1.75))) if behind is not None else 0.0
+                occ = 1.0 - (1.0 - occ) * (1.0 - g)  # ガラスの奥の分は、塗り分けでは見えている（見えている画素は体の上に一様とみる）
                 vis = (1.0 - occ) if occ_includes_truncation else (1.0 - occ) * (1.0 - trunc)
                 if name not in ids:
                     ids[name] = nxt
@@ -141,7 +204,7 @@ def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False):
                              **{k: round(float(v), 1) for k, v in zip(("amodal_x0", "amodal_y0", "amodal_x1", "amodal_y1"), am)},
                              "visibility": round(max(vis, 0.0), 4), "occlusion": round(occ, 4), "truncation": round(trunc, 4),
                              "portal": 1 if sp.in_portal(x, y) else 0, "state": _state_at(p.get("states", []), f),
-                             "visible_px": int(r.get("px", 0)), "occ_source": src})
+                             "visible_px": int(round(r.get("px", 0) * (1.0 - g))), "occ_source": src, "glass": round(g, 3)})
     rows.sort(key=lambda r: (r["frame"], r["id"]))
     return rows, ids
 
@@ -179,10 +242,11 @@ def build_all(run_dir, raw_by_camera, occ_includes_truncation=False):
     run = Path(run_dir)
     idp = run / "mot" / "ids.json"
     ids = json.loads(idp.read_text()) if idp.exists() else {}
-    built, bad = {}, []
+    built, bad, names = {}, [], {}
     for cam, raw in raw_by_camera.items():
         raw = sorted(raw, key=lambda r: r["frames"][0])
-        rows, ids = build(run, cam, raw, ids, occ_includes_truncation)
+        names[cam] = {}
+        rows, ids = build(run, cam, raw, ids, occ_includes_truncation, stats=names[cam])
         bad += [f"{cam} の {a}〜{b}（計算では {n} 行）" for a, b, n in empty_parts(raw, rows)]
         built[cam] = rows
     if bad:  # 前の正解の表を上書きしない
@@ -193,6 +257,7 @@ def build_all(run_dir, raw_by_camera, occ_includes_truncation=False):
         counts[cam] = len(rows)
     (run / "labels").mkdir(exist_ok=True)
     (run / "labels" / "ids.json").write_text(json.dumps(ids))
+    (run / "labels" / "identity.json").write_text(json.dumps({"note": "Replicator の注釈の名前を計算の枠で確かめた数（labels.fix_names）", "cameras": names}))
     return counts
 
 

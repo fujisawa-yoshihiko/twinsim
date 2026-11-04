@@ -9,6 +9,9 @@ license: CC BY 4.0（NVIDIA Isaac Sim の素材。配布するときはクレジ
 license_en: "CC BY 4.0 (NVIDIA Isaac Sim assets; give credit when distributing)"
 ceiling_m: 2.97            # 天井の高さ（床から）。これより上のカメラは誤り（正解の枠が天井を知らないため）。照明の下面 2.97 m・天井 2.99 m（同）
 navmesh_region: [-50.0, 27.0, -5.0, 37.5, 0.0, 3.0]
+glass:                    # ガラスの奥の人の隠れ（twinsim/glass.py。ガラス板の位置は glass.json）
+  occluding: []
+  note: M_Glass ほか。確かめた 54 本（2026-11-04）では奥に人が入る場面がなく、決めていない
 levels:
   - name: 1F
     z: 0.0

@@ -19,6 +19,7 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 | `usd` | シーンの URL（Isaac Sim の素材など） |
 | `license` | 素材の利用条件（配布するデータを作るときに確かめる） |
 | `navmesh_region` | ナビメッシュを焼く範囲 `[x0, x1, y0, y1, z0, z1]`（1 つの階） |
+| `glass` | ガラスの奥の人の隠れ（任意）。`occluding` に、描いた映像で奥の人が見えないガラスの材質（MDL の名前）を書く。ガラス板の位置は同じフォルダの `glass.json`（Isaac Sim の中で `twinsim/isaac/probe_materials.py` が取り出す、向きのある箱）。描画の正解の表（`labels/`）の `glass` 列と visibility に使う |
 | `levels[]` | 階: `z`、`walkable`（歩ける所の格子。`.txt` か `.npz`）、`top_image`・`top_view`（真上の図とその視点） |
 | `pois` | 場所（下の表） |
 | `zones` | ゾーン（多角形）。正解の集計とグラフのノード。上から順に当てはめる |
