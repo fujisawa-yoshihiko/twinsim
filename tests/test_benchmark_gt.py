@@ -178,3 +178,24 @@ def test_elevator_cabin_and_overflow(tmp_path):
     for n in boarded:
         car = gt["people"][n]["events"]["car"]
         assert np.hypot(*(np.array(gt["tracks"][n][-1][:2]) - cabins[car])) < 0.2
+
+
+def test_empty_labels_stop_and_keep_old_table(tmp_path, work):  # noqa: F811
+    """描画の注釈が空の区間（Replicator が誰も返さない）があれば止まり、前の正解の表は残す（2026-11-04 のガラスの版）。"""
+    r = twinsim.simulate(CONFIG, out_dir=tmp_path / "r")
+    plan = isaac_bridge.plan_render(r.out_dir, frames=(100, 299), chunk_s=10, labels=True)
+    isaac_bridge.start_render(plan)
+    fake_labels(work)
+    fake_worker(work)
+    isaac_bridge.finish_plan(plan)
+    before = {p.name: p.read_bytes() for p in (r.out_dir / "labels").glob("*.csv")}
+    raws = sorted((work / "runs" / plan["name"] / "labels_raw").glob("*/*.json"))
+    big = max(raws, key=lambda p: sum(len(fr["people"]) for fr in json.loads(p.read_text())["rows"]))
+    d = json.loads(big.read_text())
+    assert sum(len(fr["people"]) for fr in d["rows"]) >= labels.EMPTY_MIN_ROWS
+    for fr in d["rows"]:
+        fr["people"] = {}
+    big.write_text(json.dumps(d))
+    with pytest.raises(RuntimeError, match="注釈が空"):
+        isaac_bridge.finish_labels(plan, work / "runs" / plan["name"], r.out_dir)
+    assert {p.name: p.read_bytes() for p in (r.out_dir / "labels").glob("*.csv")} == before

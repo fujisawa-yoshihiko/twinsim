@@ -54,6 +54,8 @@ async def run_one(path: Path, stem: str):
         main = g.get("main")
         if main is not None and asyncio.iscoroutinefunction(main):
             await main()
+        elif not lines:  # 写している途中の空の部品を読むと、何もしないで「ok」になった（2026-11-04。isaac_bridge.sync は名前の付け替えで写すようにした）
+            raise RuntimeError("main がなく、何も記録しなかった（部品が空か、書きかけだったかもしれない）")
         status = "ok"
     except Exception:
         lines.append(traceback.format_exc())

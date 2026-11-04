@@ -61,5 +61,7 @@ Run the commands in the repository folder.
 | "Isaac Sim is not running" | Start it with `./isaac_up.sh`, wait about 1 minute and check with `./status.sh` |
 | New GUI sections do not appear | The GUI server runs old code. `./stop.sh gui` → `./run.sh serve` → reload the browser |
 | BrokenPipeError in the server log | The browser just closed a video midway. Harmless |
+| A rendering job does not progress (render-only Isaac Sim) | After running out of render resources (`[Fatal] … Out of resource descriptors` in the log), Isaac Sim can hang without exiting. The waiting side (`isaac_bridge.wait_render`, `unstick`) finds it by the `[Fatal]` line or by a too long run time (4 s per frame, at least 30 min) and restarts the container (the job is retried once; the second time it fails). By hand: `docker restart twinsim-render-<worker>` |
+| You changed `twinsim/isaac/` after queueing jobs | Queued jobs also use the scripts in the work folder at the time they run (the new version). To avoid mixing in an untested version, do not change them while rendering jobs remain |
 
 More: [README.en.md](../README.en.md) (structure, output formats, time to produce video), [library.en.md](library.en.md) (using it from Python).

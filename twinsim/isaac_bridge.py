@@ -4,6 +4,7 @@
 """
 
 import json
+import os
 import shutil
 import subprocess
 import time
@@ -19,12 +20,25 @@ CONTAINER = "/workspace/twinsim"
 
 
 def sync():
+    """isaac/ の部品を作業場所に写す（ジョブを置くたび）。受け付けはジョブを動かすときに作業場所のものを読むので、
+    置いたあとで部品を書き換えると、待っているジョブも新しい部品で動く（試していない版が本番に混じった、2026-11-04）。"""
     for d in ("isaac/vendor", "inbox", "outbox", "done", "running", "jobs", "runs"):
         (WORK / d).mkdir(parents=True, exist_ok=True)
     for p in (ROOT / "isaac").glob("*.py"):
-        shutil.copy(p, WORK / "isaac" / p.name)
+        _put(p, WORK / "isaac" / p.name)
     for p in (ROOT / "isaac/vendor").glob("*.py"):
-        shutil.copy(p, WORK / "isaac/vendor" / p.name)
+        _put(p, WORK / "isaac/vendor" / p.name)
+
+
+def _put(src, dst):
+    """中身が変わったときだけ、一時ファイルに書いてから名前を替える（書いている途中の空のファイルを受け付けが読み、
+    何もしないジョブが「ok」で終わった、2026-11-04）。"""
+    data = src.read_bytes()
+    if dst.exists() and dst.read_bytes() == data:
+        return
+    tmp = dst.with_name(f".{dst.name}.{os.getpid()}.tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, dst)
 
 
 def ready(max_age_s=30):
@@ -207,6 +221,70 @@ def start_render(plan):
         enqueue("render.py", job, key)
 
 
+FARM = "twinsim-render-"  # tools/render_farm.sh のコンテナの名前の頭（その後ろが受け付けの名前）
+STUCK_S = 3600
+_unstick_at = [0.0]
+
+
+def _docker(*args):
+    return subprocess.run(["docker", *args], capture_output=True, text=True)
+
+
+def stuck_s(plan):
+    """plan のジョブが固まったとみなすまでの秒数（1 コマ 4 秒。描画と注釈で 1 コマ 1.4 秒ほど、2026-11-04）。"""
+    n = max((j["frames"][1] - j["frames"][0] + 1) * len(j.get("cameras") or plan["cameras"]) for _, j in plan["parts"])
+    return max(1800, 4 * n)
+
+
+def stuck_jobs(max_s=STUCK_S):
+    """固まった描画のジョブ → [(ジョブの名前, 受け付け, 理由)]。描画専用の Isaac Sim（tools/render_farm.sh）のコンテナで、
+    ジョブを取ってからログに [Fatal] が出たもの（描画の資源切れ "Out of resource descriptors" のあと、Isaac Sim は終わらずに固まり、
+    ジョブも生きている印も止まったまま 4.5 時間待った、2026-11-04）と、max_s 秒より長く動いているもの。"""
+    out, now = [], time.time()
+    for p in (WORK / "running").glob("*@*.py"):
+        name, worker = p.stem.rsplit("@", 1)
+        try:
+            since = p.stat().st_ctime  # 受け付けが取ったとき（名前の付け替え）
+        except FileNotFoundError:
+            continue
+        r = _docker("logs", "--since", str(int(since)), FARM + worker)
+        if r.returncode != 0:  # 描画専用のコンテナでない受け付け（isim の main など）は見ない
+            continue
+        fatal = [ln for ln in (r.stdout + r.stderr).splitlines() if "[Fatal]" in ln]
+        if fatal:
+            out.append((name, worker, fatal[0][-120:]))
+        elif max_s and now - since > max_s:
+            out.append((name, worker, f"{(now - since) / 60:.0f} 分動いている"))
+    return out
+
+
+def unstick(max_s=STUCK_S, retries=1, log=print, every_s=60):
+    """固まった受け付けのコンテナを起動し直す。起動し直した受け付けは、自分のジョブを inbox に戻してもう一度動かす（agent_runner.py）。
+    同じジョブで retries 回を超えたら、やり直さずに outbox に [error] を書く（呼ぶ側の失敗の扱いに任せる）。
+    待つ側の繰り返しから呼ぶ（every_s 秒より短い間隔では見ない）。→ 起動し直した受け付けの名前"""
+    if time.monotonic() - _unstick_at[0] < every_s:
+        return []
+    _unstick_at[0] = time.monotonic()
+    stuck = stuck_jobs(max_s)
+    if not stuck:
+        return []
+    tp = WORK / "outbox" / "_unstick.json"
+    tries = json.loads(tp.read_text()) if tp.exists() else {}
+    done = []
+    for name, worker, why in stuck:
+        tries[name] = tries.get(name, 0) + 1
+        if tries[name] > retries:  # 起動し直した受け付けが inbox に戻さないように、先に done へ
+            run = WORK / "running" / f"{name}@{worker}.py"
+            if run.exists():
+                run.replace(WORK / "done" / f"{name}.py")
+            (WORK / "outbox" / f"{name}.txt").write_text(f"[error] 受け付け {worker} が固まった（{why}）。{tries[name]} 回目なので、やり直さない\n")
+        _docker("restart", "-t", "20", FARM + worker)
+        log(f"受け付け {worker} を起動し直した（{name}、{why}、{tries[name]} 回目）")
+        done.append(worker)
+    tp.write_text(json.dumps(tries))
+    return done
+
+
 def render_state(plan):
     """{"done": 終わったジョブの数, "total": 全部の数, "errors": [失敗したジョブの名前]}"""
     done, errors = 0, []
@@ -222,6 +300,7 @@ def render_state(plan):
 def wait_render(plan, wait_s=12 * 3600, poll=5):
     t0 = time.monotonic()
     while time.monotonic() - t0 < wait_s:
+        unstick(stuck_s(plan))
         st = render_state(plan)
         if st["errors"]:
             log = (WORK / "outbox" / f"{st['errors'][0]}.txt").read_text()

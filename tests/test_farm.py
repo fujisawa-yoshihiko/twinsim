@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+import time
 import types
 from pathlib import Path
 
@@ -170,3 +171,51 @@ def test_workers_are_listed_by_alive_marks(work):
     (work / "running" ).mkdir(exist_ok=True)
     (work / "running" / "render_y@g2-1.py").write_text("")
     assert isaac_bridge.workers() == ["g2-1", "g3-1"]
+
+
+def test_unstick_restarts_hung_worker_then_gives_up(work, monkeypatch):
+    """[Fatal] が出て固まった受け付けは起動し直す（ジョブは受け付けが inbox に戻す）。同じジョブで 2 回目なら [error] にして、やり直さない。"""
+    calls = []
+
+    def docker(*args):
+        calls.append(args)
+        if args[0] == "logs":
+            return subprocess.CompletedProcess(args, 0, "[Fatal] [omni.rtx] Out of resource descriptors!\n", "")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(isaac_bridge, "_docker", docker)
+    run = work / "running" / "render_x__h22p15__001800@g0-3.py"
+    run.write_text("")
+    assert isaac_bridge.unstick(every_s=0, log=lambda *_: None) == ["g0-3"]
+    assert ("restart", "-t", "20", "twinsim-render-g0-3") in calls
+    assert run.exists() and not (work / "outbox" / "render_x__h22p15__001800.txt").exists()
+    assert isaac_bridge.unstick(every_s=0, log=lambda *_: None) == ["g0-3"]
+    assert not run.exists() and (work / "done" / "render_x__h22p15__001800.py").exists()
+    assert "[error]" in (work / "outbox" / "render_x__h22p15__001800.txt").read_text()
+
+
+def test_unstick_by_age_and_skips_non_farm(work, monkeypatch):
+    def docker(*args):
+        if args[0] == "logs" and args[-1].endswith("main"):
+            return subprocess.CompletedProcess(args, 1, "", "No such container")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(isaac_bridge, "_docker", docker)
+    (work / "running" / "a@g1-2.py").write_text("")
+    (work / "running" / "b@main.py").write_text("")
+    assert isaac_bridge.stuck_jobs(max_s=3600) == []
+    t = time.time()
+    monkeypatch.setattr(isaac_bridge.time, "time", lambda: t + 7200)
+    assert [(n, w) for n, w, _ in isaac_bridge.stuck_jobs(max_s=3600)] == [("a", "g1-2")]
+
+
+def test_sync_replaces_files_whole(work):
+    """写しは中身が変わったときだけ、名前の付け替えで入れ替える（書きかけの部品を受け付けが読まない）。"""
+    dst = work / "isaac" / "render.py"
+    ino = dst.stat().st_ino
+    isaac_bridge.sync()
+    assert dst.stat().st_ino == ino  # 変わっていなければ書かない
+    dst.write_text("# old\n")
+    isaac_bridge.sync()
+    assert dst.stat().st_ino != ino and dst.read_text() != "# old\n"
+    assert not list((work / "isaac").glob(".*.tmp"))

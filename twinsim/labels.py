@@ -22,6 +22,7 @@ COLUMNS = ["frame", "id", "name", "tight_x0", "tight_y0", "tight_x1", "tight_y1"
            "visibility", "occlusion", "truncation", "portal", "state", "visible_px", "occ_source"]
 MIN_INSIDE = 0.02  # 計算の全身の枠のこれだけが画面に入れば、見えていなくても行を書く（完全に隠れた人も visibility 0 で残す）
 EDGE_PX = 1  # 描画の全身の枠がこれ以内で画面の端に触れていたら、画面の外へ続くとみて、計算の枠で外側を伸ばす
+EMPTY_MIN_ROWS = 50  # 計算では画面に入る人の行がこれだけあるのに、描画の注釈がどのコマでも誰も拾っていない区間は、注釈が壊れているとみなす
 
 
 def _state_at(runs, f):
@@ -159,14 +160,35 @@ def write(run_dir, camera, rows):
     return out / f"{camera}.csv"
 
 
+def empty_parts(raw, rows):
+    """描画の注釈が空の区間（どのコマにも人が出ていないのに、計算では画面に入る人の行が EMPTY_MIN_ROWS 以上ある）→ [(始まり, 終わり, 計算の行の数)]。
+    ガラスを不透明にした版（2026-11-04）で、ほとんどの区間の注釈が空になり、表が「全員が隠れている」になったのを見落とした。"""
+    out = []
+    for part in raw:
+        if any(fr["people"] for fr in part["rows"]):
+            continue
+        a, b = part["frames"]
+        n = sum(1 for r in rows if a + 1 <= r["frame"] <= b + 1)  # 表のコマは 1 始まり
+        if n >= EMPTY_MIN_ROWS:
+            out.append((a, b, n))
+    return out
+
+
 def build_all(run_dir, raw_by_camera, occ_includes_truncation=False):
     """raw_by_camera: {カメラ: [labels_raw の JSON, ...]}。labels/<カメラ>.csv・<カメラ>_mot.txt・ids.json を書き、行の数を返す。"""
     run = Path(run_dir)
     idp = run / "mot" / "ids.json"
     ids = json.loads(idp.read_text()) if idp.exists() else {}
-    counts = {}
+    built, bad = {}, []
     for cam, raw in raw_by_camera.items():
-        rows, ids = build(run, cam, sorted(raw, key=lambda r: r["frames"][0]), ids, occ_includes_truncation)
+        raw = sorted(raw, key=lambda r: r["frames"][0])
+        rows, ids = build(run, cam, raw, ids, occ_includes_truncation)
+        bad += [f"{cam} の {a}〜{b}（計算では {n} 行）" for a, b, n in empty_parts(raw, rows)]
+        built[cam] = rows
+    if bad:  # 前の正解の表を上書きしない
+        raise RuntimeError(f"描画の注釈が空の区間がある（Replicator が人を 1 人も返していない）: {', '.join(bad[:5])}{' ほか' if len(bad) > 5 else ''}")
+    counts = {}
+    for cam, rows in built.items():
         write(run, cam, rows)
         counts[cam] = len(rows)
     (run / "labels").mkdir(exist_ok=True)
