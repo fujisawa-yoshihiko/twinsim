@@ -103,7 +103,9 @@ def _inside(a, b):
 def fix_names(raw, gt, cam):
     """Replicator の注釈の名前を、描画の全身の枠と計算の枠で確かめ、合う人に付け直す（コマごとに、枠の入る割合の合計が最大になる組み合わせ）。
     Replicator は、新しく見えた人をしばらく返さないか、前に見えていた別の人の名前で返すことがある（消えた人の名前が 11 コマ出た、2026-11-04）。
-    描画の枠の NAME_INSIDE 以上が、その時刻にいるどの人の計算の枠にも入らない注釈は捨てる。→ (直した raw, {"entries", "renamed", "dropped"})"""
+    出番の終わった人の名前で、新しく現れた 2 人の体をまとめた枠を返すこともある（office ゲート前 mid）。
+    描画の枠の NAME_INSIDE 以上が、その時刻にいるどの人の計算の枠にも入らない注釈は捨て、その枠をコマの "dropped" に残す。
+    → (直した raw, {"entries", "renamed", "dropped"})"""
     w, h = cam.w, cam.h
     stats = {"entries": 0, "renamed": 0, "dropped": 0}
     out = []
@@ -121,6 +123,7 @@ def fix_names(raw, gt, cam):
             got = fr["people"]
             stats["entries"] += len(got)
             boxed = [n for n, r in got.items() if r.get("loose")]
+            used = set()
             fixed = {n: r for n, r in got.items() if not r.get("loose") and n in cpu}  # 枠のない注釈は、その時刻にいる人のものだけ残す
             stats["dropped"] += sum(1 for n, r in got.items() if not r.get("loose") and n not in cpu)
             cand = [n for n in cpu if n not in fixed]
@@ -128,7 +131,6 @@ def fix_names(raw, gt, cam):
                 lb = {n: _clip(_box(got[n]["loose"]), w, h) for n in boxed}
                 m = np.array([[_inside(lb[a], cpu[b]) for b in cand] for a in boxed])
                 ri, ci = linear_sum_assignment(-(m + SAME_NAME_BONUS * np.array([[a == b for b in cand] for a in boxed])))
-                used = set()
                 for i, j in zip(ri, ci):
                     if m[i, j] >= NAME_INSIDE:
                         fixed[cand[j]] = got[boxed[i]]
@@ -137,7 +139,9 @@ def fix_names(raw, gt, cam):
                 stats["dropped"] += len(boxed) - len(used)
             else:
                 stats["dropped"] += len(boxed)
-            rows.append({**fr, "people": fixed})
+            # 捨てた枠（出番の終わった人の名前で、新しく現れた人の体を 2 人分まとめて返すことがある）は、build が unlabeled を決めるのに使う
+            drop = [_clip(_box(got[n]["loose"]), w, h) for i, n in enumerate(boxed) if i not in used]
+            rows.append({**fr, "people": fixed, "dropped": drop})
         out.append({**part, "rows": rows})
     return out, stats
 
@@ -169,8 +173,9 @@ def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False, stats=N
                         fills.setdefault(name, []).append((int(fr["frame"]), r["full"] / _area(lb)))
     all_fill = [v for s_ in fills.values() for _, v in s_]
     fill_median = float(np.median(all_fill)) if all_fill else None
-    # 区間の途中で現れた人は、Replicator が最初の注釈まで数百コマ返さないことがある（表示を切り替えた人を、注釈の描画が拾わない。
-    # 区間の始めからいる人では起きない、2026-11-04）。現れてから最初の注釈までの行は、隠れているのか分からないので unlabeled にする
+    # 区間の途中で現れた人は、Replicator が最初の注釈まで数百コマ返さないか、出番の終わった人の名前で返すことがある
+    # （表示を切り替えた人を、注釈の描画が正しく拾わない。区間の始めからいる人では起きない、2026-11-04）。
+    # 現れてから最初の注釈までの行と、体が捨てた枠に入っている行は、隠れているのか分からないので unlabeled にする
     late = {}  # (区間の番号, 名前) → 最初の注釈のコマ（なければ区間の終わりの次）
     for k, part in enumerate(raw):
         a, b = part["frames"]
@@ -201,8 +206,9 @@ def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False, stats=N
                 inside = _area(_clip(am, w, h)) / max(_area(am), 1e-9)
                 trunc = 1.0 - inside
                 occ, src = occlusion(r, tb, lb, am, f, fills.get(name), fill_median, w, h)
-                if src == "hidden" and f < late.get((k, name), f):
-                    src = UNLABELED
+                if src == "hidden" and (f < late.get((k, name), f) or (cpu and any(
+                        _inside(_clip(cpu, w, h), d) >= NAME_INSIDE for d in fr.get("dropped", ())))):
+                    src = UNLABELED  # 現れてから最初の注釈の前か、体が捨てた枠（ほかの人の名前で返された）に入っている
                 g = behind.fraction(x, y, float(p.get("height_m", 1.75))) if behind is not None else 0.0
                 occ = 1.0 - (1.0 - occ) * (1.0 - g)  # ガラスの奥の分は、塗り分けでは見えている（見えている画素は体の上に一様とみる）
                 vis = (1.0 - occ) if occ_includes_truncation else (1.0 - occ) * (1.0 - trunc)

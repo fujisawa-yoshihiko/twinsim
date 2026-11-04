@@ -270,3 +270,36 @@ def test_late_replicator_rows_are_unlabeled(tmp_path, work):  # noqa: F811
         rows = list(csv.DictReader(open(r.out_dir / "labels" / f"{cam}.csv")))
         early = {n for n, pp in gt["people"].items() if pp["start_frame"] <= 100}
         assert not any(x["occ_source"] == labels.UNLABELED for x in rows if x["name"] in early)
+
+
+def test_people_inside_dropped_stale_box_are_unlabeled(tmp_path, work):  # noqa: F811
+    """出番の終わった人の名前で 2 人分の体をまとめた枠が返ったとき（office ゲート前 mid、2026-11-04）、その枠は捨て、中の 2 人は unlabeled。"""
+    r = twinsim.simulate(CONFIG, out_dir=tmp_path / "r")
+    plan = isaac_bridge.plan_render(r.out_dir, frames=(100, 299), chunk_s=10, labels=True)
+    isaac_bridge.start_render(plan)
+    fake_labels(work)
+    fake_worker(work)
+    gt = json.loads((r.out_dir / "ground_truth.json").read_text())
+    ended = [n for n, p in gt["people"].items() if p["start_frame"] + len(gt["tracks"][n]) < 100]
+    absent = ended[0] if ended else "P9999"  # この範囲にいない人の名前
+    for p in sorted((work / "runs" / plan["name"] / "labels_raw").glob("*/*.json")):
+        d = json.loads(p.read_text())
+        fr = next((fr for fr in d["rows"] if len(fr["people"]) >= 2), None)
+        if fr is None:
+            continue
+        two = sorted(fr["people"])[:2]
+        lo = [fr["people"][n]["loose"] for n in two]
+        union = [min(b[0] for b in lo), min(b[1] for b in lo), max(b[2] for b in lo), max(b[3] for b in lo)]
+        fr["people"] = {n: v for n, v in fr["people"].items() if n not in two}
+        fr["people"][absent] = {"loose": union, "tight": union, "px": 100}
+        p.write_text(json.dumps(d))
+        break
+    isaac_bridge.finish_labels(plan, work / "runs" / plan["name"], r.out_dir)
+    rows = list(csv.DictReader(open(r.out_dir / "labels" / f"{d['camera']}.csv")))
+    at = {x["name"]: x for x in rows if int(x["frame"]) == int(fr["frame"]) + 1}
+    assert absent not in at
+    ident = json.loads((r.out_dir / "labels" / "identity.json").read_text())["cameras"][d["camera"]]
+    assert ident["dropped"] >= 1
+    # 2 人の計算の枠は太いので、まとめた枠に半分以上入る方だけが unlabeled になる。少なくとも 1 人
+    assert sum(at[n]["occ_source"] == labels.UNLABELED for n in two) >= 1
+    assert all(at[n]["occ_source"] in (labels.UNLABELED, "hidden") for n in two)
