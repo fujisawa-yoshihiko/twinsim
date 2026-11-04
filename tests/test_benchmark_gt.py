@@ -234,3 +234,39 @@ def test_wrong_names_from_replicator_are_fixed(tmp_path, work):  # noqa: F811
     rows = list(csv.DictReader(open(r.out_dir / "labels" / f"{d['camera']}.csv")))
     at = {x["name"]: x for x in rows if int(x["frame"]) == int(fr["frame"]) + 1}
     assert at[real]["tight_x0"] != "" and (later not in at or at[later]["tight_x0"] == "")
+
+
+def test_late_replicator_rows_are_unlabeled(tmp_path, work):  # noqa: F811
+    """区間の途中で現れた人を Replicator がしばらく返さないとき、最初の注釈までの行は hidden ではなく unlabeled（2026-11-04）。"""
+    r = twinsim.simulate(CONFIG, out_dir=tmp_path / "r")
+    plan = isaac_bridge.plan_render(r.out_dir, frames=(100, 299), chunk_s=10, labels=True)
+    isaac_bridge.start_render(plan)
+    fake_labels(work)
+    fake_worker(work)
+    gt = json.loads((r.out_dir / "ground_truth.json").read_text())
+    cut = []  # (カメラ, 名前, 消したコマ)
+    for p in sorted((work / "runs" / plan["name"] / "labels_raw").glob("*/*.json")):
+        d = json.loads(p.read_text())
+        a, b = d["frames"]
+        mid = [n for n, pp in gt["people"].items() if a < pp["start_frame"] <= b - 40 and any(n in fr["people"] for fr in d["rows"])]
+        if not mid:
+            continue
+        n = mid[0]
+        gone = [int(fr["frame"]) for fr in d["rows"] if n in fr["people"]][:30]  # 現れてから 30 コマを抜く
+        for fr in d["rows"]:
+            if int(fr["frame"]) in gone:
+                del fr["people"][n]
+        p.write_text(json.dumps(d))
+        cut.append((d["camera"], n, set(gone)))
+    assert cut
+    isaac_bridge.finish_labels(plan, work / "runs" / plan["name"], r.out_dir)
+    for cam, n, gone in cut:
+        rows = [x for x in csv.DictReader(open(r.out_dir / "labels" / f"{cam}.csv")) if x["name"] == n]
+        src = {int(x["frame"]) - 1: x["occ_source"] for x in rows}
+        assert all(src[f] == labels.UNLABELED for f in gone if f in src)
+        assert any(v != labels.UNLABELED for f, v in src.items() if f > max(gone))  # 最初の注釈からあとは普通の行
+    # 区間の始めからいる人は、隠れていても unlabeled にしない
+    for cam in {c for c, _, _ in cut}:
+        rows = list(csv.DictReader(open(r.out_dir / "labels" / f"{cam}.csv")))
+        early = {n for n, pp in gt["people"].items() if pp["start_frame"] <= 100}
+        assert not any(x["occ_source"] == labels.UNLABELED for x in rows if x["name"] in early)

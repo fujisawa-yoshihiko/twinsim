@@ -6,7 +6,7 @@ tight_x0〜y1（見えている画素の枠。画面の中だけ。見えない�
 visibility（全身のうち見えている割合 = (1 - occlusion) × (1 - truncation)）、occlusion（画面の中の部分のうち、ほかの物・人に隠れた割合）、
 truncation（全身のうち画面の外の割合）、portal（現れる・消える所の範囲にいるか、space.portals）、state（その人の状態）、
 visible_px（見えている画素の数。隠す種類のガラスの奥の分を除く）、
-occ_source（occlusion の出どころ。occlusion() の説明: silhouette・silhouette_interp・fill_median・box_ratio・hidden）、
+occ_source（occlusion の出どころ。occlusion() の説明: silhouette・silhouette_interp・fill_median・box_ratio・hidden。unlabeled は下の build）、
 glass（画面の中の体のうち、隠す種類のガラスの奥になる割合。glass.py。塗り分けはガラスを透かすので、occlusion にはこの分を足してある。
 tight の枠はガラスの奥の分も含む）。
 labels/<カメラ>_mot.txt は同じ中身の MOTChallenge の gt.txt の形（frame, id, 全身の枠 x, y, w, h, 1, 1, visibility）。
@@ -28,6 +28,7 @@ COLUMNS = ["frame", "id", "name", "tight_x0", "tight_y0", "tight_x1", "tight_y1"
 MIN_INSIDE = 0.02  # 計算の全身の枠のこれだけが画面に入れば、見えていなくても行を書く（完全に隠れた人も visibility 0 で残す）
 EDGE_PX = 1  # 描画の全身の枠がこれ以内で画面の端に触れていたら、画面の外へ続くとみて、計算の枠で外側を伸ばす
 EMPTY_MIN_ROWS = 50  # 計算では画面に入る人の行がこれだけあるのに、描画の注釈がどのコマでも誰も拾っていない区間は、注釈が壊れているとみなす
+UNLABELED = "unlabeled"  # occ_source: 区間の途中で現れてから、Replicator が最初に返すまで（見えているか分からない）
 NAME_INSIDE = 0.5  # 描画の全身の枠（loose）のこれだけが計算の枠に入る、その時刻にいる人に、注釈を付け直す
 SAME_NAME_BONUS = 0.1  # 付け直すとき、Replicator の名前と同じ人を少しだけ優先する
 
@@ -168,8 +169,16 @@ def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False, stats=N
                         fills.setdefault(name, []).append((int(fr["frame"]), r["full"] / _area(lb)))
     all_fill = [v for s_ in fills.values() for _, v in s_]
     fill_median = float(np.median(all_fill)) if all_fill else None
+    # 区間の途中で現れた人は、Replicator が最初の注釈まで数百コマ返さないことがある（表示を切り替えた人を、注釈の描画が拾わない。
+    # 区間の始めからいる人では起きない、2026-11-04）。現れてから最初の注釈までの行は、隠れているのか分からないので unlabeled にする
+    late = {}  # (区間の番号, 名前) → 最初の注釈のコマ（なければ区間の終わりの次）
+    for k, part in enumerate(raw):
+        a, b = part["frames"]
+        for name, p in gt["people"].items():
+            if a < p["start_frame"] <= b:
+                late[(k, name)] = next((int(fr["frame"]) for fr in part["rows"] if name in fr["people"]), b + 1)
     rows = []
-    for part in raw:
+    for k, part in enumerate(raw):
         for fr in part["rows"]:
             f = int(fr["frame"])
             got = fr["people"]
@@ -192,6 +201,8 @@ def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False, stats=N
                 inside = _area(_clip(am, w, h)) / max(_area(am), 1e-9)
                 trunc = 1.0 - inside
                 occ, src = occlusion(r, tb, lb, am, f, fills.get(name), fill_median, w, h)
+                if src == "hidden" and f < late.get((k, name), f):
+                    src = UNLABELED
                 g = behind.fraction(x, y, float(p.get("height_m", 1.75))) if behind is not None else 0.0
                 occ = 1.0 - (1.0 - occ) * (1.0 - g)  # ガラスの奥の分は、塗り分けでは見えている（見えている画素は体の上に一様とみる）
                 vis = (1.0 - occ) if occ_includes_truncation else (1.0 - occ) * (1.0 - trunc)
