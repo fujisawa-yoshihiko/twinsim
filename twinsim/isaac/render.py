@@ -291,7 +291,33 @@ async def full_silhouettes(stage, people, samples, seg, h, w, fps):
     return out
 
 
-async def labels(app, cam, f0, f1, fps, w, h, out, stage=None, people=(), glass=False):
+PARK_M = 200.0  # hold="park": 出番の外の人を置く、床からの深さ（m。60 m 先でも見下ろし 73° で、どのカメラの画角にも入らない）
+
+
+def park_people(stage, people):
+    """hold="park": 人の表示を時刻で切り替えず、出番の外は床の PARK_M 下に置く（今の位置の値に時刻を 2 つ足すだけ。変換は足さない）。
+    Replicator は、注釈を取り始めたときに場面にいる人は正しく返すが、あとから表示した人を返さないか、
+    出番の終わった人の名前で返すことがある（2026-11-04）。→ 置き直した人の数"""
+    n = 0
+    for name in people:
+        prim = stage.GetPrimAtPath(f"/Root/{name}")
+        ops = UsdGeom.Xformable(prim).GetOrderedXformOps()
+        t_op = next((o for o in ops if o.GetOpType() == UsdGeom.XformOp.TypeTranslate), None)
+        ts = t_op.GetAttr().GetTimeSamples() if t_op else []
+        if not ts:
+            continue
+        first, last = ts[0], ts[-1]
+        down = Gf.Vec3d(0.0, 0.0, PARK_M)
+        t_op.Set(t_op.Get(first) - down, first - 1)
+        t_op.Set(t_op.Get(last) - down, last + 1)
+        vis = UsdGeom.Imageable(prim).GetVisibilityAttr()
+        vis.Clear()
+        vis.Set(UsdGeom.Tokens.inherited)
+        n += 1
+    return n
+
+
+async def labels(app, cam, f0, f1, fps, w, h, out, stage=None, people=(), glass=False, hold=None):
     """描いたのと同じコマを順に流し、人ごとの枠と画素を取る。tight = 見えている画素の枠（完全に隠れた人は出ない）、
     loose = 隠れた部分も含む全身の枠（画面で切られる）、px = 見えている画素の数、full = 全身の画素の数（FULL_EVERY コマごと）。
     Replicator の occlusionRatio・occlusion の注釈はこの人物モデルでは -1（計算されない）ので、隠れの割合は px と full から出す（labels.py）。"""
@@ -300,13 +326,31 @@ async def labels(app, cam, f0, f1, fps, w, h, out, stage=None, people=(), glass=
     # ガラスを不透明にすると、Replicator が人を 1 人も返さない区間がほとんどになった（office で全部、2026-11-04）。既定では使わない。
     # ガラスの奥の人の隠れは、ガラス板の位置から計算機で数える（twinsim/glass.py）
     glass = occlude_glass(stage) if stage is not None and glass else 0
-    # 人の表示を切り替えずに地下へ動かす方法も試したが、名前の取り違えがかえって増えた（2026-11-04）。名前は labels.py で計算の枠と突き合わせて確かめる
+    # 人は既定で park（表示を時刻で切り替えず、出番の外は床の下）。表示を切り替えると、あとから表示した人を Replicator が返さないか、
+    # 出番の終わった人の名前で 2 人分まとめて返した。park で、出番の外の名前の注釈 2,805 → 0、始めからいる人の枠・画素は同じ（2026-11-04、
+    # research/video_corpus/audit/hold_test.py）。前に試した版（セッションのレイヤーで変換を足す）は、始めからいる人まで抜けた
+    held = park_people(stage, people) if stage is not None and hold == "park" else 0
     rp = rep.create.render_product(cam, (w, h))
     anns = {k: rep.AnnotatorRegistry.get_annotator(f"bounding_box_2d_{k}", init_params={"semanticTypes": ["class"]}) for k in ("tight", "loose")}
     seg = rep.AnnotatorRegistry.get_annotator("instance_segmentation", init_params={"semanticTypes": ["class"], "colorize": False})
     for a in [*anns.values(), seg]:
         a.attach([rp])
     tl = omni.timeline.get_timeline_interface()
+    if stage is not None and hold == "warmup":  # 注釈を取り始める前に、全員を数コマ見せる（表示の切り替えはそのまま）
+        session = stage.GetSessionLayer()
+        attrs = [UsdGeom.Imageable(stage.GetPrimAtPath(f"/Root/{n}")).GetVisibilityAttr() for n in people]
+        with Usd.EditContext(stage, session):
+            for a in attrs:
+                a.Set(UsdGeom.Tokens.inherited)
+        tl.set_current_time(f0 / fps)
+        for _ in range(3):
+            await rep.orchestrator.step_async(rt_subframes=1, delta_time=0.0, pause_timeline=True)
+        with Usd.EditContext(stage, session):
+            for a in attrs:
+                a.ClearDefault()
+        for _ in range(3):
+            await app.next_update_async()
+        held = len(attrs)
     rows, t0, t_full = [], time.monotonic(), 0.0
     for f in range(f0, f1 + 1):
         tl.set_current_time(f / fps)
@@ -333,7 +377,7 @@ async def labels(app, cam, f0, f1, fps, w, h, out, stage=None, people=(), glass=
     rp.destroy()
     os.makedirs(os.path.dirname(out), exist_ok=True)
     json.dump({"camera": cam, "frames": [f0, f1], "width": w, "height": h, "full_every": FULL_EVERY, "full_s": round(t_full, 1),
-               "glass_occluders": glass, "rows": rows}, open(out, "w"))
+               "glass_occluders": glass, "hold": hold, "held": held, "rows": rows}, open(out, "w"))
     return time.monotonic() - t0
 
 
@@ -407,7 +451,8 @@ async def main():
         if not job.get("capture", True):  # 注釈だけを取り直す（映像は前に描いたもの。同じコマ・同じ人の置き方なら同じ姿勢）
             times[cname] = 0.0
             out = f"{run}/labels_raw/{job.get('frames_dir') or cname}.json"
-            lsec = await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out, stage, placed_names, bool(job.get("occlude_glass")))
+            lsec = await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out, stage, placed_names, bool(job.get("occlude_glass")),
+                                  job.get("label_hold", "park"))
             label_times[cname] = round(lsec, 1)
             SHARED["restart"] = True
             log(cname, "labels only", f1 - f0 + 1, "frames in", label_times[cname], "s")
@@ -420,7 +465,8 @@ async def main():
         log(cname, "rendered", f1 - a + 1, "frames in", round(sec, 1), "s", f"(preroll {f0 - a})" if f0 > a else "")
         if job.get("labels"):
             out = f"{run}/labels_raw/{job.get('frames_dir') or cname}.json"
-            lsec = await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out, stage, placed_names, bool(job.get("occlude_glass")))
+            lsec = await labels(app, f"/Root/TS_{cname}", f0, f1, fps, c["width"], c["height"], out, stage, placed_names, bool(job.get("occlude_glass")),
+                                  job.get("label_hold", "park"))
             SHARED["restart"] = True  # 次のジョブでは注釈が空・誤りになるので、受け付けを起動し直す（agent_runner.py）
             label_times[cname] = round(lsec, 1)
             log(cname, "labels", f1 - f0 + 1, "frames in", round(lsec, 1), "s")
