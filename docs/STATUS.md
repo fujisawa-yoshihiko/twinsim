@@ -1,5 +1,23 @@
 # 作業の状態（再開用）
 
+## 2026-11-03〜04（描画を並べる・ベンチマークのための直し、ブランチ render-farm → benchmark-gt、どちらもローカルだけ）
+
+- 描画を並べた: `tools/render_farm.sh`（画面なしの描画専用 Isaac Sim を GPU ごとに何本も）、`render(..., chunk_s=)`。同じ GPU に 8 本で撮影は 4.0 倍
+- 描画から正解を出す: `render(..., labels=True)` → `labels/<カメラ>.csv`（見えている部分の枠・全身の枠・visibility・occlusion・truncation・portal。docs/formats.md の 4）
+  - Replicator の bounding_box_2d_tight/loose と意味の単位の塗り分け。occlusionRatio は −1 なので、全身の画素は 30 コマごとに人だけを組ごとに描いて数える
+  - 同じ Isaac Sim で 2 本目の注釈は空・誤りになる → 注釈のジョブのあとは os._exit、コンテナが起動し直す（post_quit では終わらず、受け付けが止まったまま GPU を 11 時間押さえた）
+- 区間の前 3 コマを捨てる（`preroll`）、カメラの近くの人だけ置く（`cull`）
+- 出入り口: spawn・exit の `hidden`、elevator の `cabin_m`、`Space.portals`。office の入口・南の出口・EV、hospital のロビーの入口に書いた（hospital の EV は USD にないので見立てのまま）
+- 待つ場所が埋まったら、ほかの人から 0.6 m 離れた所まで歩いて待つ（前は着いた所に立ち、重なった）
+- 作業場所とジョブの名前に結果の場所のハッシュ（同じ名前の別の版の「済み」を見誤った）
+- 確かめ: ~/MOPF_ALL_video/research/video_corpus/audit/README.md（v0 の問題）と、v1 の確かめ（同じフォルダ）
+
+### 残り（ベンチマーク）
+1. 歩く人が待つ人をすり抜ける（中心 0.3 m 未満が人×コマの約 1%）。直すには人どうしのよけ方のモデルを入れ替える（文献との比べのやり直し）
+2. hospital の EV（USD にない。素材を足すか、場所を移す）
+3. 人物モデルが 10 種類（同じ骨格で使えるのは Isaac Sim 6.1 では 10 だけ）。広角のゆがみは描画のカメラの側で
+4. 注釈で 1 コマの描画が約 2〜3 倍。RGB も Replicator で同時に取れば 1 回の描画で済む（未確認）
+
 ## 2026-11-02（1.0 の最終監査）
 
 - 動画に 1 コマ多く入る不具合を直した（`isaac_bridge.encode`）。0.x で描いた動画はそのままで、1 コマ遅れている。`office_gate_ev` の検出・追跡の値を補正して測ると IDF1 は 0.859 → 0.862、0.878 → 0.880 で、結論は変わらない。
