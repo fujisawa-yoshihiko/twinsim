@@ -142,6 +142,13 @@ def near_camera(gt, cam, a, b, margin=0.5):
     return names
 
 
+def work_name(run):
+    """作業場所とジョブの名前: 結果の名前 + 場所のハッシュ。名前だけだと、別の場所の同じ名前の結果（素材の版違いなど）と
+    作業場所・ジョブの記録が重なり、前の版の「済み」を今の版の分と見誤った（2026-11-04）。"""
+    import hashlib
+    return f"{run.name}-{hashlib.sha1(str(Path(run).resolve()).encode()).hexdigest()[:6]}"
+
+
 def plan_render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, labels=False, preroll=0, cull=False):
     """描画のジョブの一覧を作る（まだ投入しない）。chunk_s を渡すと、カメラごと・chunk_s 秒ごとに分けて、いくつもの受け付けで並べて描ける。
     分けないときは、全部のカメラを 1 つのジョブで描く（舞台の読み込みが 1 回で済む）。
@@ -156,7 +163,7 @@ def plan_render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=Non
         raise ValueError(f"chunk_s は正の秒数（今は {chunk_s}）")
     if tint is None:
         tint = bool(spec.get("render", {}).get("tint", "per_person"))
-    name = run.name
+    name = work_name(run)
     f0, f1 = frames or (0, gt["total_frames"] - 1)
     props = []
     for pr in spec.get("render", {}).get("props", []):

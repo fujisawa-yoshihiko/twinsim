@@ -51,6 +51,13 @@ def frame_count(mp4):
     return int(out.strip())
 
 
+def test_work_names_differ_for_same_named_results(tmp_path):
+    a = twinsim.simulate(CONFIG, out_dir=tmp_path / "v0" / "r")
+    b = twinsim.simulate(CONFIG, out_dir=tmp_path / "v1" / "r")  # 同じ名前の結果でも、場所が違えば作業場所とジョブの名前は別
+    pa, pb = isaac_bridge.plan_render(a.out_dir, chunk_s=5), isaac_bridge.plan_render(b.out_dir, chunk_s=5)
+    assert pa["name"] != pb["name"] and not {k for k, _ in pa["parts"]} & {k for k, _ in pb["parts"]}
+
+
 def test_chunks_cover_the_range_once():
     assert isaac_bridge.chunks(0, 9, 4) == [(0, 3), (4, 7), (8, 9)]
     assert isaac_bridge.chunks(5, 5, 30) == [(5, 5)]
@@ -119,7 +126,7 @@ def test_failed_chunk_is_reported(tmp_path, work):
 
 def test_start_clears_the_previous_frames(tmp_path, work):
     r = twinsim.simulate(CONFIG, out_dir=tmp_path / "r")
-    old = work / "runs" / r.out_dir.name / "frames" / "CamGate" / "old" / "f.999.png"
+    old = work / "runs" / isaac_bridge.work_name(r.out_dir) / "frames" / "CamGate" / "old" / "f.999.png"
     old.parent.mkdir(parents=True)
     old.write_bytes(b"x")
     isaac_bridge.start_render(isaac_bridge.plan_render(r.out_dir, chunk_s=5))

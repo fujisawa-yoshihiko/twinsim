@@ -36,7 +36,7 @@ cd ~/twinsim-lib && ./status.sh     # GUI のサーバー・Isaac Sim（GPU）�
 |---|---|---|---|
 | twinsim の GUI のサーバー | `./run.sh serve`（端末を閉じても動かすなら `setsid nohup ./run.sh serve > ~/dt-data/twinsim/serve.log 2>&1 &`） | 起動した端末で `Ctrl+C`、または `./stop.sh gui` | 使わない |
 | Isaac Sim（描画） | `./isaac_up.sh`（別の GPU を選ぶときは `./isaac_up.sh 2`） | `./stop.sh isaac`（= `isim down`） | 1 枚（検出などと同じ GPU） |
-| 描画専用の Isaac Sim（並べて描く） | `tools/render_farm.sh up --gpu N --workers K --wait` | `tools/render_farm.sh down` | GPU 1 枚に何本も。自分の GPU は全部で 2 枚まで（[README](../README.md#parallel)） |
+| 描画専用の Isaac Sim（並べて描く） | `tools/render_farm.sh up --gpu N --workers K --wait` | `tools/render_farm.sh down` | GPU 1 枚に何本も。自分の GPU は全部で 2 枚まで（[README](../README.md#parallel)）。正解の注釈（`--labels`）を出したジョブのあとは Isaac Sim が終わり、コンテナが自動で起動し直す（約 1〜2 分。同じ Isaac Sim で 2 本目の注釈は空・誤りになるため） |
 | まとめて | - | `./stop.sh`（GUI）、`./stop.sh all`（Isaac Sim も） | - |
 
 コマンドはどれもリポジトリのフォルダで実行する。

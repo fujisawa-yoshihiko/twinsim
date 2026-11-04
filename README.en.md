@@ -117,7 +117,8 @@ Coordinates are world meters (Z up); simulator frames start at 0 (seconds = fram
 | `scenario_resolved.json` | JSON | The configuration with defaults filled in. Passing it back gives the same run |
 | `ground_truth.json` | JSON | Per-person trajectories `tracks[name] = [[x, y, yaw], …]`, whether walking, state intervals, events (gate, elevator), attributes (character model, height, type, group), cameras (4×4 matrix and field of view), zones |
 | `frames.csv.gz` | CSV | One row per frame per person: `frame, t, person, x, y, yaw, moving, state, zone, group, type` |
-| `mot/<camera>.txt`, `mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility` (frames start at 1; the id is the same across cameras) |
+| `mot/<camera>.txt`, `mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility` (frames start at 1; the id is the same across cameras; an approximation computed without rendering) |
+| `labels/<camera>.csv`, `_mot.txt` | CSV, MOTChallenge | Per-person boxes taken from the rendering (visible part and full body) with `visibility`, `occlusion`, `truncation` and `portal` (with `render --labels`) |
 | `aicity/gt.txt` | AI City MTMC | `camera_id obj_id frame_id xmin ymin width height xworld yworld` |
 | `video/<camera>.mp4` | H.264 | Rendered video (1280×720, 30 fps). Frame k = `frames[0]` in `render_log.json` + k |
 | `tasks.json` | JSON | Ground truth for the six tasks (counts, gate crossings, dwelling, groups, congestion, destinations, elevator waits) |
@@ -126,7 +127,7 @@ Coordinates are world meters (Z up); simulator frames start at 0 (seconds = fram
 | `<TWINSIM_DATA>/ward/<space>_ward_layout.json` | JSON | Ward beds, nurse-station layouts, and the walkable distances and paths between them (`twinsim ward-layout`) |
 
 States: `pass`, `gate_queue`, `ev_approach`, `ev_wait`, `alight`, `reception`, `dwell`, `sign_check`, `companion_wait` (warehouse: `work`, `wait`).
-Notes: boxes are approximate projections of a box around the person (not tight to the silhouette), and visibility is approximate too. There are 10 character models, and each person's clothing color is varied.
+Notes: the `mot/` boxes are approximate projections of a box around the person (not tight to the silhouette), and their visibility is approximate too. Use `labels/` for detection and tracking. There are 10 character models, and each person's clothing color is varied.
 
 ## Basis of the movement
 

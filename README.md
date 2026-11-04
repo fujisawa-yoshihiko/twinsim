@@ -117,7 +117,8 @@ office・カメラ 1 台・300 コマ（映る人 25 人ほど）を本数と同
 | `scenario_resolved.json` | JSON | 既定の値を足した設定。そのまま渡すと同じ計算になる |
 | `ground_truth.json` | JSON | 人ごとの軌跡 `tracks[名前] = [[x, y, yaw], …]`・歩いているか・状態の区間・出来事（ゲート・EV）・属性（人物モデル・背の高さ・種類・グループ）、カメラ（4×4 の行列と画角）、ゾーン |
 | `frames.csv.gz` | CSV | 1 コマ 1 人 1 行: `frame, t, person, x, y, yaw, moving, state, zone, group, type` |
-| `mot/<カメラ>.txt`・`mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility`（コマは 1 始まり、id はカメラをまたいで同じ） |
+| `mot/<カメラ>.txt`・`mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility`（コマは 1 始まり、id はカメラをまたいで同じ。計算だけで作る近似） |
+| `labels/<カメラ>.csv`・`_mot.txt` | CSV・MOTChallenge | 描画から出した人ごとの枠（見えている部分・全身）と `visibility`・`occlusion`・`truncation`・`portal`（`render --labels` のとき） |
 | `aicity/gt.txt` | AI City の MTMC | `camera_id obj_id frame_id xmin ymin width height xworld yworld` |
 | `video/<カメラ>.mp4` | H.264 | 描いた映像（1280×720・30 fps）。k コマ目 = `render_log.json` の `frames[0]` ＋ k |
 | `tasks.json` | JSON | 6 つのタスクの正解（人数・ゲートの通過・滞留・グループ・混雑・行き先、EV の待ち） |
@@ -126,7 +127,7 @@ office・カメラ 1 台・300 コマ（映る人 25 人ほど）を本数と同
 | `<TWINSIM_DATA>/ward/<空間>_ward_layout.json` | JSON | 病棟のベッド・ナースステーションの置き方と、その間の歩ける所の上の道のりと道の点の列（`twinsim ward-layout`） |
 
 状態: `pass`・`gate_queue`・`ev_approach`・`ev_wait`・`alight`・`reception`・`dwell`・`sign_check`・`companion_wait`（倉庫は `work`・`wait`）。
-注意: 枠は人を囲む箱を映した近似（輪郭にぴったりではない）、見えている割合も近似。人物モデルは 10 種類で、服の色を人ごとに変えている。
+注意: `mot/` の枠は人を囲む箱を映した近似（輪郭にぴったりではない）、見えている割合も近似。検出・追跡には `labels/` を使う。人物モデルは 10 種類で、服の色を人ごとに変えている。
 
 ## 人の動きの根拠
 
