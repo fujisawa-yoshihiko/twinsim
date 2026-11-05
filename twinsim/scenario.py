@@ -25,7 +25,8 @@ DEFAULTS = {
                "models": "all",
                "group_speed": {"model": "moussaid2010", "slope_m_s": 0.04},  # 1 人増えるごとに 0.04 m/s 遅く（Moussaïd ら 2010、低密度）
                "group_lateral_m": 0.66,  # 2 人連れの横の間隔（Zanlungo ら 2017、大阪 ATC の 1018 組の平均）
-               "lateral_max_m": 1.0,  # 経路から横へよけられる幅（廊下の確かめ verify_fundamental_diagram で決めた）
+               "lateral_max_m": 1.0,  # 経路から横へよけられる幅（廊下の確かめ verify_fundamental_diagram で決めた。motion_model "lane" だけ）
+               "motion_model": "cfsm",  # 人の動き: cfsm（ぶつからない動き、Tordeux ら 2016）か lane（前のモデル、経路から横へずれてよける）
                "speed_density": dict(WEIDMANN_FD)},  # 前の人の密度で遅くなる（Weidmann 1993）。null で切る
     "gates": {}, "streams": [], "cameras": [],
     "render": {"width": 1280, "height": 720, "tint": "per_person", "props": []},
@@ -627,6 +628,7 @@ class Builder:
                         names.append(a.name)
                     return names
         sim = Sim(sp, fps, total, gates, cars, spots, lmax=float(spec["people"].get("lateral_max_m", 0.6)), on_arrival=on_arrival,
+                  motion_model=spec["people"].get("motion_model", "cfsm"), cfsm=spec["people"].get("cfsm"),
                   elevator_policy=policy, speed_density=spec["people"].get("speed_density"), ev_timing=timing)
         for s in spec["streams"]:
             size_spec = s.get("group_size") or spec["people"].get("group_size")

@@ -73,8 +73,10 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | `group_size` | [分布](#distributions) | なし（1 人） | 流れに書かないときのグループの人数 |
 | `group_speed` | オブジェクト | `{"model": "moussaid2010", "slope_m_s": 0.04}` | グループの速さ。平均から 1 人増えるごとに遅くする。`{"model": "min"}` はいちばん遅い人に合わせる |
 | `group_lateral_m` | 数 | `0.66` | 2 人連れの横の間隔（m） |
-| `lateral_max_m` | 数 | `1.0` | 経路から横へよけられる幅（m） |
-| `speed_density` | オブジェクトか `null` | `{"v0": 1.34, "gamma": 1.913, "rho_max": 5.4}` | 密度で遅くなる式（Weidmann 1993）。`null` で切る |
+| `motion_model` | 文字列 | `"cfsm"` | 人の動き。`"cfsm"` は人どうしがぶつからない動き（Collision-Free Speed Model、Tordeux ら 2016）、`"lane"` は前のモデル（経路から横へずれてよける。混んだ所では体が重なる） |
+| `cfsm` | オブジェクト | `{}` | `"cfsm"` の値を変える（`radius`・`time_gap`・`neighbor_strength`・`neighbor_range`・`mate_range`・`wall_strength`・`wall_range` など。既定は docs/validity.md の 5） |
+| `lateral_max_m` | 数 | `1.0` | 経路から横へよけられる幅（m、`"lane"` だけ） |
+| `speed_density` | オブジェクトか `null` | `{"v0": 1.34, "gamma": 1.913, "rho_max": 5.4}` | 密度で遅くなる式（Weidmann 1993、`"lane"` だけ。`"cfsm"` では前の人までの距離の規則から出る）。`null` で切る |
 | `models` | `"all"` か配列 | `"all"` | 使う人物モデルの名前（`twinsim/characters.py` の 10 種類） |
 
 `profile` の値の組:

@@ -73,8 +73,10 @@ Objects are combined key by key. Arrays and distributions (objects with `type`) 
 | `group_size` | [distribution](#distributions) | none (1 person) | Group size when a stream does not set one |
 | `group_speed` | object | `{"model": "moussaid2010", "slope_m_s": 0.04}` | Group speed: slower than the average by this much per added person. `{"model": "min"}` matches the slowest member |
 | `group_lateral_m` | number | `0.66` | Side-by-side spacing of a pair (m) |
-| `lateral_max_m` | number | `1.0` | How far people can step aside from their path (m) |
-| `speed_density` | object or `null` | `{"v0": 1.34, "gamma": 1.913, "rho_max": 5.4}` | Slowing with density (Weidmann 1993). `null` turns it off |
+| `motion_model` | string | `"cfsm"` | How people move. `"cfsm"` keeps people from colliding (Collision-Free Speed Model, Tordeux et al. 2016); `"lane"` is the earlier model (people step aside from their path; bodies overlap in crowded places) |
+| `cfsm` | object | `{}` | Changes the `"cfsm"` values (`radius`, `time_gap`, `neighbor_strength`, `neighbor_range`, `mate_range`, `wall_strength`, `wall_range` and others; defaults in section 5 of docs/validity.en.md) |
+| `lateral_max_m` | number | `1.0` | How far people can step aside from their path (m, `"lane"` only) |
+| `speed_density` | object or `null` | `{"v0": 1.34, "gamma": 1.913, "rho_max": 5.4}` | Slowing with density (Weidmann 1993, `"lane"` only; with `"cfsm"` it comes from the rule on the distance to the person ahead). `null` turns it off |
 | `models` | `"all"` or array | `"all"` | Names of the person models to use (the 10 in `twinsim/characters.py`) |
 
 Values of `profile`:

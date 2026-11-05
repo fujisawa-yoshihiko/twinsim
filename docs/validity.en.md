@@ -105,6 +105,37 @@ Engine fixes (made during this verification): changed the following rule to the 
 and added overtaking when stuck behind a slower person, waiting / catching up when separated front-to-back from group members, lining up gate queues along the path people came from, and waiting outside when the entrance is blocked.
 Proximity between people also improved (office_gate_ev: 1st percentile of the nearest distance between two people not in the same group 0.12 → 0.25 m; frames with people closer than 0.4 m 10% → 3.3%).
 
+### 5.1 Movement in which people do not collide (2026-11-05, `people.motion_model: cfsm`)
+
+The earlier model (`lane`) only shifted people sideways from their path; there was no rule keeping bodies from overlapping with people standing and waiting
+or coming the other way, so people passed through each other in crowded places. To make the simulator usable for optimizing flows (comparing layouts and widths), it was replaced with a model from the literature.
+
+- **Model:** Collision-Free Speed Model (Tordeux, Chraibi, Seyfried 2016; the same form as JuPedSim's CollisionFreeSpeedModel).
+  - Speed = min(own speed, (distance to the person ahead − 0.36 m) ÷ 1.06 s). 0.36 m and 1.06 s are the same Seyfried et al. 2005 values as in the earlier model.
+  - Direction = direction to the goal + away from nearby people (strength 8, range 0.25 m) + away from walls. Between group members the range is 0.1 m.
+  - The range was chosen by comparing 0.1, 0.2, 0.25 and 0.3 m with strengths 3, 5 and 8 against the speed–density relation (Weidmann) and a 1 m wide doorway (Seyfried et al. 2009) (with JuPedSim's default of 0.1 m, people stayed behind slower people and were too slow).
+- **Rules for busy places:** gate queues follow the order in which people actually stand; nobody waits right in front of an elevator door or in the aisle out of it (2.5 m × 1.2 m);
+  people boarding wait at the door until those alighting are out; a standing person makes way for a walker they block (0.4 m/s, up to 1.5 s);
+  the path is recomputed when a walker is more than 1.5 m from it or cannot see ahead.
+- **Safety valve:** a person who cannot get closer to their goal for 15 s walks through others at half speed for 2 s (count in `motion.squeezes` of `summary.json`).
+  This prevents people from getting stuck, at the cost of a little overlap.
+
+Checks (same seeds, `tools/crowd_check.py`; overlap = pairs × frames of two people not in the same group whose centers are closer than 0.3 m, per 1,000 person-frames):
+
+| Template | Overlap (before → now) | Stuck people | Safety valve | Comparison with literature |
+|---|---:|---:|---:|---|
+| `verify_fundamental_diagram` | 0 → 0 | 0 → 0 | 0 | Speed ratio 0.95, 0.91, 0.81, 0.76 (formula 1.00, 0.99, 0.89, 0.69; before 0.96, 0.93, 0.80, 0.65) pass |
+| `verify_counterflow` | 0.12 → 0 | 0 → 0 | 0 | 0 stuck people |
+| `verify_bottleneck` | 1.85 → 0.34 | 0 → 0 | 18 | 1.95 people/(m·s) (experiment 1.90–2.19; before 2.32) pass |
+| `verify_gate_capacity` | 7.47 → 0.05 | 0 → 0 | 15 | Queue headway median 2.0 s pass |
+| `verify_groups` | 0 → 0 | 0 → 0 | 0 | Pairs 0.92 m, abreast 0.76 m (friends 0.79, 0.66 m) pass. Speed ratio at 0.5–1 people/m² 0.74 (formula 0.89) caution |
+| `office_gate_ev` | 2.66 → 0.04 | 0 → 0 | 34 | Interval between consecutive elevator boardings 1.8 s (literature 1.0–1.2 s) caution |
+| `office_ev_hall` | 1.99 → 0.47 | 0 → 0 | 14 | Pairs 1.12 m (they separate in crowded places) caution |
+| `hospital_gate_ev` | 1.21 → 0.19 | 0 → 0 | 2 | - |
+
+- **Free walking speed:** 1.245 m/s in `verify_fundamental_diagram` (guide 1.34 ± 0.08), "caution". It is measured on people with nobody within 1.5 m ahead,
+  but fast walkers already slow for someone 2 m ahead (2.4 m at 1.9 m/s with Seyfried's relation). Most people walk at their own speed (median speed ratio 1.00).
+
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 
 | Value | Current | How to calibrate |
@@ -124,6 +155,8 @@ Proximity between people also improved (office_gate_ev: 1st percentile of the ne
 - At 0.25–1 people/m², the simulated speed is about 0.1 m/s slower than Weidmann's formula (because the overtaking behavior is simple).
 - The gate values are for card-reading turnstiles from 1987. Today's IC-card and face-recognition gates may be faster.
 - Corners, stairs and evacuation have not been verified (of the RiMEA test cases, only the one corresponding to no. 1; counterflow and bottlenecks have been verified).
-- When people jam in front of a bottleneck above 2 people/m², they squeeze in from the side and their bodies overlap (49% of frames below 0.4 m). Overlap with the person ahead moving in the same direction
+- (Earlier model `lane`) When people jam in front of a bottleneck above 2 people/m², they squeeze in from the side and their bodies overlap (49% of frames below 0.4 m). Overlap with the person ahead moving in the same direction
   is prevented (`MIN_SEP` 0.35 m), but because the model shifts people sideways along the path, it cannot represent pushing from the side. The capacity is close to the experiments.
+- (`cfsm`) Bodies overlap a little only while the safety valve lets someone through (table in 5.1). In crowded places pairs separate easily, and the interval between consecutive elevator boardings is longer than in the literature (people wait for those alighting).
+  Pushing (forces between bodies) is not represented.
 - Body heights are those of the 10 character models as-is (not fitted to the height distribution of Japanese people).

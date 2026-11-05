@@ -130,6 +130,7 @@ def write_all(sim, builder, spec, out_dir):
     waits = [a.events["board"] - a.events["wait_start"] for a in agents if "board" in a.events and "wait_start" in a.events]
     summary = {"scenario": spec.get("name"), "space": sp.name, "seed": spec["seed"], "duration_s": spec["duration_s"], "fps": fps,
                "people": len(agents), "groups": len({a.group for a in agents if a.group}),
+               "motion": {"model": sim.model, "squeezes": getattr(sim, "squeezes", 0)},  # 人の動き（squeezes は動けない人を通り抜けさせた回数）
                "by_stream": Counter(a.info.get("stream") for a in agents), "by_destination": Counter(str(a.info.get("destination")) for a in agents),
                "state_seconds": {k: round(v, 1) for k, v in states_s.most_common()},
                "max_present": max((len(v) for v in per_frame.values()), default=0),
