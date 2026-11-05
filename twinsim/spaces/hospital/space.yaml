@@ -1,5 +1,6 @@
 # 空間: Isaac Sim 6.1 付属の病院の 1 階。ロビー（東）→ 中央の廊下 → 西の広間。場所とカメラは hospital-sim の場面（sim-gate・sim-hall）と同じ。
-# 注意: この USD にエレベーターはない。「EV の扉」は西の広間の階段室の前の点で、人はそこで消える・現れる（hospital-sim と同じ見立て）。
+# 注意: この USD にエレベーターはない。西の広間の階段室の前に、描画のときに office の EV のかごと扉の枠を置く（pois の EV の prop: elevator、2026-11-05）。
+# 計算では、かごの所を歩けなくし（levels の blocked）、乗る人はかごの 1 m 奥まで歩いてから消える。
 # 部屋の扉は閉じたままナビメッシュを焼いたので、部屋の中は歩ける所に入っていない（廊下・ロビー・広間だけ）。
 name: hospital
 title: 病院の 1 階（ロビー → 廊下 → 西の広間。EV は見立て）
@@ -16,13 +17,15 @@ levels:
   - name: 1F
     z: 0.0
     walkable: walkable_1f.npz
+    blocked:   # 描画で置く EV のかご（2 m × 2 m、扉は y = 13.2 で南向き）。扉の点の格子は歩けるまま
+      - {polygon: [[-29.55, 13.4], [-27.45, 13.4], [-27.45, 15.3], [-29.55, 15.3]], note: EV のかご（pois の EV の prop）}
     top_image: top_1f.jpg
     top_view: {eye: [-11.5, 16.24, 80.0], target: [-11.5, 16.25, 0.0], focal_mm: 20.735, h_aperture_mm: 20.955, width: 1280, height: 720}
 
 pois:
   lobby_entrance: {kind: spawn, xy: [8.5, -1.0], hidden: [11.8, -1.0], note: ロビーのカメラの手前（hospital-sim の GATE）。人はカメラの後ろ（hidden）に現れ、カメラの下をくぐって入る}
   west:           {kind: spawn, xy: [-35.5, 11.2], note: 西の廊下}
-  EV:             {kind: elevator, xy: [-28.5, 13.2], face: [-28.5, 14.4], note: 階段室の前（見立て。USD に EV がないので、乗る人は扉の点で消え、降りる人はそこに現れる。評価では portals の範囲として外す）}
+  EV:             {kind: elevator, xy: [-28.5, 13.2], face: [-28.5, 14.4], cabin_m: 1.0, prop: elevator, note: 階段室の前（USD に EV がないので、描画で office の EV のかごと扉の枠を置く（render の prop、2026-11-05）。乗る人はかごの 1 m 奥まで歩いてから消え、降りる人はそこから出てくる。かごの所は歩けない（levels の blocked））}
   ev_wait:        {kind: wait_zone, zone: ev_hall, spacing: 0.8, door_aisle: 0.6}
   reception_1:    {kind: spot, xy: [2.0, 3.0], face: [2.0, 4.0], note: ロビーの受付の前}
   reception_2:    {kind: spot, xy: [2.75, 3.0], face: [3.0, 4.0]}

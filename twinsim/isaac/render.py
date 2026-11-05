@@ -123,6 +123,50 @@ def add_gate(stage, k, line, lanes, in_dir):
 
 
 
+# office の EV の部品（NVIDIA Isaac Sim の素材、CC BY 4.0）。かご（前の面が +x）と扉の枠（+x が広間、薄い向きが x）
+EV_PARTS = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Office/Props/"
+EV_CABIN, EV_FRAME = EV_PARTS + "SM_Elevator.usd", EV_PARTS + "SM_Elevator_frame.usd"
+
+
+def add_elevator(stage, k, door, face, z, height=2.9):
+    """USD に EV がない空間に、EV のかごと扉の枠を置く（扉は開いたまま）。door は扉の点、face は扉からかごの向きの点。
+    かごの前の面を扉の点に、真ん中を扉の線に、底を床に合わせる（部品の大きさは読み込んでから測る）。"""
+    out = np.subtract(door, face).astype(float)  # 扉から広間へ
+    out /= np.linalg.norm(out)
+    base = UsdGeom.Xform.Define(stage, f"/Root/TS_EV{k}")
+    xf = UsdGeom.Xformable(base)
+    xf.AddTranslateOp().Set(Gf.Vec3d(float(door[0]), float(door[1]), float(z)))
+    xf.AddRotateZOp().Set(math.degrees(math.atan2(out[1], out[0])))  # 部品の +x を広間の向きに
+    cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render"])
+    for name, url, front in (("Cabin", EV_CABIN, True), ("Frame", EV_FRAME, False)):
+        part = stage.DefinePrim(f"/Root/TS_EV{k}/{name}", "Xform")
+        part.GetReferences().AddReference(url)
+        r = cache.ComputeUntransformedBound(part).ComputeAlignedRange()
+        lo, hi = r.GetMin(), r.GetMax()
+        dx = -hi[0] if front else -(lo[0] + hi[0]) / 2  # かごは前の面を、枠は真ん中を扉の線に
+        UsdGeom.Xformable(part).AddTranslateOp().Set(Gf.Vec3d(dx, -(lo[1] + hi[1]) / 2, -lo[2]))
+        log("elevator", name, "size", [round(hi[i] - lo[i], 2) for i in range(3)])  # noqa: F821
+        if front:
+            cab = (hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2])
+    # かごの外側は昇降路の中に入る前提で黒いので、明るい灰色の外壁（左右・奥・扉の上、天井まで）で囲む
+    m = UsdShade.Material.Define(stage, f"/Root/TS_EV{k}_Look")
+    sh = UsdShade.Shader.Define(stage, f"/Root/TS_EV{k}_Look/Shader")
+    sh.CreateIdAttr("UsdPreviewSurface")
+    sh.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.82, 0.82, 0.80))
+    sh.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.6)
+    m.CreateSurfaceOutput().ConnectToSource(sh.ConnectableAPI(), "surface")
+    d, w, hc, t = cab[0], cab[1], cab[2], 0.1
+    top = max(float(height), hc + 0.05)
+    for name, c, size in (("SideL", (-d / 2, w / 2 + t / 2, top / 2), (d + t, t, top)), ("SideR", (-d / 2, -w / 2 - t / 2, top / 2), (d + t, t, top)),
+                          ("Back", (-d - t / 2, 0.0, top / 2), (t, w + 2 * t, top)), ("Lintel", (t / 2, 0.0, (hc + top) / 2), (t, w + 2 * t, top - hc))):
+        cube = UsdGeom.Cube.Define(stage, f"/Root/TS_EV{k}/{name}")
+        cube.CreateSizeAttr(1.0)
+        cx = UsdGeom.Xformable(cube)
+        cx.AddTranslateOp().Set(Gf.Vec3d(*c))
+        cx.AddScaleOp().Set(Gf.Vec3f(*size))
+        UsdShade.MaterialBindingAPI.Apply(cube.GetPrim()).Bind(m)
+
+
 def add_lights(stage, lights):
     """空間の space.yaml の lights（部屋の中に照明がない USD のため）: [{xy, z, radius, intensity}] の球の照明を置く。"""
     from pxr import UsdLux
@@ -437,6 +481,8 @@ async def main():
             add_signage(stage, k, pr["xy"], pr["face"])
         elif pr.get("kind") == "gate":
             add_gate(stage, k, pr["line"], pr["lanes"], pr["in_dir"])
+        elif pr.get("kind") == "elevator":
+            add_elevator(stage, k, pr["door"], pr["face"], float(job.get("z", 0.0)), float(pr.get("height", 2.9)))
     stage.SetStartTimeCode(0)
     stage.SetEndTimeCode(max(f1, 1))
     cams = job.get("cameras") or list(gt["cameras"])

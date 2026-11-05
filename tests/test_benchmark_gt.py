@@ -188,7 +188,7 @@ def test_elevator_cabin_and_overflow(tmp_path):
     assert boarded
     for n in boarded:
         car = gt["people"][n]["events"]["car"]
-        assert np.hypot(*(np.array(gt["tracks"][n][-1][:2]) - cabins[car])) < 0.2
+        assert np.hypot(*(np.array(gt["tracks"][n][-1][:2]) - cabins[car])) < 0.45  # 2 列で入る（真ん中から左右 0.35 m、motion_model "cfsm"）
 
 
 def test_empty_labels_stop_and_keep_old_table(tmp_path, work):  # noqa: F811

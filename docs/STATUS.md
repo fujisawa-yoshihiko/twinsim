@@ -4,7 +4,8 @@
 
 - `people.motion_model: cfsm`（既定）: Collision-Free Speed Model（Tordeux ら 2016）。前のモデルは `lane`。結果と決まりは docs/validity.md の 5.1
 - 重なり（0.3 m 未満、人 × コマ 1,000 あたり）は 9 つのテンプレートすべてで減った（最大 7.47 → 0.47）。動けなくなった人 0
-- 残り: 混んだ所で 2 人連れが離れる、EV に続けて乗る間隔が長い（1.8 秒）、自由に歩く速さの測り方、安全弁の重なり。素材（corpus）は前のモデルで描いたまま（描き直しは GPU、確認を取る）
+- 11/5 午後: 仲間の後ろはついていく間隔 0.5 秒（2 人連れ 0.84〜0.94 m で合う）、EV は 2 列で乗る（続けて乗る間隔 1.17〜1.48 秒で合う）、hospital の EV のかご（描画で置く、blocked）
+- 残り: 自由に歩く速さの測り方、安全弁の重なり（最大 0.73 / 人×コマ 1,000）、ゲートで 2 人連れが分かれる。素材は v2（~/dt-data/twinsim/corpus/2026-11-v2）で描き直す
 - 比べの道具: `tools/crowd_check.py <名前> --jobs 9`（結果は ~/dt-data/twinsim/crowd_check/）
 
 ## 2026-11-03〜04（描画を並べる・ベンチマークのための直し、ブランチ render-farm → benchmark-gt、どちらもローカルだけ）
@@ -37,6 +38,7 @@
 2. 歩く人が待つ人をすり抜ける（中心 0.3 m 未満が人×コマの約 0.5%）。直すには人どうしのよけ方のモデルを入れ替える（文献との比べのやり直し）
    → 11/5 に人の動きを Collision-Free Speed Model にした（ブランチ crowd-cfsm、上の 2026-11-05、docs/validity.md の 5.1）
 3. hospital の EV（USD にない。素材を足すか、場所を移す）。今は出入り口の範囲で外している
+   → 11/5 に office の EV のかごと扉の枠を描画で置いた（prop: elevator、blocked、cabin_m 1.0）。見え方: ~/dt-data/twinsim/corpus_qa/hospital_ev_prop/
 4. 人物モデルが 10 種類（同じ骨格で使えるのは Isaac Sim 6.1 では 10 だけ）。広角のゆがみは描画のカメラの側で
 5. 注釈で 1 コマの描画が約 2〜3 倍。RGB も Replicator で同時に取れば 1 回の描画で済む（未確認）
 

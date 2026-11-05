@@ -37,6 +37,7 @@ GOAL_NEAR_M, GOAL_STALL_S = 1.2, 2.0  # 行き先からこの距離の中で、�
 DOOR_CLEAR_M = 1.0  # EV の扉からこれより近くでは待たない（motion_model "cfsm"）
 AISLE_M = (2.5, 1.2)  # EV の扉から外へ、この長さ・幅の通り道でも待たない（降りる人が待つ人の中を通り抜けていた、2026-11-05）
 UNSTICK_S, SQUEEZE_S = 15.0, 2.0  # 安全弁: この秒数行き先に近づけなければ、この秒数だけ周りの人を無視して通り抜ける
+BOARD_LANE_M = (0.25, 0.35)  # EV に乗る 2 列の、扉とかごの中での真ん中からの横のずれ（m）
 REROUTE_M = 1.5  # 歩く人が経路からこれより離れたら、今の位置から経路を引き直す（m）
 NUDGE_M_S = 0.4  # 立っている人が、ふさいだ歩く人に道をあけるときの速さ（m/s、1.5 秒まで）
 # 人どうしがぶつからない動き（Collision-Free Speed Model、Tordeux・Chraibi・Seyfried 2016。JuPedSim の CollisionFreeSpeedModel と同じ形）。
@@ -47,7 +48,7 @@ NUDGE_M_S = 0.4  # 立っている人が、ふさいだ歩く人に道をあけ�
 # 0.1・0.2・0.25・0.3 m と強さ 3・5・8 を比べ、Weidmann の式と幅 1 m の出入口の実験に合う組を選んだ。docs/validity.md の 5、2026-11-05）
 CFSM = {"radius": FOLLOW["a"] / 2, "time_gap": FOLLOW["b"], "neighbor_strength": 8.0, "neighbor_range": 0.25,
         "wall_strength": 5.0, "wall_range": 0.1,  # JuPedSim の既定は 0.02 m。歩ける所の格子が 0.25〜0.5 m と粗いので広くする
-        "mate_range": 0.1, "cutoff": 3.0, "look_m": 1.0, "arrive_m": 0.15, "min_sep": 0.32}
+        "mate_range": 0.1, "mate_time_gap": 0.5, "cutoff": 3.0, "look_m": 1.0, "arrive_m": 0.15, "min_sep": 0.32}
 
 
 class Path:
@@ -479,6 +480,7 @@ class Sim:
                 p, _ = self.where(a)
                 self.here[a.name] = np.asarray(p, float)  # 詰めている途中なら、その場で待つ
                 a.mode, a.until, a.board_car = "board_wait", t + door_open + tp * (len(alighted) + k), car
+                a.board_side = 1.0 if k % 2 == 0 else -1.0
                 a.events["car"] = car.name
                 boarded.append(a.name)
             self.queue = self.queue[car.capacity:]
@@ -700,11 +702,13 @@ class Sim:
             v0 = 0.5 * v0
         gap = float(d[cone].min()) if cone.any() else np.inf
         a.blocker = active[int(np.flatnonzero(cone)[np.argmin(d[cone])])] if cone.any() and gap < r2 + 0.3 else None
-        v = min(v0, max(0.0, (gap - r2) / C["time_gap"]))
+        # 前の人がグループの仲間なら、ついていく間隔を mate_time_gap に（混んで 1 列になった 2 人連れが 1.6 m ほど離れた、2026-11-05）
+        tg = np.where(mate, C["mate_time_gap"], C["time_gap"])
+        v = min(v0, max(0.0, float(((d[cone] - r2) / tg[cone]).min()))) if cone.any() else v0
         if waiting:  # 降りる人が出るまで、扉の前で待つ
             v = 0.0
         b = a.blocker
-        if v < 0.05 and b is not None and b.mode in ("stop", "meet", "wait"):  # 立っている人にふさがれたら、その人に横へよけてもらう
+        if v < 0.05 and b is not None and b.mode in ("stop", "meet", "wait", "board_wait"):  # 立っている人にふさがれたら、その人に横へよけてもらう
             side = np.array([-e[1], e[0]])
             sgn = 1.0 if float((self.where(b)[0] - p) @ side) >= 0 else -1.0
             b.nudge = (side * sgn, self.t + 1.5)
@@ -768,14 +772,20 @@ class Sim:
                     self.free[a.spot] = True
                 self.alloc.pop(a.name, None)
                 car = a.board_car  # 扉まで歩き、かごの中（cabin）へ入ってから消える
-                pts = [tuple(p), car.door] + ([car.cabin] if car.depth_m > 0 else [])
+                door, cabin = np.asarray(car.door, float), np.asarray(car.cabin, float)
+                if self.model == "cfsm":  # 乗る順に左右へ分け、2 列で入る（1 列だと続けて乗る間隔が 1.8 秒に延びた、2026-11-05）
+                    d_in = np.asarray(car.inside, float) - door  # 扉からかごの向き
+                    n_in = float(np.hypot(*d_in))
+                    side = np.array([-d_in[1], d_in[0]]) / n_in * getattr(a, "board_side", 0.0) if n_in > 1e-9 else np.zeros(2)
+                    door, cabin = door + side * BOARD_LANE_M[0], cabin + side * BOARD_LANE_M[1]
+                pts = [tuple(p), tuple(door)] + ([tuple(cabin)] if car.depth_m > 0 else [])
                 a.path, a.s, a.l, a.mode, a.state, a.taper = Path(pts), 0.0, 0.0, "board", "ev_wait", True
                 a.no_walls = True  # 扉の向こう（かごの中）は歩ける所の外
                 a.events["board_start"] = round(t, 2)
             if a.mode in ("stop", "meet", "wait", "gate_wait", "board_wait"):
                 a.dir = None
                 nudged = False
-                if self.model == "cfsm" and a.mode in ("stop", "meet", "wait") and getattr(a, "nudge", None) and t < a.nudge[1]:
+                if self.model == "cfsm" and a.mode in ("stop", "meet", "wait", "board_wait") and getattr(a, "nudge", None) and t < a.nudge[1]:
                     q = p + a.nudge[0] * NUDGE_M_S * dt  # 歩く人に道をあける（ほかの人・壁に当たるならやめる）
                     others = XY[np.arange(len(XY)) != idx[id(a)]]
                     if self._can_step(p, q) and (len(others) == 0 or float(np.hypot(*(others - q).T).min()) >= 2 * self.C["radius"]):
@@ -879,14 +889,17 @@ class Sim:
                 a.yaw = cur + max(-3 * TURN_DEG_S * dt, min(3 * TURN_DEG_S * dt, _wrap(want - cur)))
             if a.yaw is None:
                 a.yaw = math.degrees(math.atan2(tan2[1], tan2[0]))
-            if a.state == "alight" and self.space.zone_of(*p2) not in a.info.get("alight_zones", ()):
+            if a.state == "alight" and self.space.walkable(*p2) and self.space.zone_of(*p2) not in a.info.get("alight_zones", ()):  # かごの中は降りる途中
                 a.state = "pass"
             a.frames.append((f, float(p2[0]), float(p2[1]), a.yaw, moving))
             a.states.append(a.state)
             if self.model == "cfsm":  # 経路の終わりの横を過ぎたか、終わりの点に着いたか、終わりの近くで進めない
                 to_end = float(np.hypot(*(p2 - a.path.at(a.path.length)[0])))
-                if getattr(a, "best_path", None) is not a.path:  # 新しい経路: 進み具合を数え直す
-                    a.best_path, a.best_end, a.best_t = a.path, np.inf, t
+                goal = tuple(np.round(a.path.at(a.path.length)[0], 2))
+                if getattr(a, "best_goal", None) != goal:  # 行き先が変わった: 進み具合を数え直す（経路を引き直しただけなら続ける。
+                    # 引き直すたびに数え直すと、引き直しを繰り返す人に安全弁が働かず、動けないままだった、2026-11-05）
+                    a.best_goal, a.best_end, a.best_t = goal, np.inf, t
+                a.best_path = a.path
                 if to_end < a.best_end - 0.05:
                     a.best_end, a.best_t = to_end, t
                 stall = (to_end < GOAL_NEAR_M and t - a.best_t >= GOAL_STALL_S and a.mode not in ("gate_pass", "to_gate", "board")

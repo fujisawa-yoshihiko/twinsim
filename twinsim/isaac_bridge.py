@@ -184,6 +184,9 @@ def plan_render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=Non
         p = sp.poi(pr)
         if p.get("prop") == "signage":
             props.append({"kind": "signage", "xy": p["xy"], "face": p["face"]})
+    for p in sp.pois.values():  # EV のかごと扉の枠（USD にない空間で、space.yaml の prop: elevator）
+        if p.get("kind") == "elevator" and p.get("prop") == "elevator":
+            props.append({"kind": "elevator", "door": p["xy"], "face": p["face"], "height": float(sp.spec.get("ceiling_m", 2.9))})
     for k, g in gt.get("gates", {}).items():  # ゲートの機械（USD にないので置く）
         if spec.get("render", {}).get("gate_props", True):
             props.append({"kind": "gate", "line": sp.poi(k)["line"], "lanes": len(g["lanes"]), "in_dir": g["in_dir"]})

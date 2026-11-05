@@ -58,6 +58,12 @@ class Space:
             self.grid, self.x0, self.y0, self.res = load_ascii_grid(self.folder / w)
         self.z = float(lv.get("z", 0.0))
         self.ny, self.nx = self.grid.shape
+        for b in lv.get("blocked", []):  # 置いた物（描画で足す EV のかごなど）の場所は歩けない
+            poly = [tuple(map(float, q)) for q in b["polygon"]]
+            for i in range(self.ny):
+                for j in range(self.nx):
+                    if self.grid[i, j] and point_in_poly(poly, self.x0 + j * self.res, self.y0 + i * self.res):
+                        self.grid[i, j] = False
         self.clear = distance_transform_edt(self.grid) * self.res  # 壁からの距離（m）
         self.zones = {k: [tuple(map(float, p)) for p in v["polygon"]] for k, v in spec.get("zones", {}).items()}
         self.pois = spec.get("pois", {})

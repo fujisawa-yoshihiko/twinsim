@@ -65,3 +65,10 @@ def test_lane_model_still_available(tmp_path):
         Sim(load_space("corridor"), 30, 10, motion_model="social_force")
     with pytest.raises(ValueError, match="people.cfsm"):
         Sim(load_space("corridor"), 30, 10, cfsm={"strength": 1.0})
+
+
+def test_hospital_elevator_car_is_blocked_and_portal():
+    """hospital の EV は描画で置くかご（levels の blocked）。かごの所は歩けず、扉の点は歩ける。乗る人が消える所はかごの中（出入り口の範囲）。"""
+    sp = load_space("hospital")
+    assert sp.walkable(-28.5, 13.2) and not sp.walkable(-28.5, 14.2) and not sp.walkable(-29.3, 15.0)
+    assert sp.in_portal(-28.5, 14.2) == "EV"

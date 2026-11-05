@@ -126,13 +126,15 @@ Checks (same seeds, `tools/crowd_check.py`; overlap = pairs × frames of two peo
 |---|---:|---:|---:|---|
 | `verify_fundamental_diagram` | 0 → 0 | 0 → 0 | 0 | Speed ratio 0.95, 0.91, 0.81, 0.76 (formula 1.00, 0.99, 0.89, 0.69; before 0.96, 0.93, 0.80, 0.65) pass |
 | `verify_counterflow` | 0.12 → 0 | 0 → 0 | 0 | 0 stuck people |
-| `verify_bottleneck` | 1.85 → 0.34 | 0 → 0 | 18 | 1.95 people/(m·s) (experiment 1.90–2.19; before 2.32) pass |
-| `verify_gate_capacity` | 7.47 → 0.05 | 0 → 0 | 15 | Queue headway median 2.0 s pass |
-| `verify_groups` | 0 → 0 | 0 → 0 | 0 | Pairs 0.92 m, abreast 0.76 m (friends 0.79, 0.66 m) pass. Speed ratio at 0.5–1 people/m² 0.74 (formula 0.89) caution |
-| `office_gate_ev` | 2.66 → 0.04 | 0 → 0 | 34 | Interval between consecutive elevator boardings 1.8 s (literature 1.0–1.2 s) caution |
-| `office_ev_hall` | 1.99 → 0.47 | 0 → 0 | 14 | Pairs 1.12 m (they separate in crowded places) caution |
-| `hospital_gate_ev` | 1.21 → 0.19 | 0 → 0 | 2 | - |
+| `verify_bottleneck` | 1.85 → 0.41 | 0 → 0 | 17 | 1.90 people/(m·s) (experiment 1.90–2.19; before 2.32) pass |
+| `verify_gate_capacity` | 7.47 → 0 | 0 → 0 | 13 | Queue headway median 2.0 s pass. Pairs 1.58 m (split into different gate lanes; caution before too) |
+| `verify_groups` | 0 → 0 | 0 → 0 | 0 | Pairs 0.93 m, abreast 0.81 m (friends 0.79, 0.66 m) pass. Speed ratio at 0.5–1 people/m² 0.74 (formula 0.89) caution |
+| `office_gate_ev` | 2.66 → 0.73 | 0 → 0 | 37 | All pass (pairs 0.94 m, interval between consecutive elevator boardings 1.48 s) |
+| `office_ev_hall` | 1.99 → 0.13 | 0 → 0 | 25 | All pass (pairs 0.92 m, boarding interval 1.47 s) |
+| `hospital_gate_ev` | 1.21 → 0.28 | 0 → 0 | 17 | Pairs 0.84 m, boarding interval 1.17 s pass |
 
+- **Group and elevator rules (added on 11/5):** when the person ahead is a group member, the following time gap is 0.5 s (with 1.06 s, pairs forced into single file in crowds ended up about 1.6 m apart).
+  People board the elevator in two lanes in boarding order (±0.25 m at the door, ±0.35 m in the car; in a single lane the interval between consecutive boardings grew to 1.8 s).
 - **Free walking speed:** 1.245 m/s in `verify_fundamental_diagram` (guide 1.34 ± 0.08), "caution". It is measured on people with nobody within 1.5 m ahead,
   but fast walkers already slow for someone 2 m ahead (2.4 m at 1.9 m/s with Seyfried's relation). Most people walk at their own speed (median speed ratio 1.00).
 
@@ -157,6 +159,6 @@ Checks (same seeds, `tools/crowd_check.py`; overlap = pairs × frames of two peo
 - Corners, stairs and evacuation have not been verified (of the RiMEA test cases, only the one corresponding to no. 1; counterflow and bottlenecks have been verified).
 - (Earlier model `lane`) When people jam in front of a bottleneck above 2 people/m², they squeeze in from the side and their bodies overlap (49% of frames below 0.4 m). Overlap with the person ahead moving in the same direction
   is prevented (`MIN_SEP` 0.35 m), but because the model shifts people sideways along the path, it cannot represent pushing from the side. The capacity is close to the experiments.
-- (`cfsm`) Bodies overlap a little only while the safety valve lets someone through (table in 5.1). In crowded places pairs separate easily, and the interval between consecutive elevator boardings is longer than in the literature (people wait for those alighting).
+- (`cfsm`) Bodies overlap a little only while the safety valve lets someone through (table in 5.1). At gates, pairs are split into different lanes.
   Pushing (forces between bodies) is not represented.
 - Body heights are those of the 10 character models as-is (not fitted to the height distribution of Japanese people).

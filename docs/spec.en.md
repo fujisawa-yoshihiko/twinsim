@@ -20,7 +20,7 @@ One USD scene. The "meaning" that is not in the USD (entrances, gates, elevator 
 | `license` | Terms of use of the asset (check them when producing data for distribution) |
 | `navmesh_region` | Region in which the navmesh is baked `[x0, x1, y0, y1, z0, z1]` (one floor) |
 | `glass` | Occlusion by glass (optional). `occluding` lists the glass materials (MDL names) through which people are not visible in the rendered video. The glass panes are in `glass.json` in the same folder (oriented boxes extracted inside Isaac Sim by `twinsim/isaac/probe_materials.py`). Used for the `glass` column and visibility of the rendered label table (`labels/`) |
-| `levels[]` | Floors: `z`, `walkable` (grid of the walkable area; `.txt` or `.npz`), `top_image`, `top_view` (top-down image and its viewpoint) |
+| `levels[]` | Floors: `z`, `walkable` (grid of the walkable area; `.txt` or `.npz`), `blocked` (optional; list of polygons `{polygon, note}` made not walkable, where rendered objects are placed), `top_image`, `top_view` (top-down image and its viewpoint) |
 | `pois` | Places (table below) |
 | `zones` | Zones (polygons). Used for ground-truth aggregation and as graph nodes. Matched in order from the top |
 | `cameras` | Candidate cameras (`eye`, `target`; a scenario uses them by name) |
@@ -32,7 +32,7 @@ Kinds of places (`pois`):
 | `spawn` | Where people appear and disappear (e.g. a building entrance) | `xy` or `line` (somewhere on the line), `hidden` (optional; a point no camera sees. People appear here and walk straight to `xy`; people leaving walk from `xy` to here and disappear. It may be outside the walkable area, e.g. behind a door) |
 | `exit` | Where people leave | `xy` or `line`, `hidden` (optional; as for `spawn`) |
 | `gate` | Entry gate | `line` (both ends), `lanes`, `lanes_in`, `lanes_out` (lanes used for each direction), `in_dir` (direction of entry) |
-| `elevator` | Elevator (EV) door | `xy` (in front of the door), `face` (a point inside the car), `cabin_m` (optional; how far, in m, people boarding walk from the door towards `face` before they disappear; people alighting come out from there. If omitted, people disappear and appear at the door point) |
+| `elevator` | Elevator (EV) door | `xy` (in front of the door), `face` (a point inside the car), `cabin_m` (optional; how far, in m, people boarding walk from the door towards `face` before they disappear; people alighting come out from there. If omitted, people disappear and appear at the door point), `prop: elevator` (optional; for a space whose USD has no elevator, an elevator car and door frame are placed when rendering. Make the car area not walkable with `blocked`) |
 | `wait_zone` | Area for waiting for the elevator | `zone`, `spacing` (spacing, m), `door_aisle` (half-width, in m, of the passage kept clear in front of the door). When all waiting spots are taken, the extra people walk to a nearby walkable point at least 0.6 m from everyone else and wait there |
 
 The area around a `spawn`, `exit` or `elevator` (within 0.8 m of the segment from `xy` to `hidden` or into the car; for an elevator without a car (`cabin_m`), out to 1 m outside the door, where alighting people appear) is a "portal" (`Space.portals`).
@@ -48,7 +48,7 @@ Existing spaces (the `corridor` ones are made for twinsim; the others are bundle
 | Space | Contents | Semantic map | Rendering |
 |---|---|---|---|
 | `office` | Ground-floor lobby of an office (entrance corridor → gates with 3 lanes → lobby → reception, 2 elevators, meeting-up area, south exit) | Done | Done |
-| `hospital` | Ground floor of a hospital (lobby → corridor → west hall; the elevator is assumed to be in front of the stairwell). Same points and cameras as sim-gate in hospital-sim | Done | Done |
+| `hospital` | Ground floor of a hospital (lobby → corridor → west hall; an elevator car placed in front of the stairwell when rendering). Same points and cameras as sim-gate in hospital-sim | Done | Done |
 | `warehouse` | Warehouse (aisles between 8 rows of shelves to the north, a work floor to the south; the receiving, packing and waiting areas are assumed) | Done | Done |
 | `simple_room` | Small 10 m × 10 m room (floor z = -0.77) | Done (for smoke testing) | Not supported (completely dark when shot from inside; cause not investigated) |
 | `warehouse_small` | Small warehouse (shelf, door and gate parts) | Materials only (not done) | Not done |
@@ -172,7 +172,7 @@ isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.vie
 `render` places the computed people as person models (10 kinds, with clothing color varied per person), renders each camera, and writes mp4 files.
 Rendering speed (test renders on 2026-10-22, 1280×720, 1 GPU): about 5.7 frames per second for the office with 30 people, about 1.9 frames for the warehouse with 15 people, about 1.1 frames for the hospital with 24 people
 (the hospital is slow because it has many lights). Rough estimates for 5 minutes (9,000 frames) × 2 cameras: office about 1.5 hours, warehouse about 2.6 hours, hospital about 4.5 hours.
-Placed objects: gate machines (boxes separating the lanes; automatic), signage (`render.props`), lights (the space's `lights`; for USDs with no lights inside the rooms).
+Placed objects: gate machines (boxes separating the lanes; automatic), signage (`render.props`), an elevator car and door frame (elevators with `prop: elevator`; NVIDIA's office parts, CC BY 4.0, with a light gray outer wall), lights (the space's `lights`; for USDs with no lights inside the rooms).
 For long renders, state the expected duration and the GPUs and get confirmation before starting (the GPUs are shared with other users).
 
 ## 9. Validity
