@@ -127,14 +127,15 @@ Checks (same seeds, `tools/crowd_check.py`; overlap = pairs × frames of two peo
 | `verify_fundamental_diagram` | 0 → 0 | 0 → 0 | 0 | Speed ratio 0.95, 0.91, 0.81, 0.76 (formula 1.00, 0.99, 0.89, 0.69; before 0.96, 0.93, 0.80, 0.65) pass |
 | `verify_counterflow` | 0.12 → 0 | 0 → 0 | 0 | 0 stuck people |
 | `verify_bottleneck` | 1.85 → 0.41 | 0 → 0 | 17 | 1.90 people/(m·s) (experiment 1.90–2.19; before 2.32) pass |
-| `verify_gate_capacity` | 7.47 → 0 | 0 → 0 | 13 | Queue headway median 2.0 s pass. Pairs 1.58 m (split into different gate lanes; caution before too) |
-| `verify_groups` | 0 → 0 | 0 → 0 | 0 | Pairs 0.93 m, abreast 0.81 m (friends 0.79, 0.66 m) pass. Speed ratio at 0.5–1 people/m² 0.74 (formula 0.89) caution |
-| `office_gate_ev` | 2.66 → 0.73 | 0 → 0 | 37 | All pass (pairs 0.94 m, interval between consecutive elevator boardings 1.48 s) |
-| `office_ev_hall` | 1.99 → 0.13 | 0 → 0 | 25 | All pass (pairs 0.92 m, boarding interval 1.47 s) |
-| `hospital_gate_ev` | 1.21 → 0.28 | 0 → 0 | 17 | Pairs 0.84 m, boarding interval 1.17 s pass |
+| `verify_gate_capacity` | 7.47 → 0 | 0 → 0 | 4 | Queue headway median 1.95 s, waiting people below 0.45 m 4.8% (before 12%), pairs 0.99 m; all pass |
+| `verify_groups` | 0 → 0 | 0 → 0 | 0 | Pairs 0.93 m (friends 0.79 m) pass. Speed ratio at 0.5–1 people/m² 0.74 (formula 0.89) caution |
+| `office_gate_ev` | 2.66 → 0.21 | 0 → 0 | 20 | All pass (pairs 0.89 m, interval between consecutive elevator boardings 1.38 s) |
+| `office_ev_hall` | 1.99 → 0.26 | 0 → 0 | 24 | Pairs 0.93 m pass. Boarding interval 1.93 s caution (few pairs; it varies between 1.2 and 1.9 s across versions of the fixes) |
+| `hospital_gate_ev` | 1.21 → 0.33 | 0 → 0 | 16 | Pairs 0.85 m, boarding interval 1.02 s pass |
 
 - **Group and elevator rules (added on 11/5):** when the person ahead is a group member, the following time gap is 0.5 s (with 1.06 s, pairs forced into single file in crowds ended up about 1.6 m apart).
   People board the elevator in two lanes in boarding order (±0.25 m at the door, ±0.35 m in the car; in a single lane the interval between consecutive boardings grew to 1.8 s).
+  People heading for a gate queue stop 0.65 m behind people in the queue. People entering from behind a door wait outside if someone is within 0.5 m of the door point.
 - **Free walking speed:** 1.245 m/s in `verify_fundamental_diagram` (guide 1.34 ± 0.08), "caution". It is measured on people with nobody within 1.5 m ahead,
   but fast walkers already slow for someone 2 m ahead (2.4 m at 1.9 m/s with Seyfried's relation). Most people walk at their own speed (median speed ratio 1.00).
 

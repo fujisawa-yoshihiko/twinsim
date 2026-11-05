@@ -36,6 +36,7 @@ PASS_SIDE = 1.0  # 真正面の人をよける向き（+1 = 進む向きの左�
 GOAL_NEAR_M, GOAL_STALL_S = 1.2, 2.0  # 行き先からこの距離の中で、この秒数ほとんど進めなければ、そこで着いたことにする
 DOOR_CLEAR_M = 1.0  # EV の扉からこれより近くでは待たない（motion_model "cfsm"）
 AISLE_M = (2.5, 1.2)  # EV の扉から外へ、この長さ・幅の通り道でも待たない（降りる人が待つ人の中を通り抜けていた、2026-11-05）
+ENTRY_CLEAR_M = 0.5  # 扉の向こうから入る人は、扉の点からこの距離の中に人がいれば外で待つ（m。1.0 m では入る人が 192 → 106 人に減った）
 UNSTICK_S, SQUEEZE_S = 15.0, 2.0  # 安全弁: この秒数行き先に近づけなければ、この秒数だけ周りの人を無視して通り抜ける
 BOARD_LANE_M = (0.25, 0.35)  # EV に乗る 2 列の、扉とかごの中での真ん中からの横のずれ（m）
 REROUTE_M = 1.5  # 歩く人が経路からこれより離れたら、今の位置から経路を引き直す（m）
@@ -515,7 +516,11 @@ class Sim:
                 busy = [(self.where(b)[0], b.group) for b in self.agents if b.mode not in ("pending", "done")]
             for a in due:
                 o = a.info["origin_xy"]
-                if any((g is None or g != a.group) and math.hypot(q[0] - o[0], q[1] - o[1]) < 0.5 for q, g in busy):
+                # 扉の向こうから入る人（最初の段取りが straight）は、入った先（扉の点）がふさがっていても外で待つ（motion_model "cfsm"。
+                # 列の後ろが入口まで伸びると、入る人が列に割り込んで重なった、2026-11-05）
+                e = a.plan[0][1] if self.model == "cfsm" and a.plan and a.plan[0][0] == "straight" else None
+                if any((g is None or g != a.group) and (math.hypot(q[0] - o[0], q[1] - o[1]) < 0.5
+                       or (e is not None and math.hypot(q[0] - e[0], q[1] - e[1]) < ENTRY_CLEAR_M)) for q, g in busy):
                     a.t0 = t + 0.2  # 現れる場所がふさがっていれば、空くまで外で待つ（待った秒を記録）
                     a.events["spawn_wait_s"] = round(a.events.get("spawn_wait_s", 0.0) + 0.2, 1)
                     continue
@@ -704,7 +709,13 @@ class Sim:
         a.blocker = active[int(np.flatnonzero(cone)[np.argmin(d[cone])])] if cone.any() and gap < r2 + 0.3 else None
         # 前の人がグループの仲間なら、ついていく間隔を mate_time_gap に（混んで 1 列になった 2 人連れが 1.6 m ほど離れた、2026-11-05）
         tg = np.where(mate, C["mate_time_gap"], C["time_gap"])
-        v = min(v0, max(0.0, float(((d[cone] - r2) / tg[cone]).min()))) if cone.any() else v0
+        # ゲートの列へ向かう人は、列に並ぶ人の後ろでは QUEUE_GAP（0.65 m）あけて止まる（体が触れる 0.36 m まで詰めると、
+        # 列の後ろの人どうしが 0.45 m 未満になった、2026-11-05）
+        gap_min = np.full(len(d), r2)
+        if a.mode == "to_gate" or (a.k + 1 < len(a.plan) and a.plan[a.k + 1][0] == "gate"):
+            queued = np.array([b.state == "gate_queue" or b.mode in ("gate_wait", "to_gate") for b in active], bool)
+            gap_min[queued & ~mate] = QUEUE_GAP
+        v = min(v0, max(0.0, float(((d[cone] - gap_min[cone]) / tg[cone]).min()))) if cone.any() else v0
         if waiting:  # 降りる人が出るまで、扉の前で待つ
             v = 0.0
         b = a.blocker

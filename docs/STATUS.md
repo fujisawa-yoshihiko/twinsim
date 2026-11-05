@@ -5,7 +5,9 @@
 - `people.motion_model: cfsm`（既定）: Collision-Free Speed Model（Tordeux ら 2016）。前のモデルは `lane`。結果と決まりは docs/validity.md の 5.1
 - 重なり（0.3 m 未満、人 × コマ 1,000 あたり）は 9 つのテンプレートすべてで減った（最大 7.47 → 0.47）。動けなくなった人 0
 - 11/5 午後: 仲間の後ろはついていく間隔 0.5 秒（2 人連れ 0.84〜0.94 m で合う）、EV は 2 列で乗る（続けて乗る間隔 1.17〜1.48 秒で合う）、hospital の EV のかご（描画で置く、blocked）
-- 残り: 自由に歩く速さの測り方、安全弁の重なり（最大 0.73 / 人×コマ 1,000）、ゲートで 2 人連れが分かれる。素材は v2（~/dt-data/twinsim/corpus/2026-11-v2）で描き直す
+- 11/5 夕: v1 の 6 件を描き直した（~/dt-data/twinsim/corpus/2026-11-v2、fc76d58、GPU 0・1 で 2.1 時間）。確かめは research/video_corpus/audit/README.md の「v2」
+  そのあと列の後ろの間隔（0.65 m）と、扉の向こうから入る人が入口のふさがりで外で待つ決まりを足した（v2 の映像には入っていない）
+- 残り: 自由に歩く速さの測り方、安全弁の重なり（最大 0.33 / 人×コマ 1,000）、office_ev_hall の続けて乗る間隔がぶれる
 - 比べの道具: `tools/crowd_check.py <名前> --jobs 9`（結果は ~/dt-data/twinsim/crowd_check/）
 
 ## 2026-11-03〜04（描画を並べる・ベンチマークのための直し、ブランチ render-farm → benchmark-gt、どちらもローカルだけ）
