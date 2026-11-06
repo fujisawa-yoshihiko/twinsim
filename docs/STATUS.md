@@ -7,7 +7,8 @@
 - 11/5 午後: 仲間の後ろはついていく間隔 0.5 秒（2 人連れ 0.84〜0.94 m で合う）、EV は 2 列で乗る（続けて乗る間隔 1.17〜1.48 秒で合う）、hospital の EV のかご（描画で置く、blocked）
 - 11/5 夕: v1 の 6 件を描き直した（~/dt-data/twinsim/corpus/2026-11-v2、fc76d58、GPU 0・1 で 2.1 時間）。確かめは research/video_corpus/audit/README.md の「v2」
   そのあと列の後ろの間隔（0.65 m）と、扉の向こうから入る人が入口のふさがりで外で待つ決まりを足した（v2 の映像には入っていない）
-- 残り: 自由に歩く速さの測り方、安全弁の重なり（最大 0.33 / 人×コマ 1,000）、office_ev_hall の続けて乗る間隔がぶれる
+- 11/6: 4a70311 で 6 件を描き直した（~/dt-data/twinsim/corpus/2026-11-v3、1.9 時間）。列の後ろの近さ 24% → 0.4%。確かめは research/video_corpus/audit/README.md の「v3」
+- 残り: 自由に歩く速さの測り方、安全弁の重なり、hospital のロビーの入口で出る人と入る人がすれ違えない（v3 の hospital EV 前 mid で 1 人）、混んだ EV 前で 2 人連れの間隔と続けて乗る間隔が少し外れる
 - 比べの道具: `tools/crowd_check.py <名前> --jobs 9`（結果は ~/dt-data/twinsim/crowd_check/）
 
 ## 2026-11-03〜04（描画を並べる・ベンチマークのための直し、ブランチ render-farm → benchmark-gt、どちらもローカルだけ）
