@@ -138,8 +138,11 @@ class Space:
                 continue
             a = tuple(map(float, p["xy"]))
             b = a
-            if p.get("hidden"):
-                b = tuple(map(float, p["hidden"]))
+            if p.get("hidden"):  # 範囲の線は、入る人と出る人の 2 本の線（door_lanes）の真ん中
+                o_in, o_out, n = self.door_lanes(k)
+                m = (o_in + o_out) / 2
+                a = (a[0] + n[0] * m, a[1] + n[1] * m)
+                b = (float(p["hidden"][0]) + n[0] * m, float(p["hidden"][1]) + n[1] * m)
             elif kind == "elevator" and "face" in p:
                 dx, dy = p["face"][0] - a[0], p["face"][1] - a[1]
                 n = math.hypot(dx, dy) or 1.0
@@ -148,6 +151,47 @@ class Space:
                 b = (a[0] + dx / n * d, a[1] + dy / n * d)
             out.append({"name": k, "kind": kind, "a": a, "b": b})
         return out
+
+    DOOR_LANE_M = 0.6  # 扉の向こう（hidden）との行き来の、入る人と出る人の 2 本の線の間隔（m。体の幅 0.36 m に少しの余裕）
+    DOOR_BODY_M = 0.2  # 線の外側に、この幅（体の半分ほど）も歩ける所があること
+
+    def door_lanes(self, name):
+        """扉の向こう（hidden）がある出入り口の、入る人と出る人の線 (o_in, o_out, n)。n は出る向き（xy → hidden）の左の単位ベクトル、
+        o_in・o_out は xy〜hidden の線から n の向きに測ったずれ（m）。1 本の線を両方が通ると、入る人が続くあいだ出る人が線に入れず、
+        扉の横の角で止まった（hospital のロビーの入口、2026-11-06）。
+        入る人の線は元の線のまま（入る流れは今までの確かめと同じ）にし、出る人の線をその横 DOOR_LANE_M に置く。出る向きの左（左側通行）を先に、
+        建物の中の部分（xy から、もとの線が歩ける所の外に出るまで）で出る人の線とその外側 DOOR_BODY_M が歩ける側を選ぶ
+        （どちらも歩けない所があれば、歩けない点の少ない側）。出口だけの扉（kind exit）と、出る人の扉の点が歩けない（狭い扉）なら 1 本のまま (0, 0)。"""
+        if not hasattr(self, "_door_lanes"):
+            self._door_lanes = {}
+        if name not in self._door_lanes:
+            p = self.pois[name]
+            ax, ay = map(float, p["xy"])
+            bx, by = map(float, p["hidden"])
+            L = math.hypot(bx - ax, by - ay) or 1.0
+            u = ((bx - ax) / L, (by - ay) / L)
+            n = (-u[1], u[0])
+            pts = []
+            for k in range(int(L / 0.25) + 1):
+                q = (ax + u[0] * 0.25 * k, ay + u[1] * 0.25 * k)
+                if k and not self.walkable(*q):
+                    break
+                pts.append(q)
+            W, B = self.DOOR_LANE_M, self.DOOR_BODY_M
+
+            def blocked(o):
+                return sum(not self.walkable(q[0] + n[0] * o, q[1] + n[1] * o) for q in pts)
+            best, out = None, (0.0, 0.0, n)
+            if p.get("kind") != "exit":
+                for side in (1.0, -1.0):
+                    o = side * W
+                    if not self.walkable(ax + n[0] * o, ay + n[1] * o):
+                        continue
+                    cost = blocked(o) + blocked(o + side * B)
+                    if best is None or cost < best:
+                        best, out = cost, (0.0, o, n)
+            self._door_lanes[name] = out
+        return self._door_lanes[name]
 
     def in_portal(self, x, y, r=None):
         """(x, y) が出入り口の範囲（portals）の中なら、その名前。外なら None。"""

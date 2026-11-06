@@ -367,6 +367,12 @@ def resolve_rate(spec, rate, size_spec):
     return rate, {"unit": "groups", "mean_group_size": round(mean_size, 3)}
 
 
+def shift(xy, lane):
+    """点 xy を、扉の線のずれ lane = (m, 向き) だけ横へずらす。"""
+    o, n = lane
+    return (float(xy[0]) + n[0] * o, float(xy[1]) + n[1] * o)
+
+
 class Builder:
     def __init__(self, spec):
         self.spec = spec
@@ -390,6 +396,14 @@ class Builder:
             return to
         cands = sorted(k for k in self.space.pois if k.startswith(to + "_"))
         return self.rng.choice(cands)
+
+    def door_lane(self, name):
+        """扉の向こう（hidden）との行き来の線 → (入る人の (ずれ, 向き), 出る人の (ずれ, 向き))。どちらも shift に渡す。
+        2 本の線（space.door_lanes）は motion_model "cfsm" だけ。lane では 1 本のまま（前の結果と同じ）。"""
+        o_in, o_out, n = self.space.door_lanes(name)
+        if self.spec["people"].get("motion_model", "cfsm") != "cfsm":
+            o_in = o_out = 0.0
+        return (o_in, n), (o_out, n)
 
     def poi_point(self, name):
         """入口・出口の点。line: [[x0, y0], [x1, y1]] があれば、その線の上のどこか（幅のある入口）。"""
@@ -428,10 +442,13 @@ class Builder:
         kind = poi.get("kind")
         xy = sp.poi_xy(name)
         if kind in ("exit", "spawn"):
-            steps += [("walk", self.poi_point(name), "pass")]
+            pt = self.poi_point(name)
             hidden = sp.pois[name].get("hidden")
-            if hidden:  # カメラに映らない所（扉の向こうなど）まで歩いてから消える
-                steps.append(("straight", tuple(map(float, hidden)), "pass"))
+            if hidden:  # カメラに映らない所（扉の向こうなど）まで歩いてから消える。出る人の線（door_lane）を通る
+                o = self.door_lane(name)[1]
+                steps += [("walk", shift(pt, o), "pass"), ("straight", shift(hidden, o), "pass")]
+            else:
+                steps.append(("walk", pt, "pass"))
             steps.append(("exit",))
             return steps
         face = tuple(poi["face"]) if "face" in poi else None
@@ -486,9 +503,10 @@ class Builder:
         comp = []
         base_plan = self.plan_for(d, comp)
         hidden = self.space.pois[origin].get("hidden") if isinstance(origin, str) and origin_xy is None else None
-        if hidden:  # カメラに映らない所（扉の向こうなど）に現れ、現れる場所までまっすぐ歩いて入る
-            base_plan = [("straight", tuple(oxy), "pass")] + base_plan
-            oxy = tuple(map(float, hidden))
+        if hidden:  # カメラに映らない所（扉の向こうなど）に現れ、現れる場所までまっすぐ歩いて入る。入る人の線（door_lane）を通る
+            o = self.door_lane(origin)[0]
+            base_plan = [("straight", shift(oxy, o), "pass")] + base_plan
+            oxy = shift(hidden, o)
         made = []
         for k in range(size):
             l_pref = (k - (size - 1) / 2) * lat if size > 1 else self.rng.uniform(-0.3, 0.3)

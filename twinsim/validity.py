@@ -348,7 +348,9 @@ def gate_headways(run):
 
 
 def gridlock(run):
-    """詰まって動けなくなった人: 終わりの時点でまだいて、歩く途中（pass）なのに、最後の 30 秒で 0.3 m 未満しか動いていない人。"""
+    """詰まって動けなくなった人: 終わりの時点でまだいて、歩く途中（pass）なのに、最後の 30 秒で 0.3 m 未満しか動いていない人。
+    ただし、その 30 秒の間に終わりの位置から 2 m より遠くへ行った人（行って戻った人）は数えない（ゲートを通って引き返した人が、
+    たまたま 30 秒前と同じ所にいたのを数えた、2026-11-06。押されて前後に 1 m ほど動きながら出られない人は数える）。"""
     total = int(run.gt["total_frames"])
     w = 30 * run.fps
     stuck = []
@@ -356,7 +358,8 @@ def gridlock(run):
         end = d["f0"] + len(d["xy"]) - 1
         if end < total - 1 or len(d["xy"]) <= w or d["state"][-1] != "pass":
             continue
-        if float(np.linalg.norm(d["xy"][-1] - d["xy"][-1 - w])) < 0.3:
+        win = d["xy"][-1 - w:]
+        if float(np.linalg.norm(win[-1] - win[0])) < 0.3 and float(np.linalg.norm(win - win[-1], axis=1).max()) <= 2.0:
             stuck.append(n)
     return {"n_stuck": len(stuck), "people": stuck[:10], **verdict(len(stuck) == 0, "最後の 30 秒、歩く途中で止まったままの人" if stuck else None)}
 

@@ -29,13 +29,13 @@ Kinds of places (`pois`):
 
 | kind | Meaning | Keys |
 |---|---|---|
-| `spawn` | Where people appear and disappear (e.g. a building entrance) | `xy` or `line` (somewhere on the line), `hidden` (optional; a point no camera sees. People appear here and walk straight to `xy`; people leaving walk from `xy` to here and disappear. It may be outside the walkable area, e.g. behind a door) |
+| `spawn` | Where people appear and disappear (e.g. a building entrance) | `xy` or `line` (somewhere on the line), `hidden` (optional; a point no camera sees. People appear here and walk straight to `xy`; people leaving walk from `xy` to here and disappear. It may be outside the walkable area, e.g. behind a door. With `motion_model: cfsm`, people entering and leaving a `spawn` use two lanes: people entering use the line from `xy` to `hidden`, people leaving a line 0.6 m beside it (on the left of the outgoing direction, or the right if the left is a wall). `Space.door_lanes`) |
 | `exit` | Where people leave | `xy` or `line`, `hidden` (optional; as for `spawn`) |
 | `gate` | Entry gate | `line` (both ends), `lanes`, `lanes_in`, `lanes_out` (lanes used for each direction), `in_dir` (direction of entry) |
 | `elevator` | Elevator (EV) door | `xy` (in front of the door), `face` (a point inside the car), `cabin_m` (optional; how far, in m, people boarding walk from the door towards `face` before they disappear; people alighting come out from there. If omitted, people disappear and appear at the door point), `prop: elevator` (optional; for a space whose USD has no elevator, an elevator car and door frame are placed when rendering. Make the car area not walkable with `blocked`) |
 | `wait_zone` | Area for waiting for the elevator | `zone`, `spacing` (spacing, m), `door_aisle` (half-width, in m, of the passage kept clear in front of the door). When all waiting spots are taken, the extra people walk to a nearby walkable point at least 0.6 m from everyone else and wait there |
 
-The area around a `spawn`, `exit` or `elevator` (within 0.8 m of the segment from `xy` to `hidden` or into the car; for an elevator without a car (`cabin_m`), out to 1 m outside the door, where alighting people appear) is a "portal" (`Space.portals`).
+The area around a `spawn`, `exit` or `elevator` (within 0.8 m of the segment from `xy` to `hidden` or into the car; for a `spawn`, the segment midway between the entering and leaving lanes; for an elevator without a car (`cabin_m`), out to 1 m outside the door, where alighting people appear) is a "portal" (`Space.portals`).
 It is used for the `portal` column of the rendered label table (docs/formats.en.md, section 4) and as an area excluded from evaluation.
 | `spot` | Place where people stop (reception, meeting up, in front of a sign) | `xy`, `face` (point to face). Spots can be grouped into one destination by name prefix (`reception_`, `lounge_`) |
 | `prop` | Object placed by the simulator (not in the USD) | `xy`, `face`, `prop` (`signage`) |

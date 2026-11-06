@@ -81,7 +81,7 @@ In the GUI, the "People distributions (literature)" section lets you choose the 
 | Speed by density | Emergent quantity | Ratio to the person's own speed matches the formula's v/v0 within an RMS of 0.12 at 0.5 people/m² or more (verdict only for the unidirectional corridor `verify_*`; reference only otherwise) |
 | Dyad distance | Emergent quantity | Literature (colleagues 0.85 m, etc.) ± 0.15 m |
 | Nearest distance between waiting people | Emergent quantity | Below 0.45 m in at most 5% |
-| People stuck and unable to move | Emergent quantity | In the last 30 s, 0 people en route who moved less than 0.3 m |
+| People stuck and unable to move | Emergent quantity | In the last 30 s, 0 people en route who moved less than 0.3 m (excluding people who went more than 2 m away and came back in that time) |
 | Doorway capacity | Emergent quantity | Within ±15% of 1.90–2.19 people/(m·s) from the 1.0 m width experiment (when `validity: {bottleneck: ...}` is set) |
 | Time spent waiting in elevator and gate queues | Reference only | No literature to compare with |
 
@@ -138,6 +138,50 @@ Checks (same seeds, `tools/crowd_check.py`; overlap = pairs × frames of two peo
   People heading for a gate queue stop 0.65 m behind people in the queue. People entering from behind a door wait outside if someone is within 0.5 m of the door point.
 - **Free walking speed:** 1.245 m/s in `verify_fundamental_diagram` (guide 1.34 ± 0.08), "caution". It is measured on people with nobody within 1.5 m ahead,
   but fast walkers already slow for someone 2 m ahead (2.4 m at 1.9 m/s with Seyfried's relation). Most people walk at their own speed (median speed ratio 1.00).
+
+### 5.2 No more people stuck at doors, gates and elevator doors (2026-11-06)
+
+In rendered material (the hospital elevator area at a busy time), a person leaving through the lobby entrance was stuck in the corner of the entrance for more than 30 s.
+The causes were fixed one by one.
+
+- **Two lanes at doors:** walking to and from behind a door (`hidden`) used a single line, so while people kept entering, a person leaving could not get onto the line and was pushed into the corner.
+  People entering keep the original line; people leaving use a line 0.6 m beside it (on the left of the outgoing direction, or the right if the left is a wall; `Space.door_lanes`). At the hospital lobby entrance the leaving lane is 0.6 m north;
+  at the office entrance 0.6 m east (west is a wall). Exit-only doors keep a single line. The portal area is centered between the two lanes. The earlier model (`lane`) keeps a single line.
+- **Lateral limit for people walking behind a door:** a step beyond 0.35 m from the line used to be put back "0.35 m beside the closest point of the line", and on the inside of a corner of the path (elevator door → back of the car)
+  that point coincided with the old position, so the step vanished (7 people stood still for 50 s in front of an office elevator door and got through only with the safety valve). Now only the part of the step that moves away from the line is removed.
+- **No lingering overlap:** with someone closer than a body width (0.36 m), the rule on the distance to the person ahead gives speed 0, so people could not move apart. They now walk away from those people at 0.3 m/s.
+  A standing person making way may also step if the step moves away from people who are already too close (before, they could only move if the new position was at least 0.36 m from everyone).
+- **Swaps in front of gates:** within 2 m of a gate people walk straight along their path (no avoiding), so a queue stopped (for over a minute with some seeds of verify_gate_capacity) when (1) two people heading diagonally for each other's neighboring lane blocked each other,
+  or (2) the head of a queue was blocked by the second person standing in front of the head's place. The blocked person and the blocker now swap queue positions (and lanes, if different) (count in `motion.lane_swaps` of `summary.json`). Two people side by side in the same lane who block each other are not swapped; the step away resolves it.
+- **Stuck-person check:** it compared the position 30 s earlier (less than 0.3 m) and counted a person who went through a gate and came back and happened to be in the same place. People who went more than 2 m away in those 30 s are now excluded.
+
+Checks (`tools/crowd_check.py`; overlap as in 5.1). With the template seeds:
+
+| Template | Overlap (before → now) | Stuck people | Safety valve | Comparison with literature |
+|---|---:|---:|---:|---|
+| `verify_bottleneck` | 0.41 → 0.44 | 0 → 0 | 17 → 20 | 1.93 people/(m·s) pass |
+| `verify_gate_capacity` | 0 → 0 | 0 → 0 | 4 → 5 (4 swaps) | Waiting people below 0.45 m 4.8 → 1.2%. Queue headway not applicable (only 8 cases of someone already waiting). Pairs 0.99 → 3.34 m caution (one pair split at the entrance; see below) |
+| `office_gate_ev` | 0.21 → 0 | 0 → 0 | 20 → 1 | All pass |
+| `office_ev_hall` | 0.26 → 0.24 | 0 → 0 | 24 → 2 | Interval between consecutive elevator boardings 1.93 s caution → 1.06 s pass |
+| `hospital_gate_ev` | 0.33 → 0 | 0 → 0 | 16 → 0 | Pass |
+
+The other templates are unchanged. Means over seeds 1–8 (per run):
+
+| Template | Overlap | Stuck people (total of 8 runs) | Safety valve |
+|---|---:|---:|---:|
+| `office_gate_ev` | 0.24 → 0.08 | 0 → 0 | 29.4 → 2.1 |
+| `office_ev_hall` | 0.43 → 0.16 | 1 → 0 | 34.1 → 5.4 |
+| `hospital_gate_ev` | 0.85 → 0.18 | 0 → 0 | 21.2 → 2.2 |
+| `verify_gate_capacity` | 0 → 0 | 0 → 0 | 0.6 → 0.4 (people through 166.6 → 172.1; before, one lane stopped for a minute with seed 7) |
+
+Configurations of set A of the corpus (hospital and office elevator areas and the office gate, low/mid/high × seeds 1–3, 27 runs): stuck people 2 → 0, total safety-valve uses 189 → 105.
+
+Remaining:
+- The queue-headway check of `verify_gate_capacity` often has fewer than 10 cases of "someone already waiting in the queue when the person ahead passed" (all seeds 1–8 were not applicable before as well),
+  because everyone walks to the next place each time the queue moves (and is not waiting meanwhile). The measurement needs fixing.
+- When the entrance is crowded and the queue reaches it, the second member of a group waits outside the entrance and the group splits (the rule of waiting outside when the door point is blocked).
+  Pair distance over seeds 1–8: mean 1.10 → 1.28 m (3/8 pass, before and now).
+- Overlap in `verify_bottleneck` rose slightly, 0.41 → 0.44 (safety valve 17 → 20).
 
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 

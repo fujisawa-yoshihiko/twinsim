@@ -41,6 +41,7 @@ UNSTICK_S, SQUEEZE_S = 15.0, 2.0  # 安全弁: この秒数行き先に近づけ
 BOARD_LANE_M = (0.25, 0.35)  # EV に乗る 2 列の、扉とかごの中での真ん中からの横のずれ（m）
 REROUTE_M = 1.5  # 歩く人が経路からこれより離れたら、今の位置から経路を引き直す（m）
 NUDGE_M_S = 0.4  # 立っている人が、ふさいだ歩く人に道をあけるときの速さ（m/s、1.5 秒まで）
+SEPARATE_M_S = 0.3  # 歩く人が、体の幅より近い人から離れるときの速さ（m/s。重なったまま止まらないように）
 # 人どうしがぶつからない動き（Collision-Free Speed Model、Tordeux・Chraibi・Seyfried 2016。JuPedSim の CollisionFreeSpeedModel と同じ形）。
 # 速さ = min(自分の速さ, (前の人までの距離 − 2 × 半径) ÷ time_gap)。前の人は、進む向きの、体の幅（2 × 半径）の帯の中の人。
 # 向き = 行き先の向き + 周りの人から離れる向き（strength × exp((2 × 半径 − 距離) ÷ range)）+ 壁から離れる向き。
@@ -188,6 +189,7 @@ class Sim:
             raise ValueError(f"people.cfsm に知らないキー {sorted(bad)}（使えるのは {sorted(CFSM)}）")
         self.C = {**CFSM, **(cfsm or {})}
         self.squeezes = 0  # 安全弁を使った回数（summary.json の motion）
+        self.lane_swaps = 0  # ゲートの手前で、ふさぎ合った 2 人の列の順・レーンを入れ替えた回数（swap_crossing、summary.json の motion）
         gy, gx = np.gradient(space.clear)  # 壁から離れる向き（歩ける所の格子の、壁からの距離の傾き）
         self.wall_n = (gx, gy)
         self.gates = gates or {}
@@ -447,8 +449,37 @@ class Sim:
                 self.retarget_gate(b, t, self.where(b)[0], k)
         lane.queue[:] = new
 
+    def swap_crossing(self, g, t):
+        """motion_model "cfsm": ゲートの列へ向かう人が、列の順で後ろの人にふさがれたら、2 人の順（と違うレーンならレーン）を入れ替える。
+        ゲートの手前 2 m は経路の上をまっすぐ歩く（よけない）ので、
+        - 隣のレーンへ斜めに向かう 2 人の経路が交わると、2 人とも互いにふさがれて止まり、後ろの列も全部止まった（verify_gate_capacity の種 1、2026-11-06）
+        - 先頭の人が、先頭の場所の手前で 2 番目の場所に立った人にふさがれ、そのレーンが 1 分止まった（同じく種 3。ゲートまでの距離がほぼ同じで、
+          ゲートに近い順の並べ替え reorder_lane も起きなかった）"""
+        for lane in g.lanes:
+            for a in list(lane.queue):
+                b = getattr(a, "blocker", None)
+                if (a.mode != "to_gate" or a not in lane.queue or b is None or getattr(b, "lane", None) is None or b.lane.gate is not g
+                        or b not in b.lane.queue or float(a.gate_dir @ b.gate_dir) <= 0
+                        or t < getattr(a, "swap_t", -1.0) or t < getattr(b, "swap_t", -1.0)):
+                    continue
+                la, lb = lane, b.lane
+                ka, kb = la.queue.index(a), lb.queue.index(b)
+                if la is lb:  # 同じレーン: ふさいだ人が列の順で後ろ（互いにふさいでいる横並びの 2 人は、入れ替えても変わらないので入れ替えない）
+                    if kb <= ka or b.mode not in ("to_gate", "gate_wait") or (b.mode == "to_gate" and getattr(b, "blocker", None) is a):
+                        continue
+                elif getattr(b, "blocker", None) is not a or b.mode != "to_gate":  # 違うレーン: 互いにふさいでいる
+                    continue
+                la.queue[ka], lb.queue[kb] = b, a
+                a.lane, b.lane = lb, la
+                a.swap_t = b.swap_t = t + 1.0  # 入れ替えたすぐ後は、もう一度は入れ替えない
+                self.lane_swaps += 1
+                for c, k in ((a, kb), (b, ka)):
+                    self.retarget_gate(c, t, self.where(c)[0], k)
+
     def step_gates(self, t):
         for g in self.gates.values():
+            if self.model == "cfsm":
+                self.swap_crossing(g, t)
             for lane in g.lanes:
                 if self.model == "cfsm":
                     self.reorder_lane(lane, t)
@@ -718,6 +749,17 @@ class Sim:
         v = min(v0, max(0.0, float(((d[cone] - gap_min[cone]) / tg[cone]).min()))) if cone.any() else v0
         if waiting:  # 降りる人が出るまで、扉の前で待つ
             v = 0.0
+        # すでに体の幅より近い人がいる（安全弁で通り抜けた後など）: 前の人までの距離の規則では速さが 0 になり、重なったまま離れられない。
+        # その人たちから離れる向き（近いほど強く）に SEPARATE_M_S で歩く（office_ev_hall で、安全弁の後に 2 人が 19 秒重なったまま。
+        # 一番近い 1 人から離れる向きだけでは、2 人に挟まれたとき、もう 1 人に近づく一歩になって取り消された、2026-11-06）
+        # ゲートの手前（経路の上をまっすぐ歩く所）でも離れる（横に並んだ 2 人が 0.35 m で互いにふさいだまま止まった、verify_gate_capacity の種 8）
+        if (not lane or a.mode == "to_gate") and not squeeze and v < 0.05:
+            k = np.flatnonzero(near & ~mate & (d < r2) & (d > 1e-9))
+            if len(k):
+                away = -(rel[k] / d[k, None] * (r2 - d[k])[:, None]).sum(0)
+                na = float(np.hypot(*away))
+                if na > 1e-9:
+                    e, v = away / na, SEPARATE_M_S
         b = a.blocker
         if v < 0.05 and b is not None and b.mode in ("stop", "meet", "wait", "board_wait"):  # 立っている人にふさがれたら、その人に横へよけてもらう
             side = np.array([-e[1], e[0]])
@@ -747,10 +789,18 @@ class Sim:
         if nw:  # 扉の向こうとの行き来は壁を見ないので、まっすぐな線から横へ NO_WALL_LAT_M までにする（隣の区画に入らないように）
             sq = a.path.project(p2, s - 0.5, s + C["look_m"] + 1.0)
             q0, tq0 = a.path.at(sq)
-            off = float((p2 - q0) @ np.array([-tq0[1], tq0[0]]))
+            nrm = np.array([-tq0[1], tq0[0]])
+            off = float((p2 - q0) @ nrm)
             if abs(off) > NO_WALL_LAT_M:
-                p2 = q0 + np.array([-tq0[1], tq0[0]]) * math.copysign(NO_WALL_LAT_M, off)
-                step = p2 - p
+                # 一歩のうち、線から離れる向きの分だけを除く。前は線の点から横へ NO_WALL_LAT_M の所へ置き直していて、
+                # 曲がり角（EV の扉からかごの奥へ）の内側では置き直した所が元の位置に重なり、扉の前で 7 人が 50 秒動けなかった（2026-11-06）
+                out = float(step @ nrm) * math.copysign(1.0, off)
+                if out > 0:
+                    step = step - nrm * math.copysign(out, off)
+                    p2 = p + step
+                if abs(float((p2 - q0) @ nrm)) > NO_WALL_LAT_M + 0.2:  # 大きく外れた（念のため）: 前のとおり線の近くへ戻す
+                    p2 = q0 + nrm * math.copysign(NO_WALL_LAT_M, off)
+                    step = p2 - p
                 k = np.flatnonzero(near & ~mate) if not squeeze else np.zeros(0, int)
                 if len(k):  # 戻した位置でも、ほかの人に近づきすぎないか
                     dn = np.hypot(*(XY[k] - p2).T)
@@ -799,7 +849,9 @@ class Sim:
                 if self.model == "cfsm" and a.mode in ("stop", "meet", "wait", "board_wait") and getattr(a, "nudge", None) and t < a.nudge[1]:
                     q = p + a.nudge[0] * NUDGE_M_S * dt  # 歩く人に道をあける（ほかの人・壁に当たるならやめる）
                     others = XY[np.arange(len(XY)) != idx[id(a)]]
-                    if self._can_step(p, q) and (len(others) == 0 or float(np.hypot(*(others - q).T).min()) >= 2 * self.C["radius"]):
+                    # 動いた先で体の幅より近づく人がいればやめる。もう近い人から離れる一歩はよい（重なった相手がいると、道をあけられなかった、2026-11-06）
+                    dq, dp = (np.hypot(*(others - q).T), np.hypot(*(others - p).T)) if len(others) else (np.zeros(0), np.zeros(0))
+                    if self._can_step(p, q) and not ((dq < 2 * self.C["radius"]) & (dq < dp)).any():
                         self.here[a.name] = q
                         a.xy, p, nudged = q.copy(), q, True
                     else:
