@@ -4,8 +4,10 @@
 import json
 import math
 
+import numpy as np
 import pytest
 
+import twinsim
 from twinsim import api, dists
 from twinsim.literature import GROUP_SHARE, lift_demand_per_min, person_share_to_group_mean, weidmann_speed, ztp_lambda_for_mean, ztp_person_share
 from twinsim.scenario import load_scenario, resolve_rate
@@ -117,3 +119,57 @@ def test_ward_layout_matches_docs():
         assert pts[0] == [round(v, 2) for v in w["points"][st]] and pts[-1] == [round(v, 2) for v in w["points"][bed]]
         length = sum(math.dist(p, q) for p, q in zip(pts, pts[1:]))
         assert 0.85 * w["dist_m"][i[st]][i[bed]] - 0.5 <= length <= w["dist_m"][i[st]][i[bed]] + 0.5  # 両端は格子に寄せる前の点
+
+
+def test_gate_headway_and_arrivals_when_queue_spills_outside(tmp_path):
+    """ゲートで運べる量より多く入れる確かめ: 列ができたときの間隔を 10 回以上測れ（前の人が通る前に列で止まっていた人）、
+    終わりまで外で待った人も到着に数え、列の人も含めて止まった人がいない（2026-11-06）。"""
+    r = twinsim.simulate({**twinsim.template("verify_gate_capacity"), "seed": 2, "cameras": [], "outputs": ["ground_truth", "validity"]},
+                         out_dir=tmp_path / "r")
+    v = r.validity()
+    gh = v["input_reproduction"]["gate_headway"]
+    assert gh["n"] >= 10 and gh["verdict"] == "合う"
+    arr = v["input_reproduction"]["arrivals"]["rush"]
+    assert arr.get("outside_at_end", 0) > 0 and arr["verdict"] == "合う"
+    assert v["emergent"]["gridlock"]["n_stuck"] == 0
+
+
+def test_arrival_dispersion_from_group_sizes():
+    """到着の人数の分散 ÷ 平均 = 人の側から見たグループの人数の平均（グループがなければ 1）。"""
+    from types import SimpleNamespace
+    from twinsim.literature import ztp_person_share
+    from twinsim.validity import arrival_dispersion
+    run = SimpleNamespace(spec={"people": {"group_size": {"type": "zero_truncated_poisson", "lam": 0.5}},
+                                "streams": [{"name": "a"}, {"name": "b", "group_size": None}]})
+    share = ztp_person_share(0.5, 5)
+    assert abs(arrival_dispersion(run, "a") - sum((k + 1) * x for k, x in enumerate(share))) < 1e-9
+    assert arrival_dispersion(SimpleNamespace(spec={"streams": [{"name": "c"}]}), "c") == 1.0
+
+
+def test_free_speed_is_compared_with_given_speeds():
+    """自由に歩く速さ: 前に人のいない人が遅い人に偏っていても、その人たちに与えた速さどおりに歩き、全員に与えた速さが文献の分布なら「合う」
+    （混んだ流れでは速い人ほど前に人がいて測れず、前は文献の値とじかに比べて「注意」になった、2026-11-06）。"""
+    from types import SimpleNamespace
+    from twinsim.validity import free_speed
+    rng = np.random.default_rng(0)
+    given = np.clip(rng.normal(1.34, 0.26, 200), 0.8, 1.9)
+    P = {f"P{i}": {"group": None, "info": {"speed_m_s": float(v)}} for i, v in enumerate(given)}
+    slow = [n for n, d in P.items() if d["info"]["speed_m_s"] < 1.4]  # 測れるのは遅い人だけ
+    rows = [(n, f, P[n]["info"]["speed_m_s"], 0.0, "pass", True, 0) for n in slow for f in range(3)]
+    res, _ = free_speed(SimpleNamespace(P=P, spec={}), rows)
+    assert res["mean_m_s"] < 1.25 and res["verdict"] == "合う"
+    res2, _ = free_speed(SimpleNamespace(P=P, spec={}), [(n, f, 0.9 * v, rho, st, mv, k) for n, f, v, rho, st, mv, k in rows])
+    assert res2["verdict"] == "注意"  # 与えた速さより 1 割遅い
+
+
+def test_standing_spacing_counts_only_waiting_people():
+    """待つ人どうしの距離: 横を歩いて通る人は数えない（歩く人との近さは重なりで見る、2026-11-06）。"""
+    from types import SimpleNamespace
+    from twinsim.validity import standing_spacing
+    n = 30 * 40
+    P = {"A": {"f0": 0, "xy": np.tile([0.0, 0.0], (n, 1)), "state": ["gate_queue"] * n, "group": None},
+         "B": {"f0": 0, "xy": np.tile([1.0, 0.0], (n, 1)), "state": ["gate_queue"] * n, "group": None},
+         "W": {"f0": 0, "xy": np.c_[np.linspace(-5, 5, n), np.full(n, 0.3)], "state": ["pass"] * n, "group": None}}
+    run = SimpleNamespace(gt={"total_frames": n}, fps=30, P=P, at=lambda name, f: f if 0 <= f < n else None)
+    res, _ = standing_spacing(run)
+    assert res["share_below_0.45m"] == 0.0 and res["verdict"] == "合う"

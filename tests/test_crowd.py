@@ -186,3 +186,102 @@ def test_gridlock_does_not_count_round_trips():
     run = SimpleNamespace(gt={"total_frames": 1200}, fps=30,
                           P={n: {"f0": 0, "xy": xy, "state": ["pass"] * 1200} for n, xy in (("S", stay), ("B", back), ("X", pushed))})
     assert sorted(gridlock(run)["people"]) == ["S", "X"]
+
+
+@pytest.mark.parametrize("mates", [False, True])
+def test_side_by_side_pair_in_same_lane_does_not_freeze(mates):
+    """同じレーンの列の先頭と 2 番目が横に並んで（横 0.35 m）互いを前の人とみても、先頭は前へ進む（列の順が後ろの人は真横なら前の人と見ない）。
+    前はレーンが 150 秒止まった（verify_gate_capacity の種 2。グループの仲間どうしでも、2026-11-06）。"""
+    sim, g = _gate_sim()
+    lane = g.lanes_in[0]
+    head = _queued(sim, g, "A", lane, (lane.center[0] + 0.17, 17.2))  # ゲートの 2 m 手前より内側（経路の上をまっすぐ歩き、よけない所）
+    second = _queued(sim, g, "B", lane, (lane.center[0] - 0.18, 17.2))
+    head.gate_slot, second.gate_slot = 0, 1
+    if mates:
+        head.group = second.group = "G1"
+    y0 = float(head.xy[1])
+    for f in range(30):
+        sim.t = f / 30
+        sim.step_agents(f, f / 30)
+    assert y0 - float(sim.where(head)[0][1]) > 0.3
+
+
+def test_entrance_first_come_first_served(tmp_path):
+    """入口で待つ人は着いた順に入る（グループはまとめて）。前は待つ人が 0.2 秒ごとにしか確かめず、あとから着いた人が空いた一瞬を取って、
+    2 人連れの 2 人目が外で 47 秒待った。入る人の線がふさがっていれば、出る人の線からも入る（2026-11-06）。"""
+    from twinsim.scenario import build, load_scenario
+    sim, _ = build(load_scenario({**twinsim.template("verify_gate_capacity"), "duration_s": 90, "seed": 2}))
+    sim.run()
+    came = sorted((a for a in sim.agents if getattr(a, "door", None) == "entrance" and "start" in a.events), key=lambda a: a.entry_key)
+    starts = [a.events["start"] for a in came]
+    assert len(came) > 60 and all(b >= a - 1e-9 for a, b in zip(starts, starts[1:]))
+    assert sim.entry_alt > 0
+    late = [a for a in sim.agents if getattr(a, "door", None) == "entrance" and a.mode == "pending" and a.t0 < 90]
+    assert all(a.entry_key > came[-1].entry_key for a in late)  # まだ外で待つ人は、入った人より後に着いた人だけ
+
+
+def test_group_mates_do_not_appear_on_top_of_each_other(tmp_path):
+    """グループの仲間は同じコマに同じ点に現れない（一人が押し出されて扉の柱の外へ回り込んだ、office_gate_ev、2026-11-06）。"""
+    from twinsim.scenario import build, load_scenario
+    sim, _ = build(load_scenario({**twinsim.template("verify_gate_capacity"), "duration_s": 90, "seed": 2}))
+    sim.run()
+    by = {}
+    for a in sim.agents:
+        if a.group is not None and a.frames:
+            by.setdefault(a.group, []).append(a)
+    pairs = [g for g in by.values() if len(g) == 2]
+    assert pairs
+    for a, b in pairs:
+        f = max(a.frames[0][0], b.frames[0][0])
+        pa = next((x, y) for ff, x, y, *_ in a.frames if ff == f)
+        pb = next((x, y) for ff, x, y, *_ in b.frames if ff == f)
+        assert math.hypot(pa[0] - pb[0], pa[1] - pb[1]) >= 0.3
+
+
+def test_reroute_keeps_part_beyond_walkable_area():
+    """経路を引き直すとき、行き先が歩ける所の外（EV のかごの中）なら、歩ける所の最後の点まで探し、その先は元の経路のまま足す
+    （前は歩ける所の手前で終わる経路になり、乗る人が扉の外で「乗った」ことになって消えた、office_ev_hall、2026-11-06）。"""
+    from twinsim.engine import Path as EPath
+    from twinsim.scenario import build, load_scenario
+    sim, _ = build(load_scenario({**twinsim.template("office_ev_hall"), "streams": []}))
+    car = next(c for c in sim.cars if c.name == "EV1")
+    door, cabin = tuple(map(float, car.door)), tuple(map(float, car.cabin))
+    assert sim.space.walkable(*door) and not sim.space.walkable(*cabin)
+    pts = sim.reroute_pts((-12.7, -3.7), EPath([(-13.1, -3.0), door, cabin]))
+    assert math.hypot(pts[-1][0] - cabin[0], pts[-1][1] - cabin[1]) < 1e-6
+    assert all(sim.space.walkable(*q) for q in pts[:-4])
+
+
+def test_group_member_waits_for_mate_at_stop():
+    """止まる段取り（受付など）を先に済ませたグループの人は、同じ段取りの仲間が済むまで待つ（着く時刻がずれて先に歩き出し、
+    受付へ行く 2 人連れが 10 m 離れて歩いた、hospital_gate_ev、2026-11-06）。"""
+    sp = load_space("corridor")
+    sim = Sim(sp, 30, 30 * 40)
+    plan = [("walk", (20.0, 0.0), "pass"), ("stop", 5.0, None, "dwell", 0.0), ("walk", (40.0, 0.0), "pass")]
+    a = Agent("P0001", list(plan), 0.0, 1.3, 0.0, group="G1", info={"origin_xy": (18.0, 0.0)})  # 先に着く
+    b = Agent("P0002", list(plan), 0.0, 1.3, 0.0, group="G1", info={"origin_xy": (5.0, 0.0)})  # 11 秒ほど後に着く
+    sim.add(a)
+    sim.add(b)
+    sim.run()
+    at = {f: x for f, x, _y, _yaw, _m in a.frames}
+    assert abs(at[30 * 12] - 20.0) < 0.6  # 自分の 5 秒が済んだ後も、仲間が済むまで受付にいる
+    assert a.mode == "done" and b.mode == "done"
+
+
+def test_stalled_walker_asks_standing_people_to_step_aside():
+    """前の人はいないのに 3 秒以上進めずにいる歩く人は、行き先の向きの前側 0.9 m 以内に立つ人に、横へよけてもらう
+    （EV を待つ人たちのあいだで、押される向きが毎コマ変わって降りた人が 28 秒進めなかった、2026-11-06）。"""
+    sp = load_space("corridor")
+    sim = Sim(sp, 30, 30 * 10)
+    stand = Agent("P0001", [("stop", 60.0, None, "dwell", 0.0)], 0.0, 1.3, 0.0, info={"origin_xy": (20.5, 0.55)})
+    walk = Agent("P0002", [("walk", (40.0, 0.0), "pass")], 0.0, 1.3, 0.0, info={"origin_xy": (20.0, 0.0)})
+    for a in (stand, walk):
+        sim.add(a)
+        sim.next_step(a, 0.0, a.info["origin_xy"])
+        a.events["start"] = 0.0
+    walk.xy = np.array([20.0, 0.0])
+    sim.here[walk.name] = walk.xy.copy()
+    sim.t = 4.0
+    walk.best_t, walk.best_path = 0.0, walk.path  # 4 秒進めずにいる
+    sim.step_agents(120, 4.0)
+    assert getattr(stand, "nudge", None) is not None and stand.nudge[0][1] > 0  # 歩く人の左（北）へよける

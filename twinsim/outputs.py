@@ -130,8 +130,10 @@ def write_all(sim, builder, spec, out_dir):
     waits = [a.events["board"] - a.events["wait_start"] for a in agents if "board" in a.events and "wait_start" in a.events]
     summary = {"scenario": spec.get("name"), "space": sp.name, "seed": spec["seed"], "duration_s": spec["duration_s"], "fps": fps,
                "people": len(agents), "groups": len({a.group for a in agents if a.group}),
-               # 人の動き（squeezes は動けない人を通り抜けさせた回数、lane_swaps はゲートの手前でふさぎ合った 2 人の列の順・レーンを入れ替えた回数）
-               "motion": {"model": sim.model, "squeezes": getattr(sim, "squeezes", 0), "lane_swaps": getattr(sim, "lane_swaps", 0)},
+               # 人の動き（squeezes は動けない人を通り抜けさせた回数、lane_swaps はゲートの手前でふさぎ合った 2 人の列の順・レーンを入れ替えた回数、
+               # entry_alt は扉の向こうから入る人の線がふさがっていて、出る人の線から入った人数）
+               "motion": {"model": sim.model, "squeezes": getattr(sim, "squeezes", 0), "lane_swaps": getattr(sim, "lane_swaps", 0),
+                          "entry_alt": getattr(sim, "entry_alt", 0)},
                "by_stream": Counter(a.info.get("stream") for a in agents), "by_destination": Counter(str(a.info.get("destination")) for a in agents),
                "state_seconds": {k: round(v, 1) for k, v in states_s.most_common()},
                "max_present": max((len(v) for v in per_frame.values()), default=0),
@@ -140,7 +142,11 @@ def write_all(sim, builder, spec, out_dir):
                             "wait_mean_s": round(float(np.mean(waits)), 1) if waits else None,
                             "wait_max_s": round(float(np.max(waits)), 1) if waits else None},
                "gate_passes": Counter(e["dir"] for e in sim.gate_events),
-               "still_waiting_at_end": len(sim.queue), "inputs": builder.meta, "files": files + ["summary.json"]}
+               "still_waiting_at_end": len(sim.queue),
+               # 着いたのに入口がふさがっていて、終わりまで外で待っていた人（流れごと。正解の people には入らない。到着の確かめはこの人も数える）
+               "outside_at_end": Counter(a.info.get("stream") for a in sim.agents
+                                         if a.mode == "pending" and a.t0 < spec["duration_s"] and a.info.get("role") != "companion"),
+               "inputs": builder.meta, "files": files + ["summary.json"]}
     (out / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1))
     return summary
 

@@ -22,7 +22,9 @@ from .literature import GROUP_SHARE, LIFT_MIX, PROFILES, REFS, weidmann_speed, z
 WALK_STATES = ("pass", "alight")
 STAND_STATES = ("ev_wait", "gate_queue")
 HALL_INTIMATE_M = 0.45
+DYAD_AFTER_GATE_S = 5.0  # 2 人連れの距離は、ゲートを通ってからこの秒数（離れた 2 人が並び直す間）を外す
 DENSITY_R = 1.5
+FREE_R = 2.5  # 自由に歩く速さ: 前の半円のこの半径（m）に人がいない歩き（cfsm で 2.0 m/s の人が前の人に詰まらない距離 0.36 + 1.06 × 2.0）
 PROFILE_GROUP_REF = {"office_commute_jp": "osaka_underground", "leisure_low_density": "toulouse_low"}
 DYAD_REF = {"office_commute_jp": ("同僚", 0.851, 0.718), "leisure_low_density": ("友人", 0.792, 0.662)}
 DYAD_ALL = ("1018 組の平均", 0.823, 0.657)  # Zanlungo ら 2017 の表 2 を組の数で重みづけ
@@ -66,7 +68,7 @@ class Run:
 
 
 def samples(run, step_s=0.5):
-    """0.5 秒ごとに、その場にいる人の [人, コマ, 速さ（前後 0.5 秒の移動）, 前の半円の密度, 状態, 歩いているか]。
+    """0.5 秒ごとに、その場にいる人の [人, コマ, 速さ（前後 0.5 秒の移動）, 前の半円の密度, 状態, 歩いているか, 前の半円 FREE_R の人数]。
     密度はエンジンと同じ定義（前の半円・半径 1.5 m・グループの仲間は数えない）。"""
     fps = run.fps
     h = fps // 2
@@ -88,6 +90,7 @@ def samples(run, step_s=0.5):
         ahead = np.einsum("ijk,ik->ij", rel, hd) > 0
         same = np.array([[gi is not None and gi == gj for gj in grp] for gi in grp])
         cnt = ((dist < DENSITY_R) & ahead & ~same & ~np.eye(len(here), dtype=bool)).sum(1)
+        cnt_free = ((dist < FREE_R) & ahead & ~same & ~np.eye(len(here), dtype=bool)).sum(1)
         for i, (n, k) in enumerate(here):
             d = run.P[n]
             if k - h < 0 or k + h >= len(d["xy"]):
@@ -96,7 +99,7 @@ def samples(run, step_s=0.5):
             st = d["state"][k]
             if st == "pass" and any(a <= f <= b for a, b in d["queue_spans"]):
                 st = "gate_approach"  # 列に向かう歩き（流れの比べに入れない）
-            rows.append((n, f, v, cnt[i] / area, st, bool(d["moving"][k])))
+            rows.append((n, f, v, cnt[i] / area, st, bool(d["moving"][k]), int(cnt_free[i])))
     return rows
 
 
@@ -107,11 +110,18 @@ def verdict(ok, note=None):
 
 # ---- 入力の再現 ----
 def free_speed(run, rows):
+    """自由に歩く速さ。前の半円 FREE_R（2.5 m）に人のいない歩き（グループの人は除く）の、人ごとの中央値。
+    2 つを確かめる: (1) 歩き方: その人たちの速さが、その人たちに与えた速さ（正解の speed_m_s）と ± 0.05 m/s で合う。
+    (2) 入れた値: 全員（グループの人は除く）に与えた速さの分布が、文献（またはシナリオ）の平均 ± 0.08・標準偏差 ± 0.08 に入る。
+    前は 1.5 m の半円で選び、文献の値とじかに比べていた。cfsm では速い人は前の人が 0.36 + 1.06 × 速さ（1.9 m/s で 2.4 m）より近いと遅くなるので、
+    1.5 m では速い人が遅く出た（与えた速さに対する比 1.8 m/s で 0.82）。また混んだ流れでは、速い人ほど前の人に追いつき「前に人がいない」場面に
+    入らないので、測れる人が遅い人に偏る（verify_fundamental_diagram で 1.23 m/s。2.5 m にすると比はどの速さでも 0.99〜1.00、2026-11-06）。"""
     by = defaultdict(list)
-    for n, _f, v, rho, st, mv in rows:
-        if st in WALK_STATES and rho == 0 and mv and v > 0.2 and run.P[n]["group"] is None:
+    for n, _f, v, _rho, st, mv, n_free in rows:
+        if st in WALK_STATES and n_free == 0 and mv and v > 0.2 and run.P[n]["group"] is None:
             by[n].append(v)
-    per = np.array([float(np.median(v)) for v in by.values() if len(v) >= 3])
+    names = [n for n, v in by.items() if len(v) >= 3]
+    per = np.array([float(np.median(by[n])) for n in names])
     if len(per) < 10:
         return {"n_people": int(len(per)), **verdict(None, "前に人のいない歩きの人が 10 人未満")}, per
     m, s = float(per.mean()), float(per.std(ddof=1))
@@ -122,9 +132,20 @@ def free_speed(run, rows):
         note = f"シナリオの速さ {mu:g} ± {sd:g}（文献の値ではない）と比べた"
     elif isinstance(sp, (int, float)):
         mu, sd, note = float(sp), 0.0, f"シナリオの速さ {sp}（一定）と比べた"
-    return {"n_people": int(len(per)), "mean_m_s": round(m, 3), "sd_m_s": round(s, 3), "target": {"mean": mu, "sd": sd},
-            "literature": {"mean": 1.34, "sd": 0.26, "source": "weidmann1993"},
-            **verdict(abs(m - mu) <= 0.08 and max(0.0, sd - 0.08) <= s <= sd + 0.08, note)}, per
+    out = {"n_people": int(len(per)), "mean_m_s": round(m, 3), "sd_m_s": round(s, 3), "target": {"mean": mu, "sd": sd},
+           "literature": {"mean": 1.34, "sd": 0.26, "source": "weidmann1993"}}
+    given = np.array([run.P[n]["info"].get("speed_m_s") or np.nan for n in names], float)
+    every = np.array([d["info"]["speed_m_s"] for d in run.P.values() if d["group"] is None and d["info"].get("speed_m_s")], float)
+    if np.isnan(given).any() or len(every) < 10:  # 与えた速さのない正解（古い版）: 文献の値とじかに比べる
+        return {**out, **verdict(abs(m - mu) <= 0.08 and max(0.0, sd - 0.08) <= s <= sd + 0.08, note)}, per
+    gm, gs = float(given.mean()), float(given.std(ddof=1))
+    em, es = float(every.mean()), float(every.std(ddof=1))
+    walk_ok = abs(m - gm) <= 0.05 and abs(s - gs) <= 0.05
+    input_ok = abs(em - mu) <= 0.08 and max(0.0, sd - 0.08) <= es <= sd + 0.08
+    out.update({"given_same_people": {"mean": round(gm, 3), "sd": round(gs, 3)},
+                "given_all": {"n": int(len(every)), "mean": round(em, 3), "sd": round(es, 3)},
+                "walk_matches_given": bool(walk_ok), "input_matches_target": bool(input_ok)})
+    return {**out, **verdict(walk_ok and input_ok, note)}, per
 
 
 def group_sizes(run):
@@ -172,23 +193,42 @@ def expected_group_share(run, streams):
     return list(acc / w) if w else None
 
 
+def arrival_dispersion(run, stream):
+    """流れの人数の分散 ÷ 平均。グループで来るので、人の側から見たグループの人数の平均 Σ k・（k 人組の人の割合）。
+    前は一律 1.2 で、グループの多い流れ（verify_counterflow、約 1.8）では正しい到着でも 1 割ほどが「注意」になった（2026-11-06）。"""
+    spec = run.spec or {}
+    default = (spec.get("people") or {}).get("group_size")
+    for s in spec.get("streams", []):
+        if s.get("name", s.get("origin")) != stream:
+            continue
+        gs = s.get("group_size") or default
+        if gs is None:
+            return 1.0
+        if isinstance(gs, dict) and gs.get("type") == "zero_truncated_poisson":
+            return float(sum((k + 1) * x for k, x in enumerate(ztp_person_share(gs["lam"], 5))))
+    return 1.2
+
+
 def arrivals(run):
-    """流れごとの到着（人/分）と、シナリオで決めた値（summary.json の inputs.rates）。"""
+    """流れごとの到着（人/分）と、シナリオで決めた値（summary.json の inputs.rates）。着いたのに入口がふさがっていて終わりまで外で待った人
+    （summary.json の outside_at_end）も数える（ゲートで運べる量より多く入れる確かめで、外で待つ人を数えず 75 → 61 人/分に見えた、2026-11-06）。"""
     dur = run.gt["total_frames"] / run.fps
     by = Counter()
     for d in run.P.values():
         info = d["info"]
         if info.get("stream") != "alight" and info.get("role") != "companion":
             by[info.get("stream")] += 1
+    outside = run.summary.get("outside_at_end") or {}
+    by.update({s: n for s, n in outside.items() if s != "alight"})
     rates = (run.summary.get("inputs") or {}).get("rates", {})
     out = {}
     for s, n in by.items():
         obs = n / dur * 60
         r = rates.get(s, {})
-        item = {"persons": n, "observed_per_min": round(obs, 2)}
+        item = {"persons": n, "observed_per_min": round(obs, 2), **({"outside_at_end": outside[s]} if outside.get(s) else {})}
         if "persons_per_min" in r:
             exp = r["persons_per_min"] * dur / 60
-            z = (n - exp) / math.sqrt(max(exp * 1.2, 1e-9))  # まとまりで来るので分散は平均より少し大きい
+            z = (n - exp) / math.sqrt(max(exp * arrival_dispersion(run, s), 1e-9))  # グループで来るので分散は平均より大きい
             item.update({"expected_per_min": r["persons_per_min"], "z": round(z, 2), "source": r.get("source"), **verdict(abs(z) <= 2)})
         out[s] = item
     return out
@@ -268,7 +308,7 @@ def speed_density(run, rows):
 
 def group_speed(run, rows, members):
     by = defaultdict(list)
-    for n, _f, v, rho, st, mv in rows:
+    for n, _f, v, rho, st, mv, *_ in rows:
         if st == "pass" and rho == 0 and mv and v > 0.2:
             by[n].append(v)
     pts = []
@@ -293,6 +333,8 @@ def group_speed(run, rows, members):
 
 
 def dyad_distance(run, members):
+    """2 人連れが並んで歩くときの距離・横の間隔（Zanlungo ら 2017 は廊下を歩く 2 人の値）。ゲートの列に加わってから通って
+    DYAD_AFTER_GATE_S 秒までは外す（列では前後に並び、ゲートは 1 人ずつ通るので離れてから並び直す。列の中を数えて 1.1〜1.8 m になった、2026-11-06）。"""
     profile = (run.spec.get("people") or {}).get("profile")
     rel_name, r_ref, x_ref = DYAD_REF.get(profile, DYAD_ALL)
     r_all, x_all = [], []
@@ -301,7 +343,10 @@ def dyad_distance(run, members):
             continue
         a, b = (run.P[n] for n in names)
         f0, f1 = max(a["f0"], b["f0"]), min(a["f0"] + len(a["xy"]), b["f0"] + len(b["xy"]))
+        skip = [(j, tp + int(DYAD_AFTER_GATE_S * run.fps)) for j, tp in a["queue_spans"] + b["queue_spans"]]
         for f in range(f0, f1, run.fps // 2):
+            if any(s0 <= f <= s1 for s0, s1 in skip):
+                continue
             ka, kb = f - a["f0"], f - b["f0"]
             if a["state"][ka] == "pass" and b["state"][kb] == "pass" and a["moving"][ka] and b["moving"][kb]:
                 rel = b["xy"][kb] - a["xy"][ka]
@@ -317,22 +362,28 @@ def dyad_distance(run, members):
 
 
 def gate_headways(run):
-    """前の人が通ったとき、もう列で待っていた人の、前の人との間隔（ゲートがふさがっている間の 1 人あたりの時間）。"""
-    q_start = {}
+    """列ができているときの、同じレーンを続けて通る 2 人の間隔（ゲートがふさがっている間の 1 人あたりの時間）。
+    後ろの人が、前の人が通るより前に列で止まっていた（状態 gate_queue の始まりが、自分の前の通過より後で、前の人の通過より前）場面だけ数える。
+    列が進むたびに全員が次の場所へ歩く（そのあいだは歩く途中 pass）ので、「前の人が通った瞬間に列の状態」で選ぶと、
+    種 1〜8 のどれも 10 回に届かなかった（2026-11-06）。"""
+    q_start = defaultdict(list)
     for n, d in run.P.items():
-        for s0, s1, st in d["info"]["states"]:
+        for s0, _s1, st in d["info"]["states"]:
             if st == "gate_queue":
-                q_start.setdefault(n, []).append((s0 / run.fps, s1 / run.fps))
+                q_start[n].append(s0 / run.fps)
+    passes = defaultdict(list)
     lanes = defaultdict(list)
     for e in run.gt.get("gate_events", []):
         lanes[(e["gate"], e["lane"])].append(e)
+        passes[e["person"]].append(e["t"])
     hw, peak = [], 0
     for evs in lanes.values():
         evs.sort(key=lambda e: e["t"])
         ts = [e["t"] for e in evs]
         for k in range(1, len(evs)):
             prev, cur = evs[k - 1]["t"], evs[k]
-            if any(s0 <= prev <= s1 + 0.1 for s0, s1 in q_start.get(cur["person"], [])):
+            last = max((x for x in passes[cur["person"]] if x < cur["t"]), default=-math.inf)
+            if any(last < s0 <= prev for s0 in q_start[cur["person"]]):
                 hw.append(cur["t"] - prev)
         j = 0
         for i in range(len(ts)):
@@ -348,7 +399,9 @@ def gate_headways(run):
 
 
 def gridlock(run):
-    """詰まって動けなくなった人: 終わりの時点でまだいて、歩く途中（pass）なのに、最後の 30 秒で 0.3 m 未満しか動いていない人。
+    """詰まって動けなくなった人: 終わりの時点でまだいて、歩く途中（pass）かゲートの列に並ぶ途中（gate_queue）なのに、最後の 30 秒で 0.3 m 未満しか
+    動いていない人（ゲートが通していれば列は 30 秒のうちに進む。列の人を数えず、ゲートの 1 つのレーンが 150 秒止まったのを見逃した、2026-11-06）。
+    その 30 秒のあいだずっと歩く途中か列の途中だった人だけを数える（止まる段取りの後に歩き出したばかりの人は数えない）。
     ただし、その 30 秒の間に終わりの位置から 2 m より遠くへ行った人（行って戻った人）は数えない（ゲートを通って引き返した人が、
     たまたま 30 秒前と同じ所にいたのを数えた、2026-11-06。押されて前後に 1 m ほど動きながら出られない人は数える）。"""
     total = int(run.gt["total_frames"])
@@ -356,12 +409,13 @@ def gridlock(run):
     stuck = []
     for n, d in run.P.items():
         end = d["f0"] + len(d["xy"]) - 1
-        if end < total - 1 or len(d["xy"]) <= w or d["state"][-1] != "pass":
+        if end < total - 1 or len(d["xy"]) <= w or any(st not in ("pass", "gate_queue") for st in d["state"][-1 - w:]):
+            # 30 秒のあいだずっと歩く途中か列の途中だった人だけ（受付で止まっていて終わりの 6 秒前に歩き出した人を数えた、2026-11-06）
             continue
         win = d["xy"][-1 - w:]
         if float(np.linalg.norm(win[-1] - win[0])) < 0.3 and float(np.linalg.norm(win - win[-1], axis=1).max()) <= 2.0:
             stuck.append(n)
-    return {"n_stuck": len(stuck), "people": stuck[:10], **verdict(len(stuck) == 0, "最後の 30 秒、歩く途中で止まったままの人" if stuck else None)}
+    return {"n_stuck": len(stuck), "people": stuck[:10], **verdict(len(stuck) == 0, "最後の 30 秒、歩く途中・列の途中で止まったままの人" if stuck else None)}
 
 
 def bottleneck(run):
@@ -391,7 +445,7 @@ def bottleneck(run):
 
 
 def waiting(run):
-    """EV を待った時間・ゲートの列に並んだ時間（比べる文献はなく、参考の値）。"""
+    """EV を待った時間・ゲートの列に並んだ時間・入口がふさがって外で待った時間（比べる文献はなく、参考の値）。"""
     ev = [d["info"]["events"]["board_start"] - d["info"]["events"]["wait_start"] for d in run.P.values()
           if "board_start" in d["info"].get("events", {}) and "wait_start" in d["info"]["events"]]
     gq = [(s1 - s0 + 1) / run.fps for d in run.P.values() for s0, s1, st in d["info"]["states"] if st == "gate_queue"]
@@ -400,11 +454,18 @@ def waiting(run):
         out["ev_wait_s"] = {"n": len(ev), "mean": round(float(np.mean(ev)), 1), "p90": round(float(np.percentile(ev, 90)), 1)}
     if gq:
         out["gate_queue_s"] = {"n": len(gq), "mean": round(float(np.mean(gq)), 1), "p90": round(float(np.percentile(gq, 90)), 1)}
+    sw = [d["info"]["events"]["spawn_wait_s"] for d in run.P.values() if d["info"].get("events", {}).get("spawn_wait_s")]
+    if sw:
+        out["outside_wait_s"] = {"n": len(sw), "mean": round(float(np.mean(sw)), 1), "p90": round(float(np.percentile(sw, 90)), 1)}
     out["still_waiting_at_end"] = run.summary.get("still_waiting_at_end")
+    if run.summary.get("outside_at_end"):
+        out["outside_at_end"] = sum(run.summary["outside_at_end"].values())
     return out
 
 
 def standing_spacing(run):
+    """立って待つ人（EV・ゲートの列）どうしの、いちばん近い距離（グループの仲間は除く）。Hall 1966 の密接の距離 0.45 m 未満が少ないか。
+    前は歩いて横を通る人までの距離も数えていた（列が長いと、列の横を抜ける人で 0.45 m 未満が 13% になった。歩く人との近さは重なりで見る、2026-11-06）。"""
     d_all = []
     total = int(run.gt["total_frames"])
     for f in range(0, total, run.fps):
@@ -415,10 +476,11 @@ def standing_spacing(run):
             continue
         xy = np.array([run.P[n]["xy"][k] for n, k in here])
         grp = [run.P[n]["group"] for n, _ in here]
+        sset = set(stand)
         for i in stand:
             d = np.linalg.norm(xy - xy[i], axis=1)
             for j in range(len(here)):
-                if j == i or (grp[i] is not None and grp[i] == grp[j]):
+                if j == i or j not in sset or (grp[i] is not None and grp[i] == grp[j]):
                     d[j] = 99
             d_all.append(float(d.min()))
     d_all = [x for x in d_all if x < 99]
@@ -569,7 +631,12 @@ def _md_input(ir):
     f = ir["free_walking_speed"]
     tg = f.get("target", {"mean": 1.34, "sd": 0.26})
     lit = "1.34 ± 0.26 m/s（weidmann1993）" if (tg["mean"], tg["sd"]) == (1.34, 0.26) else f"シナリオ {tg['mean']} ± {tg['sd']} m/s（文献は 1.34 ± 0.26）"
-    rows.append(_row("自由に歩く速さ", f"{f.get('mean_m_s', '-')} ± {f.get('sd_m_s', '-')} m/s（{f.get('n_people')} 人）", lit, f["verdict"]))
+    calc = f"{f.get('mean_m_s', '-')} ± {f.get('sd_m_s', '-')} m/s（{f.get('n_people')} 人）"
+    if "given_all" in f:
+        g1, g2 = f["given_same_people"], f["given_all"]
+        calc += f"。その人たちに与えた速さ {g1['mean']} ± {g1['sd']}、全員に与えた速さ {g2['mean']} ± {g2['sd']}（{g2['n']} 人）"
+        lit += "。歩きは与えた速さと ± 0.05、与えた速さは文献と ± 0.08"
+    rows.append(_row("自由に歩く速さ（前 2.5 m に人がいない）", calc, lit, f["verdict"]))
     g = ir["group_size"]
     gl = g.get("literature")
     ref = f"入力 {_fmt(g.get('scenario_share'))}" + (f"、文献 {_fmt(gl['share'])}（{gl['source']}、{gl['note']}）" if gl else "")
@@ -578,7 +645,7 @@ def _md_input(ir):
     rows.append(_row("グループの速さ（1 人増えるごと）", f"{gs.get('slope_m_s_per_member', '-')} m/s（{gs.get('n_groups')} 組）",
                      "−0.04〜−0.08 m/s（moussaid2010）", gs["verdict"]))
     for s, a in ir["arrivals"].items():
-        calc = f"{a['observed_per_min']} 人/分（{a['persons']} 人）"
+        calc = f"{a['observed_per_min']} 人/分（{a['persons']} 人" + (f"、うち終わりまで外で待った {a['outside_at_end']} 人）" if a.get("outside_at_end") else "）")
         if "expected_per_min" in a:
             rows.append(_row(f"到着 {s}", calc, f"{a['expected_per_min']} 人/分（{a['source']}、z = {a['z']}）", a["verdict"]))
         else:
@@ -620,7 +687,8 @@ def _md_emergent(em):
     w = em["waiting"]
     rows.append(_row("待った時間（参考）",
                      f"EV {_fmt(w.get('ev_wait_s', '-'))} 秒・ゲートの列 {_fmt(w.get('gate_queue_s', '-'))} 秒・"
-                     f"終わりに残った {w.get('still_waiting_at_end')} 人",
+                     f"入口の外 {_fmt(w.get('outside_wait_s', '-'))} 秒・終わりに残った {w.get('still_waiting_at_end')} 人"
+                     + (f"・終わりまで外で待った {w['outside_at_end']} 人" if w.get("outside_at_end") else ""),
                      "-", "参考"))
     return rows
 

@@ -503,8 +503,11 @@ class Builder:
         comp = []
         base_plan = self.plan_for(d, comp)
         hidden = self.space.pois[origin].get("hidden") if isinstance(origin, str) and origin_xy is None else None
+        alt = None
         if hidden:  # カメラに映らない所（扉の向こうなど）に現れ、現れる場所までまっすぐ歩いて入る。入る人の線（door_lane）を通る
-            o = self.door_lane(origin)[0]
+            o, o2 = self.door_lane(origin)
+            if o2[0] != o[0]:  # 入る人の線がふさがっていれば、出る人の線から入ってよい（そこを出ていく人がいなければ。engine.try_enter）
+                alt = (shift(hidden, o2), shift(oxy, o2))
             base_plan = [("straight", shift(oxy, o), "pass")] + base_plan
             oxy = shift(hidden, o)
         made = []
@@ -513,6 +516,8 @@ class Builder:
             plan = base_plan if k == 0 else self.plan_for_copy(base_plan)
             a = self.new_agent(plan, t0 + k * self.rng.uniform(0.0, 0.4), oxy, speed if size > 1 else speeds[0], l_pref, group,
                                {"type": typ, "stream": stream, "destination": d["to"], "origin": label})
+            if hidden:
+                a.door, a.entry_alt = origin, alt
             made.append(a)
         for c in comp:  # 待ち合わせ: 先に来た人（グループ全員）と、あとから来る同行者
             for a in made:

@@ -48,7 +48,7 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `tasks.json` | 6 つのタスクの正解の集計 | 人数・流れ・滞留・混雑の評価 |
 | `graph/` | ゾーンのグラフ・格子のグラフと、人数・流れの時系列 | GNN・時系列の予測 |
 | `logs/` | ゲートの通過記録・EV の運行記録（実データと同じ形）。`twinsim export-logs <結果>` で作る | 実データで合わせる（`calibrate`）の見本 |
-| `summary.json`・`scenario_resolved.json`・`.yaml` | 要約と、既定を足したシナリオ（乱数の種を含む） | 作り直し・記録 |
+| `summary.json`・`scenario_resolved.json`・`.yaml` | 要約（人数・人の動き `motion`・着いたのに終わりまで外で待った人 `outside_at_end` など）と、既定を足したシナリオ（乱数の種を含む） | 作り直し・記録 |
 | `validity.*`・`preview.png` | 文献との比べ・確認の図 | 人の分布の妥当性 |
 
 ## 2. `ground_truth.json`

@@ -63,7 +63,7 @@ Checking a space: `python -m twinsim show-space <name>` produces an image (annot
 |---|---|
 | `space` | Name of the space |
 | `seed`, `fps`, `duration_s` | Random seed (0), frames per second (30), length (120 s) |
-| `people` | `profile` (literature profile: `office_commute_jp`, `leisure_low_density`; docs/validity.md), `speed` (distribution of walking speed, default 1.34 ± 0.26 m/s, Weidmann 1993), `models` (person models; `all`), `group_size` (group size used when a stream does not specify one), `group_speed` (default `{model: moussaid2010, slope_m_s: 0.04}`; `{model: min}` matches the slowest member), `group_lateral_m` (side-by-side spacing of a pair, default 0.66, Zanlungo et al. 2017), `speed_density` (speed–density relation, default Weidmann 1993; `null` turns it off), `lateral_max_m` (how far a person can step sideways off the path to avoid others, 1.0) |
+| `people` | `profile` (literature profile: `office_commute_jp`, `leisure_low_density`; docs/validity.md), `speed` (distribution of walking speed, default 1.34 ± 0.26 m/s, Weidmann 1993), `models` (person models; `all`), `group_size` (group size used when a stream does not specify one), `group_speed` (default `{model: moussaid2010, slope_m_s: 0.04}`; `{model: min}` matches the slowest member), `group_lateral_m` (side-by-side spacing of a pair, default 0.66, Zanlungo et al. 2017), `speed_density` (speed–density relation, default Weidmann 1993; `null` turns it off), `lateral_max_m` (how far a person can step sideways off the path to avoid others, 1.0), `motion_model` (walking model; default `cfsm`, previous model `lane`) |
 | `demand` | Volume of elevator users: `population` (building population), `period` (`morning`, `lunch`), `peak_pct_5min` (percentage in the busiest 5 minutes, 12). Used by `rate: {type: lift_demand}` and `alight.count: {type: lift_demand}` (Peters et al. 2011) |
 | `streams[]` | Streams of people: `name`, `origin` (where people appear: a place name, or coordinates as `{"xy": [x, y]}` or `{"line": [[x0, y0], [x1, y1]]}`; for a line, somewhere on that line; adding `name` sets the label used in the counts), `rate` (arrival rate), `group_size`, `types`, `destinations[]`, `start_s`. Coordinates must be walkable and connected to the destinations (otherwise an error before simulating) |
 | `elevator` | `cars` (door names), `capacity`, `schedule`, `alight` (people getting off: `count`, `types`, `destinations`), `transfer_s` (boarding/alighting time per person, 1.0 s), `door_open_s` (from arrival until the first person moves, 1.0 s, provisional) |
@@ -132,7 +132,7 @@ Arrival rates (`per_min` is groups per minute; with `unit: persons` it is person
 | `graph/` | For GNNs: `graph.json` (zone graph, 2 m grid graph, nodes visible from each camera), `zone_counts.csv` (people per zone per second), `zone_flows.csv` (movement between zones per minute), `grid_counts.npz` (counts[second, cell]), `zone_graph.graphml` |
 | `mot/<camera>.txt` | Bounding boxes in MOTChallenge format (frame, id, x, y, w, h, 1, 1, visible fraction). The visible fraction is approximate (walls are counted as lines on the floor, people by overlap with the boxes in front of them) |
 | `preview.png` | Check image overlaying people's trajectories (colored by stream), zones and camera directions on the top-down image |
-| `summary.json` | People count, time per state, elevator waiting time, gate passage directions, run time, `inputs` (arrival rates, elevator boarding/alighting and gate times determined from the literature) |
+| `summary.json` | People count, time per state, elevator waiting time, gate passage directions, run time, `inputs` (arrival rates, elevator boarding/alighting and gate times determined from the literature), `motion` (safety valve `squeezes`, swaps in front of the gate `lane_swaps`, people who entered on the leaving line `entry_alt`), `outside_at_end` (people who arrived but were still waiting outside at the end, per stream) |
 | `validity.json`, `validity.md`, `validity.png` | Comparison with literature values (reproduction of inputs, emergent quantities) and a ledger of the basis for each scenario value (docs/validity.md) |
 | `aicity/gt.txt` | Multi-camera tracking format (AI City Challenge MTMC). Person IDs are the same across cameras |
 | `logs/` | Log format (export-logs) |
@@ -183,10 +183,14 @@ and the values without literature (provisional) and how to calibrate them with r
 
 ## 10. Known limitations
 
-- Walking uses a simple "step sideways off the path to avoid others" model (an extension of hospital-sim), with added following speed behind the person in front (Seyfried et al. 2005),
-  the speed–density relation (Weidmann 1993), overtaking and group cohesion. When people pass each other they come as close as 0.25–0.4 m.
-  At 0.25–1 persons/m², speeds are about 0.1 m/s slower than in the literature. Corners, stairs and evacuation have not been checked (passing in opposite directions and openings have; see section 5 of [validity.en.md](validity.en.md)).
+- By default, walking uses the Collision-Free Speed Model (Tordeux et al. 2016, `people.motion_model: cfsm`) with added rules for group cohesion, gate queues, elevator boarding and alighting, and entrances
+  (sections 5.1–5.3 of [validity.en.md](validity.en.md)). Pushing (forces between bodies) is not modelled; a person who cannot progress passes through with the safety valve (2 s of passing through after 15 s without progress),
+  so bodies overlap a little only then. In crowded configurations the gate queue fills the passage and people walking the other way have trouble getting past. The previous model (`lane`, stepping sideways off the path) can still be chosen.
+  Corners, stairs and evacuation have not been checked (passing in opposite directions and openings have; see section 5 of [validity.en.md](validity.en.md)).
 - If the entrance (spawn place) is blocked, people wait outside until it clears (`events.spawn_wait_s`). When a queue extends outside the building, those people are counted as waiting outside.
+  Waiting people enter each entrance in order of arrival (a group together; each member waits until the previous member has moved 0.4 m). People entering from behind a door (`hidden`, `motion_model: cfsm`)
+  also use the leaving people's line when the entering line is blocked, but only when nobody leaving through it is within 5 m (`motion.entry_alt` in `summary.json`).
+  The second person of a pair enters side by side on the other line when it is free. People who arrived but were still waiting outside at the end are in `outside_at_end` of `summary.json` (per stream).
 - The visible fraction (9th column of MOT) is approximate. Exact values would be taken from the rendered depth (not implemented).
 - Single floor only. Elevators only make people disappear and appear at the doors; there are no cars and no other floors. Door open/close animations are not used (one of the office elevators has an open/close animation).
 - The hospital's walkable area was built with the room doors closed, so people cannot enter the rooms. The small room renders completely dark (cause not investigated).

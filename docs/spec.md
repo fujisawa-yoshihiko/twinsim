@@ -63,7 +63,7 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 |---|---|
 | `space` | 空間の名前 |
 | `seed`・`fps`・`duration_s` | 乱数の種（0）、1 秒のコマ数（30）、長さ（120 秒） |
-| `people` | `profile`（文献の値の組。`office_commute_jp`・`leisure_low_density`。docs/validity.md）、`speed`（歩く速さの分布、既定は 1.34 ± 0.26 m/s、Weidmann 1993）、`models`（人物モデル。`all`）、`group_size`（流れに書かないときのまとまりの人数）、`group_speed`（既定 `{model: moussaid2010, slope_m_s: 0.04}`。`{model: min}` で遅い人に合わせる）、`group_lateral_m`（2 人連れの横の間隔、既定 0.66、Zanlungo ら 2017）、`speed_density`（速さと密度の関係、既定 Weidmann 1993。`null` で切る）、`lateral_max_m`（経路から横へよけられる幅、1.0） |
+| `people` | `profile`（文献の値の組。`office_commute_jp`・`leisure_low_density`。docs/validity.md）、`speed`（歩く速さの分布、既定は 1.34 ± 0.26 m/s、Weidmann 1993）、`models`（人物モデル。`all`）、`group_size`（流れに書かないときのまとまりの人数）、`group_speed`（既定 `{model: moussaid2010, slope_m_s: 0.04}`。`{model: min}` で遅い人に合わせる）、`group_lateral_m`（2 人連れの横の間隔、既定 0.66、Zanlungo ら 2017）、`speed_density`（速さと密度の関係、既定 Weidmann 1993。`null` で切る）、`lateral_max_m`（経路から横へよけられる幅、1.0）、`motion_model`（歩き方のモデル。既定 `cfsm`、前のモデル `lane`） |
 | `demand` | EV を使う人の量: `population`（建物にいる人数）、`period`（`morning`・`lunch`）、`peak_pct_5min`（混む 5 分の割合、12）。`rate: {type: lift_demand}` と `alight.count: {type: lift_demand}` が使う（Peters ら 2011） |
 | `streams[]` | 人の流れ: `name`、`origin`（現れる場所。場所の名前か、座標の `{"xy": [x, y]}`・`{"line": [[x0, y0], [x1, y1]]}`。線なら線の上のどこか。`name` を足すと集計での呼び名になる）、`rate`（到着の率）、`group_size`、`types`、`destinations[]`、`start_s`。座標は歩ける所の中で、行き先まで歩いて行ける所に置く（外なら計算の前に誤り） |
 | `elevator` | `cars`（扉の名前）、`capacity`、`schedule`、`alight`（降りる人: `count`・`types`・`destinations`）、`transfer_s`（1 人の乗り降り、1.0 秒）、`door_open_s`（着いてから最初の人が動くまで、1.0 秒、仮） |
@@ -132,7 +132,7 @@ EV の運行（`elevator.schedule`）:
 | `graph/` | GNN 向け: `graph.json`（ゾーンのグラフ・2 m の格子のグラフ・カメラから見えるノード）、`zone_counts.csv`（秒ごとのゾーンの人数）、`zone_flows.csv`（1 分ごとのゾーン間の移動）、`grid_counts.npz`（counts[秒, 格子]）、`zone_graph.graphml` |
 | `mot/<カメラ>.txt` | MOTChallenge の形式の枠（frame, id, x, y, w, h, 1, 1, 見えている割合）。見えている割合は近似（壁は床の上の線で、人は手前の枠との重なりで数える） |
 | `preview.png` | 真上の図に、人の軌跡（流れごとの色）・ゾーン・カメラの向きを重ねた確認の図 |
-| `summary.json` | 人数・状態ごとの時間・EV の待ち時間・ゲートの通過の向き・かかった時間・`inputs`（文献から決めた到着の率・EV の乗り降り・ゲートの時間） |
+| `summary.json` | 人数・状態ごとの時間・EV の待ち時間・ゲートの通過の向き・かかった時間・`inputs`（文献から決めた到着の率・EV の乗り降り・ゲートの時間）・`motion`（安全弁 `squeezes`・ゲートの手前の入れ替え `lane_swaps`・出る人の線から入った人数 `entry_alt`）・`outside_at_end`（着いたのに終わりまで外で待った人、流れごと） |
 | `validity.json`・`validity.md`・`validity.png` | 文献の値との比べ（入力の再現・出てくる量）と、シナリオの値ごとの根拠の台帳（docs/validity.md） |
 | `aicity/gt.txt` | 複数カメラの追跡の形（AI City Challenge の MTMC）。人の番号はカメラをまたいで同じ |
 | `logs/` | 記録の形（export-logs） |
@@ -183,10 +183,14 @@ isim up --gpu N --enable omni.anim.navigation.core --enable omni.kit.capture.vie
 
 ## 10. 既知の限界
 
-- 歩き方は「経路から横へずれてよける」簡単なモデル（hospital-sim を広げたもの）に、前の人についていく速さ（Seyfried ら 2005）・
-  速さと密度の関係（Weidmann 1993）・追い越し・グループのまとまりを足したもの。すれ違いで 0.25〜0.4 m まで近づく。
-  0.25〜1 人/m² では文献より 0.1 m/s ほど遅い。曲がり角・階段・避難は確かめていない（すれ違いと出入口は確かめた。[validity.md](validity.md) の 5 節）。
+- 歩き方は既定で Collision-Free Speed Model（Tordeux ら 2016、`people.motion_model: cfsm`）に、グループのまとまり・ゲートの列・EV の乗り降り・入口の決まりを
+  足したもの（[validity.md](validity.md) の 5.1〜5.3）。押し合い（体どうしの力）は表さず、進めない人は安全弁（15 秒進めなければ 2 秒だけ通り抜ける）で通るので、
+  そのときだけ少し重なる。混む設定では、ゲートの列が通路を埋めて逆向きに歩く人が抜けにくい。前のモデル（`lane`、経路から横へずれてよける）も選べる。
+  曲がり角・階段・避難は確かめていない（すれ違いと出入口は確かめた。[validity.md](validity.md) の 5 節）。
 - 入口（現れる場所）がふさがっていると、空くまで外で待つ（`events.spawn_wait_s`）。列が建物の外まで伸びる場面は、外で待つ人として数える。
+  待つ人は入口ごとに着いた順に入る（グループはまとめて。仲間は前の仲間が 0.4 m 進んでから）。扉の向こうから入る人（`hidden`、`motion_model: cfsm`）は、
+  入る人の線がふさがっていれば、そこを出ていく人が 5 m 以内にいないときだけ出る人の線からも入る（`summary.json` の `motion.entry_alt`）。
+  2 人連れの 2 人目は、横の線が空いていれば並んで入る。終わりまで外で待った人は `summary.json` の `outside_at_end`（流れごと）。
 - 見えている割合（MOT の 9 列目）は近似。正確な値は描画の深度から取る（未実装）。
 - 1 つの階だけ。EV は扉で人が消える・現れるだけで、かごや他の階はない。扉の開閉のアニメーションは使っていない（オフィスの EV 1 基には開閉のアニメーションがある）。
 - 病院は部屋の扉を閉じたまま歩ける所を作ったので、部屋の中には入れない。小部屋は描画が真っ暗（原因未調査）。

@@ -48,7 +48,7 @@ No lens distortion (pinhole). Other values: `eye` and `target` (world coordinate
 | `tasks.json` | Ground-truth aggregates for the six tasks | Evaluating counts, flows, dwelling, and congestion |
 | `graph/` | Zone graph and grid graph, and time series of counts and flows | GNN and time-series prediction |
 | `logs/` | Gate passage logs and elevator operation logs (same format as real data). Made with `twinsim export-logs <run>` | Example for calibrating with real data (`calibrate`) |
-| `summary.json`, `scenario_resolved.json` and `.yaml` | Summary, and the scenario with defaults filled in (including the random seed) | Regeneration, logging |
+| `summary.json`, `scenario_resolved.json` and `.yaml` | Summary (people, motion statistics `motion`, people who arrived but were still waiting outside at the end `outside_at_end`, and so on), and the scenario with defaults filled in (including the random seed) | Regeneration, logging |
 | `validity.*` and `preview.png` | Comparison with the literature, figures for checking | Validity of the people distribution |
 
 ## 2. `ground_truth.json`

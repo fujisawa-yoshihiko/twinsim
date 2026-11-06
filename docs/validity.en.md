@@ -71,19 +71,19 @@ In the GUI, the "People distributions (literature)" section lets you choose the 
 
 | Item | Type | Verdict criterion |
 |---|---|---|
-| Free walking speed (walking with nobody within 1.5 m ahead, per-person median) | Input reproduction | Mean 1.34 ± 0.08, standard deviation 0.18–0.34 |
+| Free walking speed (walking with nobody in the 2.5 m half-circle ahead, per-person median; group members excluded) | Input reproduction | Mean and standard deviation within ± 0.05 of the speeds given to those people, and the speeds given to everyone have mean 1.34 ± 0.08 and standard deviation 0.18–0.34 (changed on 2026-11-06; 5.3) |
 | Group size (share of people) | Input reproduction | Difference from the input distribution (total variation distance) at most 0.08 or 1.5/√(number of people) |
 | Group speed (slope against group size) | Input reproduction | −0.14 to 0 m/s per person (when there are 15 or more groups) |
-| Arrivals (per stream) | Input reproduction | Difference from the specified people/min within ±2 in z |
+| Arrivals (per stream; people still waiting outside at the end are counted) | Input reproduction | Difference from the specified people/min within ±2 in z (variance = mean × the person-weighted mean group size; with a 2σ test, about one in 20 correct streams is still flagged "caution") |
 | Outgoing share of elevator use | Input reproduction | Difference from the literature (morning 0.105, lunch 0.5) within 2 standard errors + 0.03 |
 | Interval between consecutive people boarding an elevator | Input reproduction | Median 0.7–1.6 s |
-| Gate time per person when crowded | Input reproduction | Median 1.5–4.0 s (10 or more times with a queue) |
+| Gate time per person when crowded | Input reproduction | Median 1.5–4.0 s (10 or more pairs of consecutive passages in a lane where the second person had already stopped in the queue before the first passed) |
 | Speed by density | Emergent quantity | Ratio to the person's own speed matches the formula's v/v0 within an RMS of 0.12 at 0.5 people/m² or more (verdict only for the unidirectional corridor `verify_*`; reference only otherwise) |
-| Dyad distance | Emergent quantity | Literature (colleagues 0.85 m, etc.) ± 0.15 m |
-| Nearest distance between waiting people | Emergent quantity | Below 0.45 m in at most 5% |
-| People stuck and unable to move | Emergent quantity | In the last 30 s, 0 people en route who moved less than 0.3 m (excluding people who went more than 2 m away and came back in that time) |
+| Dyad distance (excluding the time from joining a gate queue until 5 s after passing) | Emergent quantity | Literature (colleagues 0.85 m, etc.) ± 0.15 m |
+| Nearest distance between waiting people (between people standing and waiting; people walking past are not counted) | Emergent quantity | Below 0.45 m in at most 5% |
+| People stuck and unable to move | Emergent quantity | In the last 30 s, 0 people en route or in a gate queue who moved less than 0.3 m (excluding people who went more than 2 m away and came back in that time) |
 | Doorway capacity | Emergent quantity | Within ±15% of 1.90–2.19 people/(m·s) from the 1.0 m width experiment (when `validity: {bottleneck: ...}` is set) |
-| Time spent waiting in elevator and gate queues | Reference only | No literature to compare with |
+| Time spent waiting in elevator and gate queues and outside the entrance | Reference only | No literature to compare with |
 
 ## 5. Results of the engine verification (2026-10-22)
 
@@ -183,6 +183,82 @@ Remaining:
   Pair distance over seeds 1–8: mean 1.10 → 1.28 m (3/8 pass, before and now).
 - Overlap in `verify_bottleneck` rose slightly, 0.41 → 0.44 (safety valve 17 → 20).
 
+(These three were fixed in 5.3.)
+
+### 5.3 Entrance order, a second entering line, gate queues, crowding in front of elevators, and how the checks measure (evening of 2026-11-06)
+
+The remaining items of 5.2 were investigated, and both the motion and the measurements of the checks were changed.
+
+Motion (engine):
+- **People waiting at an entrance enter in order of arrival:** waiting people checked whether they could enter only every 0.2 s, so a later arrival took a brief gap first
+  (the second person of a pair waited outside for 47 s while later people went in). Now waiting people are checked every frame, per entrance, in order of arrival (a group together), and while someone ahead is waiting, those behind wait too.
+- **A second entering line:** people entered from behind the door one by one along a single line, so the entrance let in only about 58 people per minute (`verify_gate_capacity`
+  feeds 75 people/min to build a queue at the gate, but its arrivals were flagged "caution", the queue never grew long, and 96% of the people who entered had waited outside for 14 s on average).
+  When the entering line is blocked, people also enter along the leaving people's line, but only when nobody leaving through it is within 5 m of the door point (`motion.entry_alt` in `summary.json`).
+- **How groups enter:** a group member also waits while a member is within 0.4 m of the spawn point (two members appeared at the same point in the same frame and one was pushed out around the door post).
+  The second member enters side by side on the other line when it is free (entering one behind the other kept them walking in single file down the corridor). No lateral offset is applied while walking the door line (`straight`).
+- **Groups wait for each other at stops:** someone who finishes a stop (reception, etc.) first waits until the members on the same stop have finished (at most 60 s). They had arrived at different times and the first walked off,
+  so a pair going to the reception walked 10 m apart.
+- **Two people side by side in the same gate lane:** someone later in the queue standing right beside you (0.3 m or more to the side) is not treated as the person ahead. Two people who had entered side by side joined the same lane,
+  each treated the other as a queued person to keep 0.65 m from, and the lane stopped for 150 s (also between members of a group).
+- **Restoring the lateral offset:** when the point offset sideways from the path is not walkable in front of a wall, the reduced offset now recovers by 0.5 per second instead of at once. Whether the offset point was walkable flipped at every step,
+  and one member of a pair moved back and forth in front of a door corner for 12 s (this existed in the previous version too).
+- **Yielding at a merge:** if someone who has been unable to make progress longer than you (5 s or more) is close and diagonally ahead (within 1 m, 0.6 m to the side), you treat them as the person ahead, slow down, and let them in first.
+  People at the corners in front of an opening could not cut into the central stream and passed through with the safety valve after 15 s (about 20 times per run in `verify_bottleneck`). People yield in order of how long they have been stuck.
+- **People who cannot progress ask standing people to step aside:** a walker who has made no progress for 3 s or more although nobody is directly ahead asks the people standing and waiting within 0.9 m on the goal side to step sideways
+  (before, only the person blocking straight ahead was asked; among the people waiting for an elevator, the push from those around changed direction every frame and one person could not progress for 28 s).
+  People heading for a gate also use the safety valve when they are more than 2 m from the gate (not while waiting behind the queue).
+- **When re-planning a path, the part outside the walkable area is kept:** when a person boarding an elevator re-planned the path at a corner, the goal (inside the car) is outside the walkable area, so the new path ended in front of the door
+  and the person "boarded" and disappeared outside the door (this existed in the previous version too). The route is now searched to the last walkable point and the rest of the original path is appended.
+
+Checks (`validity`):
+- **Gate headway:** of two consecutive people through the same lane, the case counts when the second had already stopped in the queue before the first passed. Before, cases were chosen by "in the queue state at the moment the person ahead passed",
+  but everyone starts walking each time the queue moves (and is en route meanwhile), so none of seeds 1–8 reached 10 cases.
+- **Arrivals:** people who arrived but were still waiting outside at the end (`outside_at_end` in `summary.json`) are counted. The variance of the count is the mean × the person-weighted mean group size
+  (Σ k × (share of people in groups of k)). Before, it was 1.2 for every stream.
+- **Free walking speed:** measured on walking with nobody in the 2.5 m half-circle ahead, compared with the speeds given to those people, and the distribution of the speeds given to everyone is compared with the literature. In cfsm,
+  a person slows down when the person ahead is closer than 0.36 + 1.06 × speed (2.4 m at 1.9 m/s), so with 1.5 m fast people came out slow (ratio to the given speed 0.82 at 1.8 m/s).
+  With 2.5 m the ratio is 0.99–1.00 at every speed. Even so, in a crowded stream fast people catch up with someone ahead and cannot be measured, so the people measured are biased toward slow walkers
+  (1.27 m/s in `verify_fundamental_diagram`; the speeds given to those people are equally low).
+- **Dyad distance:** the time from joining a gate queue until 5 s after passing is excluded (in the queue the pair stands one behind the other, and the gate lets one person through at a time; the literature is for pairs walking side by side in a corridor).
+- **Distance between waiting people:** only between people standing and waiting. Before, the distance to people walking past was also counted, contrary to the definition in this document (13% below 0.45 m from people passing along the queue).
+  Closeness to walking people is covered by the overlap measure (5.1).
+- **Stuck people:** people in the middle of a gate queue are also counted (the queue was not counted, and a lane that stopped for 150 s was missed). Only people who were en route or in a queue during the whole 30 s are counted
+  (someone who had stood at the reception and started walking 6 s before the end was counted).
+
+Checks (mean of seeds 1–8; "before" is the 5.2 version fa7b9cc re-evaluated with the current checks, to separate what changes only because the checks changed):
+
+| Template | Stuck people (total over 8 runs) | Safety valve | Overlap | Comparison with the literature (passes out of 8) |
+|---|---:|---:|---:|---|
+| `verify_gate_capacity` | 0 → 0 | 0.4 → 0.3 | 0 → 0 | People entered 172 → 182, mean wait outside the entrance 16.1 → 10.4 s. Arrivals 0 → 8, dyads 5 → 7 (1.07 → 0.95 m), gate headway 8 → 8 (1 → 8 with the old check). Dyads with the default seed 3.06 m caution → 0.91 m pass |
+| `verify_bottleneck` | 0 → 0 | 22.4 → 19.9 | 0.45 → 0.38 | 1.93 → 1.91 people/(m·s), pass. Free walking speed 7 → 8 (0 with the old check) |
+| `verify_fundamental_diagram` | 0 → 0 | 0 → 0 | 0 → 0 | Free walking speed 8 → 8 (0 with the old check; from the change in the check). Speed by density unchanged |
+| `verify_counterflow` | 0 → 0 | 0 → 0 | 0 → 0 | Arrivals 6 → 6 (see remaining items below) |
+| `office_gate_ev` | 0 → 0 | 2.1 → 1.5 | 0.08 → 0.09 | Dyads 4 → 5 (1.11 → 1.06 m) |
+| `office_ev_hall` | 0 → 0 | 5.4 → 3.5 | 0.16 → 0.04 | Dyads 7 → 7 |
+| `hospital_gate_ev` | 0 → 0 | 2.3 → 0.6 | 0.18 → 0.03 | Dyads 8 → 8 |
+
+`verify_groups` and `verify_corridor_speed` are unchanged. The three elevator templates were also compared over seeds 1–16 (overlap varies a lot from seed to seed):
+
+| Template | Stuck people (total over 16 runs) | Safety valve | Overlap (seeds lower / higher) | Dyads (passes out of 16) |
+|---|---:|---:|---:|---|
+| `office_gate_ev` | 0 → 0 | 2.8 → 1.4 | 0.13 → 0.06 (9 / 2) | 10 → 13 |
+| `office_ev_hall` | 0 → 0 | 4.8 → 3.2 | 0.17 → 0.04 (9 / 3) | 15 → 15 |
+| `hospital_gate_ev` | 1 → 0 | 9.3 → 3.2 | 0.47 → 0.07 (10 / 0) | 13 → 13 |
+
+Configurations of set A of the corpus (27 runs): stuck people 0 → 0, total safety-valve uses 105 → 95, overlap 0.15 → 0.13 (safety valve in `A_hospital_ev_peak` 35 → 16).
+More people entered in the crowded configurations (commuter arrivals in `A_office_gate_peak` were flagged "caution" in all three runs before, z = −2.4 to −2.8, with only about 70% of the specified number entering (86–91 of 120); they now pass).
+
+Tried and reverted: joining the path of a group member who started the same step (stuck people rose to 7–10), and letting people standing in a gate queue step aside for people walking the other way (safety valve only 55 → 49, and one person got stuck).
+
+Remaining:
+- In crowded configurations the gate queue reaches the entrance and fills the corridor, and people leaving cannot get past the queue and pass through with the safety valve (safety valve 26 → 55 over 3 runs in `A_office_gate_peak`;
+  it surfaced because the specified number now enters). A passage for people walking the other way should be kept beside the queue.
+- The arrival check is a 2σ test, so about one in 20 correct streams is flagged "caution" (`verify_counterflow` seeds 2 and 5 have z = −2.2 and +2.6; arrivals are a Poisson process,
+  and the variance-to-mean ratio over the 16 streams is 1.39).
+- A pair who stood apart at the reception sometimes takes different corridors from there (dyads 1.14 m with seeds 9–16 of `hospital_gate_ev`, 1.03 m in the previous version, both 5/8).
+  Pairs can also split into different lanes at the gate.
+
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 
 | Value | Current | How to calibrate |
@@ -205,5 +281,6 @@ Remaining:
 - (Earlier model `lane`) When people jam in front of a bottleneck above 2 people/m², they squeeze in from the side and their bodies overlap (49% of frames below 0.4 m). Overlap with the person ahead moving in the same direction
   is prevented (`MIN_SEP` 0.35 m), but because the model shifts people sideways along the path, it cannot represent pushing from the side. The capacity is close to the experiments.
 - (`cfsm`) Bodies overlap a little only while the safety valve lets someone through (table in 5.1). At gates, pairs are split into different lanes.
+  In crowded configurations the gate queue fills the passage so people walking the other way have trouble getting past (they pass with the safety valve; 5.3).
   Pushing (forces between bodies) is not represented.
 - Body heights are those of the 10 character models as-is (not fitted to the height distribution of Japanese people).

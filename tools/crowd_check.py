@@ -74,6 +74,8 @@ def verdicts(v):
         for k, r in (v.get(part) or {}).items():
             if isinstance(r, dict) and "verdict" in r:
                 out[f"{part}.{k}"] = r["verdict"]
+            elif isinstance(r, dict):  # 流れごとの到着（arrivals）など、1 段下に判定があるもの
+                out.update({f"{part}.{k}.{s}": x["verdict"] for s, x in r.items() if isinstance(x, dict) and "verdict" in x})
     return out
 
 

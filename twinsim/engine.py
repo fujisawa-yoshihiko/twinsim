@@ -37,6 +37,12 @@ GOAL_NEAR_M, GOAL_STALL_S = 1.2, 2.0  # 行き先からこの距離の中で、�
 DOOR_CLEAR_M = 1.0  # EV の扉からこれより近くでは待たない（motion_model "cfsm"）
 AISLE_M = (2.5, 1.2)  # EV の扉から外へ、この長さ・幅の通り道でも待たない（降りる人が待つ人の中を通り抜けていた、2026-11-05）
 ENTRY_CLEAR_M = 0.5  # 扉の向こうから入る人は、扉の点からこの距離の中に人がいれば外で待つ（m。1.0 m では入る人が 192 → 106 人に減った）
+MATE_SPAWN_M = 0.4  # グループの仲間が現れる点からこの距離（m）より近ければ、次の仲間は待つ（同じ点に重なって現れないように）
+LEAVE_LOOK_M = 5.0  # 入る人が出る人の線を使うのは、そこを出ていく人が扉の点からこの距離（m）の中にいないとき
+NUDGE_ASK_S, NUDGE_ASK_M = 3.0, 0.9  # この秒数進めずにいる歩く人は、行き先の向きの前側のこの距離（m）以内に立つ人に道をあけてもらう
+GROUP_STOP_WAIT_S = 60.0  # 止まる段取りを先に済ませた人が、仲間を待つ最長の秒数
+LD_RECOVER_PER_S = 0.5  # 歩く人の横のずれ（l_pref）を壁の手前で減らしたあと、1 秒に戻す割合
+YIELD_S, YIELD_LAT, YIELD_D = 5.0, 0.6, 1.0  # 合流で譲る: この秒数進めずにいる人が、斜め前のこの横・距離（m）の中にいれば先に入れる
 UNSTICK_S, SQUEEZE_S = 15.0, 2.0  # 安全弁: この秒数行き先に近づけなければ、この秒数だけ周りの人を無視して通り抜ける
 BOARD_LANE_M = (0.25, 0.35)  # EV に乗る 2 列の、扉とかごの中での真ん中からの横のずれ（m）
 REROUTE_M = 1.5  # 歩く人が経路からこれより離れたら、今の位置から経路を引き直す（m）
@@ -190,6 +196,7 @@ class Sim:
         self.C = {**CFSM, **(cfsm or {})}
         self.squeezes = 0  # 安全弁を使った回数（summary.json の motion）
         self.lane_swaps = 0  # ゲートの手前で、ふさぎ合った 2 人の列の順・レーンを入れ替えた回数（swap_crossing、summary.json の motion）
+        self.entry_alt = 0  # 入る人の線がふさがっていて、出る人の線から入った人数（try_enter、summary.json の motion）
         gy, gx = np.gradient(space.clear)  # 壁から離れる向き（歩ける所の格子の、壁からの距離の傾き）
         self.wall_n = (gx, gy)
         self.gates = gates or {}
@@ -199,6 +206,7 @@ class Sim:
         self.queue = []
         self.lmax = lmax
         self.agents, self.by_name, self.here = [], {}, {}
+        self.group_t0 = {}  # グループの最初の人の現れる時刻（add、入口で待つ順）
         self.on_arrival, self.elevator_policy = on_arrival, elevator_policy
         self.ev_events, self.gate_events = [], []
         self.t = 0.0
@@ -210,6 +218,10 @@ class Sim:
         self.ev_timing = ev_timing or {"door_open_s": 0.5, "transfer_s": 0.0}
 
     def add(self, a):
+        # 入口で待つ順（try_enter）: 着いた順。グループは最初の人の時刻でまとめる（同行者 companion は別に来る）
+        g = a.group if a.group is not None and a.info.get("role") != "companion" else None
+        first = self.group_t0.setdefault(g, a.t0) if g is not None else a.t0
+        a.entry_key = (min(first, a.t0), a.t0, len(self.agents))
         self.agents.append(a)
         self.by_name[a.name] = a
 
@@ -530,6 +542,61 @@ class Sim:
                 a.requeue = True
             self.ev_events.append({"t": round(t, 2), "car": car.name, "boarded": boarded, "alighted": alighted})
 
+    def try_enter(self, a, t, busy, held):
+        """現れてよいか。入口ごとに着いた順（グループはまとめて、entry_key）で、前に待つ人がいれば後ろの人も待つ
+        （前は待つ人が 0.2 秒ごとにしか確かめず、あとから着いた人が空いた一瞬を取って、2 人連れの 2 人目が外で 47 秒待った、2026-11-06）。
+        扉の向こうから入る人（最初の段取りが straight、motion_model "cfsm"）は、入った先（扉の点）の ENTRY_CLEAR_M 以内に人がいても待つ
+        （列の後ろが入口まで伸びると、入る人が列に割り込んで重なった、2026-11-05）。入る人の線がふさがっていれば、出る人の線（entry_alt）を、
+        そこを出ていく人が近くにいないときだけ使う（1 本の線では 1 分に 58 人しか入れず、75 人/分を入れる確かめで外に人がたまった）。"""
+        o = a.info["origin_xy"]
+        key = getattr(a, "door", None) or (round(o[0], 2), round(o[1], 2))
+        if key in held:
+            return False
+        e = a.plan[0][1] if self.model == "cfsm" and a.plan and a.plan[0][0] == "straight" else None
+
+        def clear(o, e):
+            # グループの仲間も、現れる点の MATE_SPAWN_M 以内にいれば待つ（同じコマに同じ点に現れた 2 人の 1 人が押し出され、扉の柱の外へ回り込んだ、
+            # office_gate_ev、2026-11-06。前は出発の時刻が 0〜0.4 秒ずれていて、たいてい離れて現れた）
+            for q, g in busy:
+                mate = g is not None and g == a.group
+                if math.hypot(q[0] - o[0], q[1] - o[1]) < (MATE_SPAWN_M if mate else 0.5):
+                    return False
+                if not mate and e is not None and math.hypot(q[0] - e[0], q[1] - e[1]) < ENTRY_CLEAR_M:
+                    return False
+            return True
+        alt = getattr(a, "entry_alt", None)
+        usable = e is not None and alt is not None
+        if usable and a.group is not None and any(g == a.group and math.hypot(q[0] - o[0], q[1] - o[1]) < 1.0 for q, g in busy):
+            # 仲間が入る人の線から入ったところ: 横の線が空いていれば、並んで入る（同じ線で前後に入ると、廊下でも縦に並んだまま歩き、
+            # 2 人連れの間隔が 1.0 m を超えた、verify_gate_capacity、2026-11-06）
+            if clear(*alt) and not self.leaving_near(*alt):
+                return self._use_alt(a, alt)
+        if clear(o, e):
+            return True
+        if usable and clear(*alt) and not self.leaving_near(*alt):
+            return self._use_alt(a, alt)
+        held.add(key)
+        return False
+
+    def _use_alt(self, a, alt):
+        """出る人の線（entry_alt）から入る。"""
+        a.info["origin_xy"] = tuple(alt[0])
+        a.plan[0] = ("straight", tuple(alt[1])) + tuple(a.plan[0][2:])
+        self.entry_alt += 1
+        return True
+
+    def leaving_near(self, o, e, r=LEAVE_LOOK_M):
+        """扉の向こうの点 o へ出ていく途中の人（今かその次の段取りが o への straight）が、扉の点 e から r 以内にいるか。"""
+        for b in self.agents:
+            if b.mode in ("pending", "done"):
+                continue
+            for j in (b.k, b.k + 1):
+                if 0 <= j < len(b.plan) and b.plan[j][0] == "straight" and math.hypot(b.plan[j][1][0] - o[0], b.plan[j][1][1] - o[1]) < 0.05:
+                    q = self.where(b)[0]
+                    if math.hypot(q[0] - e[0], q[1] - e[1]) < r:
+                        return True
+        return False
+
     def run(self):
         for car in self.cars:
             car._frames = {int(round(x * self.fps)) for x in car.arrivals}
@@ -545,19 +612,15 @@ class Sim:
             due = [a for a in self.agents if a.mode == "pending" and t >= a.t0]
             if due:
                 busy = [(self.where(b)[0], b.group) for b in self.agents if b.mode not in ("pending", "done")]
+                due.sort(key=lambda a: a.entry_key)
+                held = set()
             for a in due:
-                o = a.info["origin_xy"]
-                # 扉の向こうから入る人（最初の段取りが straight）は、入った先（扉の点）がふさがっていても外で待つ（motion_model "cfsm"。
-                # 列の後ろが入口まで伸びると、入る人が列に割り込んで重なった、2026-11-05）
-                e = a.plan[0][1] if self.model == "cfsm" and a.plan and a.plan[0][0] == "straight" else None
-                if any((g is None or g != a.group) and (math.hypot(q[0] - o[0], q[1] - o[1]) < 0.5
-                       or (e is not None and math.hypot(q[0] - e[0], q[1] - e[1]) < ENTRY_CLEAR_M)) for q, g in busy):
-                    a.t0 = t + 0.2  # 現れる場所がふさがっていれば、空くまで外で待つ（待った秒を記録）
-                    a.events["spawn_wait_s"] = round(a.events.get("spawn_wait_s", 0.0) + 0.2, 1)
-                    continue
-                a.events["start"] = round(t, 2)
-                self.next_step(a, t, a.info["origin_xy"])
-                busy.append((np.asarray(o, float), a.group))
+                if self.try_enter(a, t, busy, held):
+                    a.events["start"] = round(t, 2)
+                    self.next_step(a, t, a.info["origin_xy"])
+                    busy.append((np.asarray(a.info["origin_xy"], float), a.group))
+                else:  # 現れる場所がふさがっていれば、空くまで外で待つ（待った秒を記録）
+                    a.events["spawn_wait_s"] = round(a.events.get("spawn_wait_s", 0.0) + self.dt, 2)
             self.step_elevators(f, t)
             self.step_gates(t)
             self.step_agents(f, t)
@@ -588,6 +651,33 @@ class Sim:
         if di and dj and sp.walkable(*p):
             return bool(sp.grid[i0 + di, j0] and sp.grid[i0, j0 + dj])
         return True
+
+    def mates_behind(self, a, t):
+        """グループの仲間が、a と同じ止まる段取り（受付など）にまだ着いていないか、止まっている途中か。先に済んだ人は仲間を待つ
+        （着く時刻がずれて終わる時刻もずれ、先に済んだ人が歩き出して、受付へ行く 2 人連れが 10 m 離れて歩いた、hospital_gate_ev、2026-11-06）。"""
+        if a.group is None:
+            return False
+        step = a.plan[a.k]
+        for b in self.agents:
+            if b is a or b.group != a.group or b.mode == "done":
+                continue
+            for j in range(max(b.k, 0), len(b.plan)):
+                if b.plan[j] is step:
+                    if j > b.k or b.mode != "stop" or t < b.until:
+                        return True
+                    break
+        return False
+
+    def reroute_pts(self, p, path):
+        """今の位置 p から path の終わりまでの経路の点。終わりが歩ける所の外なら、歩ける所の最後の点まで探し、その先の元の点を足す。"""
+        end = path.at(path.length)[0]
+        if self.space.walkable(*end):
+            return self.space.route(tuple(p), tuple(end))
+        ok = [k for k, q in enumerate(path.p) if self.space.walkable(*q)]
+        if not ok:
+            raise ValueError("経路に歩ける点がない")
+        j = ok[-1]
+        return list(self.space.route(tuple(p), tuple(path.p[j]))) + [tuple(q) for q in path.p[j + 1:]]
 
     def respot(self, a, p):
         """EV の待つ場所を、今いる所の近くの空いた所に選び直して歩き出す（motion_model "cfsm"）。"""
@@ -665,14 +755,18 @@ class Sim:
                     boost = min(1.3, 1.0 + 0.4 * (m - GROUP_GAP))
         v0 = a.speed * factor * boost
         # 行き先の向き: 経路の look_m 先（歩くときは好みの横のずれ。止まる所の手前では 0 へ）
-        ld = a.l_pref if (a.mode == "walk" and not lane) else 0.0
+        # 扉の向こうとの行き来（straight の段取り、no_walls）は扉の線そのものを歩くので、横のずれは付けない（2 人連れの東側の人が、
+        # 扉の向こうの歩ける所で東へずれて扉の柱の外へ出て、回り込んだ、office_gate_ev、2026-11-06）
+        ld = a.l_pref if (a.mode == "walk" and not lane and not a.no_walls) else 0.0
         if a.taper:
             ld *= min(1.0, max(0.0, L - s))
         for look in (C["look_m"], C["look_m"] / 2, C["look_m"] / 4, C["look_m"] / 10, None):  # 壁の向こうになる点は目指さない（出入口の横の角で動けなくなった）
             if look is None:  # 少し先のどの点も見通せない（角を回り込んだ所）: 今の位置から経路を引き直す。
                 # 経路の真横の点を目指すと、角の前で前後に行ったり来たりした（2026-11-05）
+                # 行き先が歩ける所の外（かごの中・扉の向こう）なら、歩ける所の最後の点まで引き直し、その先は元の経路のまま足す
+                # （行き先までの経路を探すと歩ける所の手前で終わり、EV に乗る人が扉の外で「乗った」ことになって消えた、office_ev_hall、2026-11-06）
                 try:
-                    a.path = Path(self.space.route(tuple(p), tuple(a.path.at(L)[0])))
+                    a.path = Path(self.reroute_pts(p, a.path))
                 except ValueError:
                     break
                 a.s, s, L = 0.0, 0.0, a.path.length
@@ -685,12 +779,18 @@ class Sim:
         # 3 人組の端の人（横 1.08 m）の向きが毎コマ入れ替わって動けなかった、2026-11-05）
         ts = a.path.at(s)[1]
         nq = np.array([-ts[1], ts[0]])
+        # 横のずれを壁の手前で減らしたら、すぐには戻さず LD_RECOVER_PER_S でゆっくり戻す（ずらした点が歩けるか歩けないかが一歩ごとに入れ替わり、
+        # 扉の角の前で 2 人連れの西側の人が東西に行き来して 12 秒動けなかった、office_gate_ev、2026-11-06）
+        ld_full, scale = ld, getattr(a, "ld_scale", 1.0)
+        ld = ld_full * scale
         for _ in range(3):
             if not ld or self.space.walkable(*(q + nq * ld)):
                 break
             ld *= 0.5
         else:
             ld = 0.0
+        if ld_full:
+            a.ld_scale = min(abs(ld / ld_full), scale + LD_RECOVER_PER_S * self.dt) if abs(ld) < abs(ld_full * scale) - 1e-9 else min(1.0, scale + LD_RECOVER_PER_S * self.dt)
         e0 = q + nq * ld - p
         n0 = float(np.hypot(*e0))
         e0 = e0 / n0 if n0 > 1e-6 else tan
@@ -702,7 +802,11 @@ class Sim:
                    and math.hypot(p[0] - car.door[0], p[1] - car.door[1]) > 0.8 and self.alighting(car))
         if waiting:  # 降りる人を待っている間は、止まっていても安全弁を使わない
             a.best_t = self.t
-        if a.mode in ("walk", "to_spot", "board") and not lane and getattr(a, "best_path", None) is a.path and self.t - a.best_t >= UNSTICK_S:
+        if a.mode == "to_gate" and getattr(a, "blocker", None) is not None and (a.blocker.state == "gate_queue" or a.blocker.mode in ("gate_wait", "to_gate")):
+            a.best_t = self.t  # 列の後ろで待っている（安全弁は使わない）
+        # ゲートへ向かう人も、ゲートの手前 2 m より外なら安全弁を使う（EV から降りて退館のゲートへ向かう人が、EV を待つ人たちのあいだで
+        # 押される向きが毎コマ変わって 28 秒進めなかった、素材の A 組の office の EV 前、2026-11-06）
+        if a.mode in ("walk", "to_spot", "board", "to_gate") and not lane and getattr(a, "best_path", None) is a.path and self.t - a.best_t >= UNSTICK_S:
             if a.mode == "to_spot":  # EV の待つ場所に着けない: 通り抜けず、今いる所の近くの空いた所を選び直す（待つ人の上に立たないように）
                 self.respot(a, p)
                 a.best_t = self.t
@@ -733,6 +837,24 @@ class Sim:
         ahead = rel @ e
         lat = np.abs(rel @ np.array([-e[1], e[0]]))
         cone = near & (ahead > 0) & (lat < r2)
+        if a.mode == "to_gate" and a.lane is not None and cone.any():
+            # 同じレーンで列の順が自分より後ろの人が真横（横に 0.3 m 以上）にいても、前の人として見ない（グループの仲間も）。横に並んで同じレーンに
+            # 加わった 2 人が、互いを前の人とみて止まり、レーンが 150 秒止まった（verify_gate_capacity の種 2、2026-11-06。仲間どうしは 0.355 m で、
+            # 離れる一歩の対象でもなかった）。横に 0.3 m 以上なら、前へ出ても 0.3 m より近づかない
+            for j in np.flatnonzero(cone):
+                b = active[j]
+                if b.lane is a.lane and (b.gate_slot or 0) > (a.gate_slot or 0) and lat[j] >= 0.3:
+                    cone[j] = False
+        if a.mode == "walk" and not lane and not squeeze:
+            # 合流で譲る: 斜め前の近く（YIELD_D 以内・横 YIELD_LAT 以内）に、自分より長く進めずにいる人（YIELD_S 秒以上）がいれば、前の人とみて
+            # 減速し、先に入れる（出入口の手前の角の人が、真ん中の流れに割り込めず 15 秒たって安全弁で通り抜けていた。verify_bottleneck で
+            # 1 回に 20 回ほど、2026-11-06）。進めずにいる時間の長い順に譲るので、譲り合って止まらない
+            mine = self.t - getattr(a, "best_t", self.t)
+            for j in np.flatnonzero(near & ~mate & ~cone & (ahead > 0) & (lat < YIELD_LAT) & (d < YIELD_D)):
+                b = active[j]
+                waited = self.t - getattr(b, "best_t", self.t)
+                if b.mode == "walk" and waited >= YIELD_S and (waited, b.name) > (mine, a.name):
+                    cone[j] = True
         if squeeze:
             cone = np.zeros(len(d), bool)
             v0 = 0.5 * v0
@@ -761,10 +883,19 @@ class Sim:
                 if na > 1e-9:
                     e, v = away / na, SEPARATE_M_S
         b = a.blocker
-        if v < 0.05 and b is not None and b.mode in ("stop", "meet", "wait", "board_wait"):  # 立っている人にふさがれたら、その人に横へよけてもらう
+        yielders = ("stop", "meet", "wait", "board_wait")  # 道をあけてもらえる立つ人
+        if v < 0.05 and b is not None and b.mode in yielders:  # 立っている人にふさがれたら、その人に横へよけてもらう
             side = np.array([-e[1], e[0]])
             sgn = 1.0 if float((self.where(b)[0] - p) @ side) >= 0 else -1.0
             b.nudge = (side * sgn, self.t + 1.5)
+        elif not lane and a.mode in ("walk", "to_spot", "board", "to_gate") and self.t - getattr(a, "best_t", self.t) >= NUDGE_ASK_S:
+            # 前の人はいないのに進めない（周りの立って待つ人に押される向きが毎コマ変わる）: 行き先の向きの前側の近くに立つ人に、横へよけてもらう
+            # （EV を待つ人たちのあいだで、降りた人が 28 秒進めなかった、2026-11-06）
+            side = np.array([-e0[1], e0[0]])
+            for j in np.flatnonzero(near & ~mate & (d < NUDGE_ASK_M) & ((rel @ e0) > -0.1)):
+                b = active[j]
+                if b.mode in yielders and not (getattr(b, "nudge", None) and self.t < b.nudge[1]):
+                    b.nudge = (side * (1.0 if float(rel[j] @ side) >= 0 else -1.0), self.t + 1.5)
         step = e * v * dt
         p2 = p + step
         if not nw and not self._can_step(p, p2):  # 壁に当たる一歩は、壁に沿う向きだけにする
@@ -810,7 +941,7 @@ class Sim:
         a.s = a.path.project(p2, s - 2.0, s + C["look_m"] + 1.0)  # 押し戻されたら進み具合も戻す
         if not lane and not nw and float(np.hypot(*(p2 - a.path.at(a.s)[0]))) > REROUTE_M:  # 経路から離れすぎたら、今の位置から引き直す
             try:
-                a.path, a.s = Path(self.space.route(tuple(p2), tuple(a.path.at(L)[0]))), 0.0
+                a.path, a.s = Path(self.reroute_pts(p2, a.path)), 0.0  # 行き先が歩ける所の外なら、その先は元の経路のまま
             except ValueError:
                 pass
         return p2, a.path.at(a.s)[1], float(np.hypot(*step))
@@ -864,7 +995,7 @@ class Sim:
                 a.yaw = cur + max(-TURN_DEG_S * dt, min(TURN_DEG_S * dt, _wrap(goal - cur)))
                 a.frames.append((f, float(p[0]), float(p[1]), a.yaw, nudged))
                 a.states.append(a.state)
-                if a.mode == "stop" and t >= a.until:
+                if a.mode == "stop" and t >= a.until and not (t < a.until + GROUP_STOP_WAIT_S and self.mates_behind(a, t)):
                     self.next_step(a, t, p)
                 elif a.mode == "meet":
                     m = a.plan[a.k][1]

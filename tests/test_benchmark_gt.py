@@ -128,7 +128,9 @@ def test_hidden_spawn_and_exit_walk_in_and_out(tmp_path):
     gt = json.loads((r.out_dir / "ground_truth.json").read_text())
     hidden_in, hidden_out = sp.pois["entrance"]["hidden"], sp.pois["south_exit"]["hidden"]
     starts = [gt["tracks"][n][0][:2] for n in gt["people"]]
-    assert all(np.hypot(x - hidden_in[0], y - hidden_in[1]) < 0.6 for x, y in starts)  # 扉の向こうに現れる
+    o_in, o_out, nv = sp.door_lanes("entrance")  # 入る人の線がふさがっていれば、出る人の線から入る（engine.try_enter）
+    lines = [(hidden_in[0] + nv[0] * o, hidden_in[1] + nv[1] * o) for o in (o_in, o_out)]
+    assert all(min(np.hypot(x - hx, y - hy) for hx, hy in lines) < 0.3 for x, y in starts)  # 扉の向こうに現れる（最初のコマは一歩進んだ所）
     done = [n for n, p in gt["people"].items() if p.get("events", {}).get("end")]
     assert done and all(np.hypot(gt["tracks"][n][-1][0] - hidden_out[0], gt["tracks"][n][-1][1] - hidden_out[1]) < 0.6 for n in done)
     with gzip.open(r.out_dir / "frames.csv.gz", "rt") as f:
