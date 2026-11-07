@@ -325,3 +325,44 @@ def test_waiting_strangers_in_contact_move_apart(mates):
     _run_frames(sim, 0.0, 0, 3.0)
     d = float(np.hypot(*(sim.here["P0001"] - sim.here["P0002"])))
     assert (abs(d - 0.36) < 1e-6) if mates else (0.449 <= d <= 0.36 + 2 * 0.4)
+
+
+@pytest.mark.parametrize("lat", [0.4, 0.55])
+def test_walker_held_back_by_standing_pair_stands_still(lat):
+    """並んで立つ 2 人の間へ向かう歩く人は、行き先へ引く向きと 2 人から離れる向きが釣り合う所で止まる。前は和の向きが毎コマ逆になり、
+    その向きの空きの速さ（1.3 m/s）で前後に跳ね、歩く姿勢のままその場で揺れた（素材 v5 の EV の前、2026-11-08）。"""
+    sim = Sim(load_space("corridor"), 30, 30 * 10)
+    stand = [Agent(f"P000{k + 1}", [("stop", 60.0, None, "dwell", 0.0)], 0.0, 1.3, 0.0, info={"origin_xy": (20.0, s * lat)})
+             for k, s in enumerate((1, -1))]
+    walk = Agent("P0003", [("walk", (40.0, 0.0), "pass")], 0.0, 1.34, 0.0, info={"origin_xy": (17.0, 0.0)})
+    for a in stand + [walk]:
+        sim.add(a)
+        sim.next_step(a, 0.0, a.info["origin_xy"])
+        a.events["start"] = 0.0
+    _run_frames(sim, 0.0, 0, 2.9)  # 3 秒進めないと立つ人に道をあけてもらうので、その前まで
+    fr = np.array([(x, y, yaw, m) for _, x, y, yaw, m in walk.frames])
+    step = np.diff(fr[:, :2], axis=0)
+    big = np.flatnonzero(np.hypot(*step.T) > 0.005)
+    reversals = sum(float(step[i] @ step[j]) < 0 for i, j in zip(big[:-1], big[1:]))
+    assert fr[-1, 0] < 20.0 - 0.6  # 2 人の手前で止まる
+    assert reversals <= 2
+    assert float(np.hypot(*step[-30:].T).sum()) < 0.1  # 最後の 1 秒はほとんど動かない
+    assert np.ptp(fr[-30:, 2]) < 5 and not fr[-30:, 3].any()  # 体の向きは振れず、立つ姿勢
+
+
+def test_boarder_waiting_for_alighting_people_steps_aside():
+    """扉の前で降りる人を待つ乗る人も、進めずにいる人に頼まれたら横へよける（前は扉の前に立ったままで、降りる人が揺れながら抜けていた。
+    揺れをなくすと降りるのに 20〜50 秒かかり、乗る人も待ち続けた、hospital_gate_ev の種 13、2026-11-08）。"""
+    sp = load_space("corridor")
+    sim = Sim(sp, 30, 30 * 10)
+    walk = Agent("P0002", [("walk", (40.0, 0.0), "pass")], 0.0, 1.3, 0.0, info={"origin_xy": (20.0, 0.0)})
+    board = Agent("P0001", [("walk", (10.0, 0.55), "pass")], 0.0, 1.3, 0.0, info={"origin_xy": (20.5, 0.55)})
+    for a in (walk, board):  # 歩く人が先に動く
+        sim.add(a)
+        sim.next_step(a, 0.0, a.info["origin_xy"])
+        a.events["start"] = 0.0
+    board.mode, board.waiting_alight = "board", True
+    sim.t = 4.0
+    walk.best_t, walk.best_path = 0.0, walk.path  # 4 秒進めずにいる
+    sim.step_agents(120, 4.0)
+    assert getattr(board, "nudge", None) is not None and board.nudge[0][1] > 0  # 歩く人の左（北）へよける

@@ -50,6 +50,11 @@ HOME_CLEAR_M = 0.9  # 道をあけた人は、歩く人がこれより離れた�
 SPACE_M, SPACE_M_S, SPACE_MAX_M = 0.45, 0.2, 0.4  # EV を待つ人は、知らない人と SPACE_M より近ければ、SPACE_M_S で離れる（立った所から SPACE_MAX_M まで）
 NUDGE_M_S = 0.4  # 立っている人が、ふさいだ歩く人に道をあけるときの速さ（m/s、1.5 秒まで）
 SEPARATE_M_S = 0.3  # 歩く人が、体の幅より近い人から離れるときの速さ（m/s。重なったまま止まらないように）
+BALANCE_E = 0.5  # 行き先へ引く向きと周りの人・壁から離れる向きの和の長さがこれより短ければ（打ち消し合う）、長さに比例して遅くする
+BACK_M_S = SEPARATE_M_S  # 行き先と逆向きに押し戻される一歩の速さの上限（m/s）
+CHATTER_S = 0.5  # 遅くするのは、向きが 90 度より大きく逆になってからこの秒数のあいだと、そのあと和が短いままのあいだ（0 でいつも）
+OUT_TAU = 0.3  # 書き出す「歩いているか」と体の向きは、この時定数（秒）でならした速さから決める（0 で 1 コマの一歩から。前の決め方）
+MOVE_ON_M_S, MOVE_OFF_M_S = 0.2, 0.1  # ならした速さがこれを超えたら歩き始め、これを下回ったら止まる（入れ替わりが毎コマ起きないように）
 # 人どうしがぶつからない動き（Collision-Free Speed Model、Tordeux・Chraibi・Seyfried 2016。JuPedSim の CollisionFreeSpeedModel と同じ形）。
 # 速さ = min(自分の速さ, (前の人までの距離 − 2 × 半径) ÷ time_gap)。前の人は、進む向きの、体の幅（2 × 半径）の帯の中の人。
 # 向き = 行き先の向き + 周りの人から離れる向き（strength × exp((2 × 半径 − 距離) ÷ range)）+ 壁から離れる向き。
@@ -819,6 +824,7 @@ class Sim:
             a.squeeze_until, a.best_t = self.t + SQUEEZE_S, self.t
             self.squeezes += 1
         squeeze = self.t < getattr(a, "squeeze_until", -1.0)
+        ne = 1.0
         if not lane and not squeeze:
             k = np.flatnonzero(near & (d > 1e-9))
             if len(k):
@@ -874,8 +880,31 @@ class Sim:
             queued = np.array([b.state == "gate_queue" or b.mode in ("gate_wait", "to_gate") for b in active], bool)
             gap_min[queued & ~mate] = QUEUE_GAP
         v = min(v0, max(0.0, float(((d[cone] - gap_min[cone]) / tg[cone]).min()))) if cone.any() else v0
+        prev = getattr(a, "e_prev", None)
+        damped = self.t < getattr(a, "chatter_until", -1.0)
+        # 前のコマの向きから 90 度より大きく変わった（行ったり来たり）か、遅くしている間に和がまだ短い（釣り合ったまま）: 遅くし続ける
+        # （逆になったときだけ遅くすると、釣り合う所へゆっくり寄る間に 0.5 秒たち、速さを戻した 1 コマで 4.5 cm 跳んで、また逆になった）
+        if (prev is not None and float(e @ prev) < 0.0) or (damped and ne < BALANCE_E):
+            a.chatter_until = self.t + CHATTER_S
+        a.e_prev = e
+        damp = CHATTER_S <= 0 or self.t < getattr(a, "chatter_until", -1.0)
+        if not lane and not squeeze and damp:
+            # 行き先へ引く向きと、周りの人・壁から離れる向きが打ち消し合う（和が短い）と、和の向きは位置が 1 cm 動くだけで逆になる。
+            # その向きの前の空きで速さを決めていたので、待つ人の手前などで毎コマ前後に 1〜5 cm 跳ね、歩く姿勢のままその場で揺れた
+            # （素材 v5 の EV の前で、揺れのコマの 9 割がこれ。和の長さの中央値 0.1、2026-11-08）。和の長さが BALANCE_E より短ければ、
+            # 長さに比例して遅くする（釣り合う所では止まる）。行き先と逆向きに押し戻される一歩は BACK_M_S まで（前は空いていれば 1.4 m/s で戻った）。
+            # 行ったり来たりしている間だけにする（いつも遅くすると、向かい合ってすれ違う人も遅くなり、verify_counterflow の自由に歩く速さが
+            # 種 9 のうち 9 → 2 で合い、所要が 41 → 49 秒。2 乗で遅くする・上限を付けると揺れはもっと減るが、混んだ所で止まったままの人が出た。docs/validity.md の 5.5）
+            v *= min(1.0, ne / BALANCE_E)
+            if float(e @ e0) < 0:
+                v = min(v, BACK_M_S)
+        a.waiting_alight = waiting
         if waiting:  # 降りる人が出るまで、扉の前で待つ
             v = 0.0
+            if getattr(a, "nudge", None) and self.t < a.nudge[1]:
+                # 降りる人に頼まれたら、横へよけて道をあける（立って待つ人と同じ。前は扉の前で降りる人の前に立ったままで、降りる人が揺れながら
+                # 抜けていた。揺れをなくすと、降りるのに 20〜50 秒かかり、乗る人も待ち続けた。hospital_gate_ev の種 13、2026-11-08）
+                e, v = a.nudge[0], NUDGE_M_S
         # すでに体の幅より近い人がいる（安全弁で通り抜けた後など）: 前の人までの距離の規則では速さが 0 になり、重なったまま離れられない。
         # その人たちから離れる向き（近いほど強く）に SEPARATE_M_S で歩く（office_ev_hall で、安全弁の後に 2 人が 19 秒重なったまま。
         # 一番近い 1 人から離れる向きだけでは、2 人に挟まれたとき、もう 1 人に近づく一歩になって取り消された、2026-11-06）
@@ -889,7 +918,9 @@ class Sim:
                     e, v = away / na, SEPARATE_M_S
         b = a.blocker
         yielders = ("stop", "meet", "wait", "board_wait")  # 道をあけてもらえる立つ人
-        if v < 0.05 and b is not None and b.mode in yielders:  # 立っている人にふさがれたら、その人に横へよけてもらう
+        def yields(o):  # 立つ人と、扉の前で降りる人を待つ乗る人
+            return o.mode in yielders or (o.mode == "board" and getattr(o, "waiting_alight", False))
+        if v < 0.05 and b is not None and yields(b):  # 立っている人にふさがれたら、その人に横へよけてもらう
             side = np.array([-e[1], e[0]])
             sgn = 1.0 if float((self.where(b)[0] - p) @ side) >= 0 else -1.0
             b.nudge = (side * sgn, self.t + 1.5)
@@ -899,7 +930,7 @@ class Sim:
             side = np.array([-e0[1], e0[0]])
             for j in np.flatnonzero(near & ~mate & (d < NUDGE_ASK_M) & ((rel @ e0) > -0.1)):
                 b = active[j]
-                if b.mode in yielders and not (getattr(b, "nudge", None) and self.t < b.nudge[1]):
+                if yields(b) and not (getattr(b, "nudge", None) and self.t < b.nudge[1]):
                     b.nudge = (side * (1.0 if float(rel[j] @ side) >= 0 else -1.0), self.t + 1.5)
         step = e * v * dt
         p2 = p + step
@@ -950,6 +981,25 @@ class Sim:
             except ValueError:
                 pass
         return p2, a.path.at(a.s)[1], float(np.hypot(*step))
+
+    def _out_motion(self, a, d, raw_moving):
+        """書き出す「歩いているか」と、体を向ける向きの速さ（d はこのコマの一歩）。描画は「歩いているか」の間だけ進んだ距離で歩く姿勢を進め、
+        体を速さの向きへ回す。1 コマの一歩で決めると、前後に 1 cm ほど跳ねる人の印が毎コマ入れ替わり、体が 90〜150 度振れて、
+        歩く姿勢と立つ姿勢が入れ替わった（その場で揺れて見える、2026-11-08）。OUT_TAU 秒でならした速さで決め、歩き始めは MOVE_ON_M_S、
+        止まるのは MOVE_OFF_M_S（2 コマ続けてほとんど動かなければすぐ止まる。止まった人が歩く途中の姿勢で固まらないように）。"""
+        if OUT_TAU <= 0:
+            return raw_moving, d
+        vel = d / self.dt
+        vs = getattr(a, "vel_s", None)
+        vs = vel.copy() if vs is None else vs + min(1.0, self.dt / OUT_TAU) * (vel - vs)
+        a.vel_s = vs
+        a.still_n = getattr(a, "still_n", 0) + 1 if float(np.hypot(*d)) < 0.05 * self.dt else 0
+        if a.still_n >= 2:  # 止まった: ならした速さも 0 に（残ったままだと、止まる・歩き始めるが毎コマ入れ替わった）
+            vs = a.vel_s = np.zeros(2)
+        sp = float(np.hypot(*vs))
+        mv = (sp > MOVE_OFF_M_S and a.still_n < 2) if getattr(a, "moving_out", False) else sp > MOVE_ON_M_S
+        a.moving_out = mv
+        return mv, vs
 
     def step_agents(self, f, t):
         dt = self.dt
@@ -1038,7 +1088,7 @@ class Sim:
                 goal = a.base_yaw + a.glance * (0, 1, 0, -1)[a.glance_i % 4]
                 cur = a.yaw if a.yaw is not None else goal
                 a.yaw = cur + max(-TURN_DEG_S * dt, min(TURN_DEG_S * dt, _wrap(goal - cur)))
-                a.frames.append((f, float(p[0]), float(p[1]), a.yaw, nudged))
+                a.frames.append((f, float(p[0]), float(p[1]), a.yaw, self._out_motion(a, p - P[id(a)][0], nudged)[0]))
                 a.states.append(a.state)
                 if a.mode == "stop" and t >= a.until and not (t < a.until + GROUP_STOP_WAIT_S and self.mates_behind(a, t)):
                     self.next_step(a, t, p)
@@ -1122,8 +1172,9 @@ class Sim:
             moving = step > 0.2 * dt
             d = p2 - p
             a.dir = d / np.hypot(*d) if moving and np.hypot(*d) > 1e-6 else None
-            if a.dir is not None:
-                want = math.degrees(math.atan2(d[1], d[0]))
+            moving, dv = self._out_motion(a, d, moving)
+            if moving and np.hypot(*dv) > 1e-6:
+                want = math.degrees(math.atan2(dv[1], dv[0]))
                 cur = a.yaw if a.yaw is not None else want
                 a.yaw = cur + max(-3 * TURN_DEG_S * dt, min(3 * TURN_DEG_S * dt, _wrap(want - cur)))
             if a.yaw is None:

@@ -58,7 +58,7 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `fps`・`total_frames`・`seed`・`space`・`scenario` | コマ数（1 秒）・全体のコマ数・乱数の種・空間の名前・シナリオの名前 |
 | `people[名前]` | 人の属性と段取り（下の表） |
 | `tracks[名前]` | `[[x, y, yaw], …]`。k 番目は `people[名前].start_frame + k` のコマ（現れてから消えるまで） |
-| `moving[名前]` | `[0/1, …]`。そのコマに歩いているか（`tracks` と同じ長さ） |
+| `moving[名前]` | `[0/1, …]`。そのコマに歩いているか（`tracks` と同じ長さ）。0.3 秒でならした速さが 0.2 m/s を超えたら 1、0.1 m/s を下回るか 2 コマ続けてほとんど動かなければ 0（2026-11-08 から。前は 1 コマの一歩が 0.2 m/s を超えたか）。`yaw` は歩いている間、ならした速さの向きへ回る |
 | `cameras[名前]` | カメラ（0 の表し方） |
 | `gate_events` | `[{t, gate, lane, person, dir: in/out}]`。ゲートを通った時刻 |
 | `elevator_events` | `[{t, car, boarded: [名前], alighted: [名前]}]`。EV が着いた時刻と、乗った人・降りた人 |

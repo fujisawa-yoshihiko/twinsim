@@ -297,6 +297,50 @@ Remaining:
   perpendicular to the walker's direction at the time of asking; if the walker then turns, the person ends up in the walker's new path.
 - At the south exit (office), people appearing from beyond the door and people leaving meet head-on (most of these safety-valve uses are beyond the edge of the map, where cameras do not see).
 
+### 5.5 Walkers shaking back and forth in place (2026-11-08)
+
+In the v5 corpus videos, walkers that had stopped in front of other people kept shaking in place in the walking pose (with the body turning by 90–150 degrees).
+Counting "shaking" as a 1-second window with a net movement below 0.15 m in which the step direction reverses 3 times or more, the walking flag switches 3 times or more,
+or the heading swings by 20 degrees or more and back at least twice, the six corpus cases had 2.5–108 per 1,000 person-seconds, the three elevator templates (seeds 1–16) 39–46, and `verify_bottleneck` 159.
+
+- **Cause:** the walking direction is "direction to the destination + direction away from nearby people and walls", normalised to length 1. In front of waiting people (0.88 m behind a person straight ahead),
+  the pull to the destination and the push away cancel, the sum has a length of about 0.1, and its direction reverses when the position moves by 1 cm. The speed was set from the free space in that direction
+  (the person's own speed if nobody is there), so the person jumped back and forth by 1–5 cm every frame, at up to 1.4 m/s (90% of the shaking frames were this; median length of the sum 0.1).
+  The written "walking" flag and heading were set from the single frame's step, so the body swung while in the walking pose. In a simple case of a walker heading between two people standing side by side,
+  the step direction reversed 41 times in 2.9 s, and in the last second the walker went back and forth over 1.34 m (its own speed).
+- **Fixes (three):**
+  1. When the step direction changes by more than 90 degrees from the previous frame (going back and forth), for 0.5 s and then for as long as the sum stays shorter than 0.5, the speed is multiplied by
+     "length of the sum ÷ 0.5", and a step against the destination is limited to 0.3 m/s (the walker stops where the two balance; `BALANCE_E`, `CHATTER_S`, `BACK_M_S`).
+  2. The written "walking" flag and heading come from the speed smoothed over 0.3 s (walking starts above 0.2 m/s and stops below 0.1 m/s, or after 2 frames with almost no movement; `OUT_TAU`).
+     Positions are not changed.
+  3. A boarding person waiting at the door for people getting off now also steps aside when a stalled walker asks (added to the people who give way in 5.3). Before, they stood in front of the door,
+     and people getting off got through by shaking. With fix 1 alone, getting off took 20–50 s and the boarding people kept waiting (in `hospital_gate_ev` seed 13, six boarding people took about 70 s to reach the door).
+- **Tried and not used:** slowing down even when not going back and forth (people passing each other head-on also slow down; in `verify_counterflow` the free walking speed matched in 9 → 2 of 9 seeds
+  and travel time went 41 → 49 s). Slowing down by the square, or capping the speed where the forces balance (less shaking, but people stayed stuck in crowded places: 1–5 people in the 27 corpus runs).
+  Always turning the walking direction gradually (Xu, Chraibi and Seyfried 2021, Eq. 7, τ = 0.3 s; shaking in front of elevators went to 0.3–0.7, but the free walking speed matched in 0 of 9 seeds for
+  `verify_bottleneck` and `verify_counterflow`, and the bottleneck flow went 1.91 → 1.69 persons/(m·s)). Stepping to the left for an oncoming walker, and not slowing down boarding people
+  (neither reduced the number of people who took more than 10 s to board).
+
+Checks ("before" is the 5.4 version 5cc7573; seeds 0–8, seeds 1–16 for the three elevator templates, 27 runs for corpus set A; shaking per 1,000 person-seconds):
+
+| Target | Shaking | Safety valve | Overlap | Stuck | Took > 10 s to board | Other changes |
+|---|---|---:|---:|---:|---:|---|
+| `office_gate_ev` | 38.6 → 2.8 | 1.25 → 0.88 | 0.028 → 0.042 | 0 → 0 | 61 → 62 | seeds with matching pairs 13 → 11 |
+| `office_ev_hall` | 45.5 → 4.8 | 2.75 → 1.94 | 0.070 → 0.020 | 0 → 0 | 133 → 148 | pairs 15 → 13 |
+| `hospital_gate_ev` | 42.9 → 5.6 | 2.88 → 3.75 | 0.098 → 0.156 | 0 → 0 | 55 → 59 | |
+| `verify_bottleneck` | 158.9 → 5.6 | 19.7 → 11.9 | 0.371 → 0.157 | 0 → 0 | | flow 1.91 → 1.91, seeds with matching free walking speed 9 → 7 |
+| `verify_gate_capacity` | 8.8 → 2.5 | 0.89 → 0.78 | 0 → 0 | 0 → 0 | | gate headway still 9 / 9, pairs 8 → 7 |
+| `verify_counterflow` | 3.5 → 3.1 | 0 → 0.11 | 0 → 0 | 0 → 0 | | travel time 41.2 → 42.4 s |
+| Corpus set A (18 elevator runs, 9 gate runs) | 53–55 → 6, 11.0 → 5.5 | total 69 → 56 | 0.34, 0.18, 0 → 0.24, 0.15, 0 | 0 → 0 | 25 → 34 | in the 18 elevator runs, runs with matching waiting spacing 16 → 15, matching free walking speed 15 → 14 |
+
+In `verify_corridor_speed`, `verify_fundamental_diagram` and `verify_groups`, free walking speed, pairs and arrivals are all unchanged (shaking was already almost 0).
+In the six corpus cases (seed 1, the configurations rendered as video), shaking went 2.5–108 → 0–11, people who shook 124 → 52, safety valve 11 → 6, stuck 0 → 0.
+
+Remaining:
+- Shaking does not reach 0 (3–6 per 1,000 person-seconds in front of elevators: inside a crowd of waiting people, and after the step away from someone closer than body width).
+- In front of a crowded elevator, 8–16% of boarding people took more than 10 s to board even in the previous version (they walk to the door through the waiting people).
+- In `hospital_gate_ev`, overlap and safety-valve use went up a little (large variation between seeds).
+
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 
 | Value | Current | How to calibrate |
@@ -319,6 +363,6 @@ Remaining:
 - (Earlier model `lane`) When people jam in front of a bottleneck above 2 people/m², they squeeze in from the side and their bodies overlap (49% of frames below 0.4 m). Overlap with the person ahead moving in the same direction
   is prevented (`MIN_SEP` 0.35 m), but because the model shifts people sideways along the path, it cannot represent pushing from the side. The capacity is close to the experiments.
 - (`cfsm`) Bodies overlap a little only while the safety valve lets someone through (table in 5.1). At gates, pairs are split into different lanes.
-  In front of a crowded elevator, a person heading for the elevator can go into the waiting people through the safety valve and stop among them (5.4).
+  In front of a crowded elevator, a person heading for the elevator can go into the waiting people through the safety valve and stop among them (5.4). Inside a crowd of waiting people, a little shaking in place remains (5.5).
   Pushing (forces between bodies) is not represented.
 - Body heights are those of the 10 character models as-is (not fitted to the height distribution of Japanese people).
