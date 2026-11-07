@@ -86,7 +86,7 @@ Destinations (elements of `destinations[]`):
 | `to` | `elevator` (wait for and board the elevator), a place name (leave if it is an `exit` or `spawn`; stop if it is a `spot`), a place-name prefix (`reception` → one of `reception_*`) |
 | `p` | Weight for being chosen |
 | `types` | Types of people who choose this destination (e.g. `[visitor]`; everyone if omitted) |
-| `via` | Gates passed on the way (`[gate]`). The direction (entry/exit) is determined from the positions |
+| `via` | Gates passed on the way (`[gate]`). The direction (entry/exit) is determined from the positions. A configuration whose destination lies on the near side of the gate (the route crosses the gate line again after passing it) is rejected as an error |
 | `dwell` | Stop duration (distribution, s) |
 | `state` | State while stopped (defaults: reception `reception`, meeting up `dwell`, sign `sign_check`) |
 | `glance` | How far to look around while stopped (degrees) |

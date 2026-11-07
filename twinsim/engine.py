@@ -46,6 +46,8 @@ YIELD_S, YIELD_LAT, YIELD_D = 5.0, 0.6, 1.0  # 合流で譲る: この秒数進�
 UNSTICK_S, SQUEEZE_S = 15.0, 2.0  # 安全弁: この秒数行き先に近づけなければ、この秒数だけ周りの人を無視して通り抜ける
 BOARD_LANE_M = (0.25, 0.35)  # EV に乗る 2 列の、扉とかごの中での真ん中からの横のずれ（m）
 REROUTE_M = 1.5  # 歩く人が経路からこれより離れたら、今の位置から経路を引き直す（m）
+HOME_CLEAR_M = 0.9  # 道をあけた人は、歩く人がこれより離れたら元の立つ場所へ戻る
+SPACE_M, SPACE_M_S, SPACE_MAX_M = 0.45, 0.2, 0.4  # EV を待つ人は、知らない人と SPACE_M より近ければ、SPACE_M_S で離れる（立った所から SPACE_MAX_M まで）
 NUDGE_M_S = 0.4  # 立っている人が、ふさいだ歩く人に道をあけるときの速さ（m/s、1.5 秒まで）
 SEPARATE_M_S = 0.3  # 歩く人が、体の幅より近い人から離れるときの速さ（m/s。重なったまま止まらないように）
 # 人どうしがぶつからない動き（Collision-Free Speed Model、Tordeux・Chraibi・Seyfried 2016。JuPedSim の CollisionFreeSpeedModel と同じ形）。
@@ -326,6 +328,8 @@ class Sim:
 
     def stand(self, a, t, p, state, q=None, glance=0.0):
         self.here[a.name] = np.asarray(p, float)
+        a.nudge_home = None  # 新しく立った所が戻る所
+        a.stand_xy = self.here[a.name].copy()
         a.xy = self.here[a.name].copy()  # 歩き出すときはここから
         a.state = state
         self.face(a, t, p, q, glance)
@@ -523,6 +527,7 @@ class Sim:
             for k, a in enumerate(self.queue[:car.capacity]):  # 降りる人のあとに、並んだ順に 1 人 tp 秒ずつ
                 p, _ = self.where(a)
                 self.here[a.name] = np.asarray(p, float)  # 詰めている途中なら、その場で待つ
+                a.nudge_home = None
                 a.mode, a.until, a.board_car = "board_wait", t + door_open + tp * (len(alighted) + k), car
                 a.board_side = 1.0 if k % 2 == 0 else -1.0
                 a.events["car"] = car.name
@@ -982,11 +987,51 @@ class Sim:
                     others = XY[np.arange(len(XY)) != idx[id(a)]]
                     # 動いた先で体の幅より近づく人がいればやめる。もう近い人から離れる一歩はよい（重なった相手がいると、道をあけられなかった、2026-11-06）
                     dq, dp = (np.hypot(*(others - q).T), np.hypot(*(others - p).T)) if len(others) else (np.zeros(0), np.zeros(0))
+                    if getattr(a, "nudge_home", None) is None:
+                        a.nudge_home = p.copy()  # 道をあけ終わったら戻る所
                     if self._can_step(p, q) and not ((dq < 2 * self.C["radius"]) & (dq < dp)).any():
                         self.here[a.name] = q
                         a.xy, p, nudged = q.copy(), q, True
                     else:
                         a.nudge = None
+                elif self.model == "cfsm" and a.mode in ("stop", "meet", "wait", "board_wait") and getattr(a, "nudge_home", None) is not None:
+                    # 道をあけ終わった: 歩く人が離れたら、元の立つ場所へ戻る（よけた先で隣の人と体が触れたまま 30 秒立っていた、
+                    # hospital の EV 前 mid の v4、2026-11-07）。戻る一歩で誰かに体の幅より近づくなら、その場で待つ
+                    h = a.nudge_home
+                    dh = h - p
+                    n = float(np.hypot(*dh))
+                    if n < 0.03:
+                        a.nudge_home = None
+                    else:
+                        movers = [b for b in active if b is not a and b.mode in ("walk", "to_spot", "board", "to_gate")]
+                        busy = movers and min(float(np.hypot(*(P[id(b)][0] - h))) for b in movers) < HOME_CLEAR_M
+                        if not busy:
+                            q = p + dh / n * min(n, NUDGE_M_S * dt)
+                            others = XY[np.arange(len(XY)) != idx[id(a)]]
+                            dq, dp = (np.hypot(*(others - q).T), np.hypot(*(others - p).T)) if len(others) else (np.zeros(0), np.zeros(0))
+                            if self._can_step(p, q) and not ((dq < 2 * self.C["radius"]) & (dq < dp)).any():
+                                self.here[a.name] = q
+                                a.xy, p, nudged = q.copy(), q, True
+                if self.model == "cfsm" and not nudged and a.mode == "wait" and getattr(a, "nudge_home", None) is None and len(XY) > 1:
+                    # EV を待つ人は、隣の知らない立つ人と SPACE_M より近ければ、空いていれば少し離れる（前へ詰めたあと・自分の場所まで行けず途中で
+                    # 立ったあとに、隣の人と体が触れたまま立っていた。hospital の EV 前 mid の v4 で、待つ人の 17% が 0.45 m 未満、2026-11-07）
+                    me = idx[id(a)]
+                    rel_s = XY - p
+                    d_s = np.hypot(*rel_s.T)
+                    k = [j for j in np.flatnonzero((d_s < SPACE_M) & (d_s > 1e-9)) if j != me and active[j].mode in ("wait", "board_wait", "stop", "meet")
+                         and not (a.group is not None and active[j].group == a.group)]
+                    if k:
+                        away = -(rel_s[k] / d_s[k, None] * (SPACE_M - d_s[k])[:, None]).sum(0)
+                        na = float(np.hypot(*away))
+                        home = getattr(a, "stand_xy", p)
+                        if na > 1e-9:
+                            q = p + away / na * SPACE_M_S * dt
+                            others = np.delete(XY, me, axis=0)
+                            dq, dp = np.hypot(*(others - q).T), np.hypot(*(others - p).T)
+                            if (self._can_step(p, q) and float(np.hypot(*(q - home))) <= SPACE_MAX_M
+                                    and not ((dq < SPACE_M) & (dq < dp - 1e-9)).any()):
+                                self.here[a.name] = q
+                                a.xy, p, nudged = q.copy(), q, True
                 if a.glance and t >= a.next_glance:
                     a.glance_i += 1
                     a.next_glance = t + a.rng.uniform(1.5, 3.5)

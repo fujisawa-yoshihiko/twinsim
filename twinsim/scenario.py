@@ -168,6 +168,14 @@ def apply_variant(spec):
         walk(spec["elevator"]["alight"].get("destinations", []))
 
 
+def _segments_cross(a, b, c, d):
+    """線分 ab と cd が交わるか（端が線の上に載るのも交わるとみる）。"""
+    def orient(p, q, r):
+        return float((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]))
+    o1, o2, o3, o4 = orient(a, b, c), orient(a, b, d), orient(c, d, a), orient(c, d, b)
+    return o1 * o2 <= 0 and o3 * o4 <= 0 and not (o1 == o2 == 0)
+
+
 def validate(spec):
     space = load_space(spec["space"])
     errs = [f"知らないキー {k}（使えるのは {', '.join(sorted(CONFIG_KEYS))}）" for k in spec if k not in CONFIG_KEYS]
@@ -250,6 +258,35 @@ def validate(spec):
                     except ValueError:
                         errs.append(f"{where}: {start} から {name} へ歩いて行けない")
 
+    def gate_backtrack(start, d, where):
+        """ゲートを通って行く行き先が、ゲートの手前の側にないか（通ったあと、ゲートの線をもう一度横切って戻る。
+        素材の office のゲート前で、東の部屋へ行く 25% がゲートを通ってから引き返し、入ってくる列の横を逆に歩いた、2026-11-07）。"""
+        to = d.get("to")
+        if to == "elevator":
+            ends = [space.poi_xy(c) for c in (spec.get("elevator") or {}).get("cars", []) if c in space.pois]
+        else:
+            ends = [space.poi_xy(to)] if to in space.pois else []
+        legs = [*d.get("via", [])]
+        if not ends or not legs or any(space.pois.get(g, {}).get("kind") != "gate" for g in legs):
+            return
+        p = np.asarray(start, float)
+        for k, g in enumerate(legs):
+            line = np.asarray(space.pois[g]["line"], float)
+            c, n_in = line.mean(0), np.asarray(space.pois[g]["in_dir"], float)
+            side = 1.0 if float((p - c) @ n_in) >= 0 else -1.0
+            past = c - side * n_in * 1.0  # 通った先（ゲートの向こう 1 m）
+            nxt = [space.poi_xy(legs[k + 1])] if k + 1 < len(legs) else ends
+            for q in nxt:
+                try:
+                    r = np.asarray(space.route(tuple(past), tuple(q)), float)
+                except ValueError:
+                    continue
+                if any(_segments_cross(r[i], r[i + 1], line[0], line[1]) for i in range(len(r) - 1)):
+                    errs.append(f"{where}: ゲート {g} を通ったあと、{to} へはゲートの線をもう一度横切って戻る"
+                                f"（{to} はゲートの手前の側。via からゲートを外すか、行き先を変える）")
+                    return
+            p = past
+
     if not isinstance(spec["streams"], list):
         errs.append("streams は配列")
     for i, s in enumerate(spec["streams"] if isinstance(spec["streams"], list) else []):
@@ -263,8 +300,12 @@ def validate(spec):
         if not s.get("destinations"):
             errs.append(f"{where}: destinations がない")
         names = []
+        o = s.get("origin")
+        start = space.poi_xy(o) if isinstance(o, str) and o in space.pois else (origin_ends(o)[0] if placed else None)
         for j, d in enumerate(s.get("destinations") or []):
             check_to(d, f"{where}.destinations[{j}]")
+            if start is not None and isinstance(d, dict):
+                gate_backtrack(start, d, f"{where}.destinations[{j}]")
             names += [*d.get("via", []), d.get("to")] if isinstance(d, dict) else [d]
             meet = d.get("meet") if isinstance(d, dict) else None
             if meet and "from" in meet and check_origin(meet["from"], f"{where}.destinations[{j}].meet.from"):

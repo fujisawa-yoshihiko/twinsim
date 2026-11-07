@@ -285,3 +285,43 @@ def test_stalled_walker_asks_standing_people_to_step_aside():
     walk.best_t, walk.best_path = 0.0, walk.path  # 4 秒進めずにいる
     sim.step_agents(120, 4.0)
     assert getattr(stand, "nudge", None) is not None and stand.nudge[0][1] > 0  # 歩く人の左（北）へよける
+
+
+def _run_frames(sim, t0, f0, seconds):
+    n = int(round(seconds / sim.dt))
+    for k in range(n):
+        sim.t = t0 + k * sim.dt
+        sim.step_agents(f0 + k, sim.t)
+    return t0 + n * sim.dt, f0 + n
+
+
+def test_person_who_stepped_aside_returns_to_spot():
+    """道をあけた人は、歩く人が離れたら元の立つ場所へ戻る（よけた先で隣の人と体が触れたまま 30 秒立っていた、hospital の EV 前 mid の v4、2026-11-07）。"""
+    sim = Sim(load_space("corridor"), 30, 30 * 20)
+    stand = Agent("P0001", [("stop", 60.0, None, "dwell", 0.0)], 0.0, 1.3, 0.0, info={"origin_xy": (20.5, 0.55)})
+    sim.add(stand)
+    sim.next_step(stand, 0.0, stand.info["origin_xy"])
+    stand.events["start"] = 0.0
+    home = sim.here[stand.name].copy()
+    stand.nudge = (np.array([0.0, 1.0]), 1.5)  # 1.5 秒、北へよける
+    t, f = _run_frames(sim, 0.0, 0, 1.5)
+    assert float(np.hypot(*(sim.here[stand.name] - home))) > 0.3
+    _run_frames(sim, t, f, 4.0)
+    assert float(np.hypot(*(sim.here[stand.name] - home))) < 0.05
+
+
+@pytest.mark.parametrize("mates", [False, True])
+def test_waiting_strangers_in_contact_move_apart(mates):
+    """EV を待つ人は、隣の知らない立つ人と 0.45 m より近ければ、空いていれば少し離れる（グループの仲間とは離れない）。"""
+    sim = Sim(load_space("corridor"), 30, 30 * 20)
+    people = [Agent(f"P000{k + 1}", [("stop", 60.0, None, "dwell", 0.0)], 0.0, 1.3, 0.0, info={"origin_xy": (20.0 + 0.36 * k, 0.0)},
+                    group="G001" if mates else None) for k in range(2)]
+    for a in people:
+        sim.add(a)
+        sim.next_step(a, 0.0, a.info["origin_xy"])
+        a.events["start"] = 0.0
+        a.mode = "wait"
+        sim.stand(a, 0.0, sim.here[a.name], "ev_wait")
+    _run_frames(sim, 0.0, 0, 3.0)
+    d = float(np.hypot(*(sim.here["P0001"] - sim.here["P0002"])))
+    assert (abs(d - 0.36) < 1e-6) if mates else (0.449 <= d <= 0.36 + 2 * 0.4)

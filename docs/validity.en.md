@@ -252,12 +252,50 @@ More people entered in the crowded configurations (commuter arrivals in `A_offic
 Tried and reverted: joining the path of a group member who started the same step (stuck people rose to 7–10), and letting people standing in a gate queue step aside for people walking the other way (safety valve only 55 → 49, and one person got stuck).
 
 Remaining:
-- In crowded configurations the gate queue reaches the entrance and fills the corridor, and people leaving cannot get past the queue and pass through with the safety valve (safety valve 26 → 55 over 3 runs in `A_office_gate_peak`;
-  it surfaced because the specified number now enters). A passage for people walking the other way should be kept beside the queue.
+- In crowded configurations the safety valve in front of the gate increased (26 → 55 over 3 runs in `A_office_gate_peak`; it surfaced because the specified number now enters).
+  (Recounted in 5.4: the explanation written here, "people leaving cannot get past the queue", was wrong. Of the 55, 25 were people who, because of an error in the corpus
+  configuration, passed the gate and then turned back to the east room, and 28 were people appearing and people leaving meeting head-on at the south exit.)
 - The arrival check is a 2σ test, so about one in 20 correct streams is flagged "caution" (`verify_counterflow` seeds 2 and 5 have z = −2.2 and +2.6; arrivals are a Poisson process,
   and the variance-to-mean ratio over the 16 streams is 1.39).
 - A pair who stood apart at the reception sometimes takes different corridors from there (dyads 1.14 m with seeds 9–16 of `hospital_gate_ev`, 1.03 m in the previous version, both 5/8).
   Pairs can also split into different lanes at the gate.
+
+### 5.4 People waiting for an elevator standing in contact with a neighbour, and destinations on the near side of a gate (2026-11-07)
+
+Two things that went wrong when the corpus re-rendered with the 5.3 version (v4, "v4" in `~/MOPF_ALL_video/research/video_corpus/audit/README.md`) was compared with v3.
+The checks in 5.3 did not compare how close waiting people stand to each other (`standing_spacing` in section 4) for the elevator templates (an oversight; five of seeds 9–16 of `hospital_gate_ev` failed it in the 5.3 version).
+
+- **People waiting for an elevator standing in contact with a neighbour:** in the corpus case `A_hospital_ev_mid`, 17% of waiting people were closer than 0.45 m to a stranger (1% in v3).
+  Four pairs stood 20–30 s at 0.36 m, where bodies touch; in all four, a person who had stepped aside under the 5.3 rule "a stalled walker asks standing people to step aside" moved 0.2–0.6 m and never came back.
+  Removing that rule brings it back to 3%, but the safety valve rises 4 → 12 and pair-frames closer than 0.3 m 22 → 141. So the rule stays and two rules were added:
+  - A person who stepped aside goes back to where they stood once every walker is more than 0.9 m from that spot (`HOME_CLEAR_M`; if the step back would bring them closer than a body width to anyone, they wait).
+  - A person waiting for an elevator who is closer than 0.45 m to a standing stranger moves away at 0.2 m/s if there is room (up to 0.4 m from where they stood; never a step that brings them closer than 0.45 m to anyone else).
+    Not only people who had stepped aside, but also people who moved forward after a car left and people who stopped short of their spot, were left standing in contact with a neighbour.
+- **Destinations on the near side of a gate:** the corpus configuration for the office gate (set A, low, mid and peak) sent 25% of commuters "through the gate to the east room",
+  but the east room's entrance is only on the near side of the gate (the north hall). Those people passed the gate, turned back, crossed the gate line again and walked north up the corridor
+  beside the incoming queue (since v1; 25 of the 55 safety-valve uses in `A_office_gate_peak` over 3 runs, and in v4 mid one pair drifted 4.5 m apart).
+  When a scenario is read (`validate`), a configuration in which, after passing a `via` gate, the route to the destination crosses the gate line again is now rejected as an error
+  (all 13 templates pass; the corpus configuration now sends those people to the west corridor beyond the gate).
+
+Checks ("before" is the 5.3 version 2d7b575). The six templates without elevators (`verify_*`) give identical results for seeds 0–8 (the fix acts only on standing people). The three elevator templates (mean of seeds 1–16):
+
+| Template | Waiting people closer than 0.45 m (passing seeds / 16) | Safety valve | Overlap | People who got stuck | Pairs (passing / 16) |
+|---|---|---:|---:|---:|---:|
+| `office_gate_ev` | 0.5% → 0.1% (16 → 16) | 1.38 → 1.25 | 0.061 → 0.028 | 0 → 0 | 13 → 13 |
+| `office_ev_hall` | 1.4% → 0.4% (15 → 16) | 3.19 → 2.75 | 0.042 → 0.070 | 0 → 0 | 15 → 15 |
+| `hospital_gate_ev` | 4.2% → 0.4% (11 → 16) | 3.19 → 2.88 | 0.074 → 0.098 | 0 → 0 | 13 → 13 |
+
+Corpus set A (27 runs, both with the corrected corpus configuration): people who got stuck 0 → 0, runs with more than 5% of waiting people closer than 0.45 m 7 → 2, pairs flagged "caution" 7 → 7,
+safety valve in total 62 → 69, overlap 0.10 → 0.17. Most of the overlap increase is a single incident in seed 3 of `A_hospital_ev_peak` (pair-frames closer than 0.3 m 108 → 408):
+a person heading for the elevator went into the waiting people through the safety valve and stopped among them for 3–4 s (the waiting people did not move). In seed 1 of `A_hospital_ev_mid` (22 → 52),
+a person stepping aside for someone leaving the elevator stepped toward where that person would turn next (the 5.3 rule). In both, the fix changed where waiting people stand, which changed where such incidents happen; they vary widely from seed to seed.
+With 1.5 m or 2.5 m as the distance checked before going back, overlap went up or down and the spacing of waiting people got worse, so 0.9 m was kept.
+The corrected corpus configuration reduces the safety valve in `A_office_gate_peak` 55 → 16 over 3 runs (with the previous code).
+
+Remaining:
+- When the area in front of an elevator is crowded, a person heading for the elevator can go into the waiting people through the safety valve and stop among them (`A_hospital_ev_peak`). A standing person steps aside
+  perpendicular to the walker's direction at the time of asking; if the walker then turns, the person ends up in the walker's new path.
+- At the south exit (office), people appearing from beyond the door and people leaving meet head-on (most of these safety-valve uses are beyond the edge of the map, where cameras do not see).
 
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 
@@ -281,6 +319,6 @@ Remaining:
 - (Earlier model `lane`) When people jam in front of a bottleneck above 2 people/m², they squeeze in from the side and their bodies overlap (49% of frames below 0.4 m). Overlap with the person ahead moving in the same direction
   is prevented (`MIN_SEP` 0.35 m), but because the model shifts people sideways along the path, it cannot represent pushing from the side. The capacity is close to the experiments.
 - (`cfsm`) Bodies overlap a little only while the safety valve lets someone through (table in 5.1). At gates, pairs are split into different lanes.
-  In crowded configurations the gate queue fills the passage so people walking the other way have trouble getting past (they pass with the safety valve; 5.3).
+  In front of a crowded elevator, a person heading for the elevator can go into the waiting people through the safety valve and stop among them (5.4).
   Pushing (forces between bodies) is not represented.
 - Body heights are those of the 10 character models as-is (not fitted to the height distribution of Japanese people).

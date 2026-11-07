@@ -346,6 +346,21 @@ def test_camera_errors_before_simulating(camera, message):
         twinsim.validate({**CONFIG, "cameras": [camera]})
 
 
+@pytest.mark.parametrize("dest, message", [
+    ({"to": "east_room", "via": ["gate"]}, "ゲート gate を通ったあと、east_room へはゲートの線をもう一度横切って戻る"),  # 東の部屋の入口はゲートの手前
+    ({"to": "east_room"}, None),
+    ({"to": "west_corridor", "via": ["gate"]}, None),
+])
+def test_destination_behind_gate_is_an_error(dest, message):
+    """ゲートを通って行く行き先がゲートの手前の側にあると、通ったあと引き返して列の横を逆に歩く（素材の office のゲート前、2026-11-07）。"""
+    cfg = {**CONFIG, "streams": [{**CONFIG["streams"][0], "destinations": [dest]}]}
+    if message is None:
+        twinsim.validate(cfg)
+        return
+    with pytest.raises(ValueError, match=message):
+        twinsim.validate(cfg)
+
+
 def test_render_tint_comes_from_the_config(tmp_path, monkeypatch):
     from twinsim import isaac_bridge
     r = twinsim.simulate({**CONFIG, "render": {"tint": False}}, out_dir=tmp_path / "r")
