@@ -13,7 +13,7 @@
   素材の描き直し（v6）はこの版で
 - 2026-11-11: 素材 v6 を描いた（~/dt-data/twinsim/corpus/2026-11-v6、6 件・失敗 0）。描いた 60 秒の揺れは 6 件の計で 761.6 → 94.9 人・秒、0.3 m 未満の組 × コマ 76 → 12。
   見比べの動画は ~/dt-data/twinsim/corpus_audit/2026-11-v6/shake_compare/、確かめの記録は ~/MOPF_ALL_video/research/video_corpus/audit/README.md の「v6」。
-  GitHub にはまだ送っていない（0ecaa76 以降）
+  GitHub に送った（11/11）
 
 ## 2026-11-07（EV を待つ人が隣と触れたまま立つ・ゲートの手前の行き先、ブランチ crowd-cfsm）
 
