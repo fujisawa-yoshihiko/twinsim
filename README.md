@@ -28,6 +28,8 @@ git clone https://github.com/fujisawa-yoshihiko/twinsim.git && cd twinsim && uv 
 |---|---|---|
 | 1.1 | 人どうしがぶつからない動き（cfsm）を既定に。描画から検出・追跡の正解（見えている部分の枠・隠れの割合）を出す。描画を並べる | [docs/release-1.1.md](docs/release-1.1.md) |
 | 1.0 | 最初の版（JSON の設定・Python のライブラリ・GUI・正解・描画） | [docs/release-1.0.md](docs/release-1.0.md) |
+| 1.2（予定） | グループの機能、EV 以外の行動の目的になる部品（窓口・部屋・座る場所など）、空間を多角形から作る | [docs/roadmap.md](docs/roadmap.md) |
+| 1.3（予定） | 2 台以上のカメラ（カメラをまたぐ人の対応・人数の流れ） | [docs/roadmap.md](docs/roadmap.md) |
 
 版を選んで入れるときは `pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git@v1.1.0"`。出し方は [docs/architecture.md](docs/architecture.md) の「版の出し方」。
 

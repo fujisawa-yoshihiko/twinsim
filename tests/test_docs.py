@@ -108,7 +108,7 @@ def github_anchor(heading):
     return re.sub(r"[^\w\- ]", "", heading.strip().lower()).replace(" ", "-")
 
 
-@pytest.mark.parametrize("name", sorted(p.stem for p in DOCS.glob("release-*.md")))
+@pytest.mark.parametrize("name", sorted(p.stem for p in [*DOCS.glob("release-*.md"), *DOCS.glob("roadmap*.md")]))
 def test_release_notes_links_and_languages(name):
     """リリースノート: リンク先のファイルと見出しがあり、日本語と英語で見出しの組み立てが同じ。"""
     text = (DOCS / f"{name}.md").read_text(encoding="utf-8")

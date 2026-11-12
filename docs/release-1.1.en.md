@@ -104,3 +104,11 @@ Results and tools are in the developer's local data area (`~/dt-data/twinsim/cro
   Destinations are place names only.
 - Spaces: your own spaces can be used, but the walkable grid (`.txt` or `.npz`) must be made by hand (there is no tool to make it from a floor plan or polygons). Rendering video needs a USD scene. One level only.
   `simple_room` renders black from inside.
+
+## Next versions
+
+Draft goals and decisions to make are in [roadmap.en.md](roadmap.en.md).
+
+- 1.2 (goals to be decided): group features (lateral cohesion of dyads, strangers not passing between members, formation, splitting and rejoining, relations and roles),
+  components other than elevators that are the purpose of a trip (counters, called waiting, rooms, seating and others derived from offices, hospitals and warehouses), fixes for the known limitations above, building spaces from polygons
+- 1.3: two or more cameras (matching people across cameras at different places, ground truth and evaluation of flows of counts, camera clock offsets and dropped frames)

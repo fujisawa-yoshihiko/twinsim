@@ -28,6 +28,8 @@ git clone https://github.com/fujisawa-yoshihiko/twinsim.git && cd twinsim && uv 
 |---|---|---|
 | 1.1 | Movement in which people do not collide (cfsm) is the default. Ground truth for detection and tracking from rendering (visible-part boxes, occlusion ratio). Parallel rendering | [docs/release-1.1.en.md](docs/release-1.1.en.md) |
 | 1.0 | The first release (JSON configurations, Python library, GUI, ground truth, rendering) | [docs/release-1.0.en.md](docs/release-1.0.en.md) |
+| 1.2 (planned) | Group features, components other than elevators that are the purpose of a trip (counters, rooms, seating and others), building spaces from polygons | [docs/roadmap.en.md](docs/roadmap.en.md) |
+| 1.3 (planned) | Two or more cameras (matching people across cameras, flows of counts) | [docs/roadmap.en.md](docs/roadmap.en.md) |
 
 To install a specific version, use `pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git@v1.1.0"`. How versions are released is described in "Releasing a version" in [docs/architecture.en.md](docs/architecture.en.md).
 

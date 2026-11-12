@@ -51,6 +51,7 @@ uv run --group gui-test python tools/gui_shot.py [output] [port]   # screen chec
 
 ## Releasing a version
 
+- Draft goals for the next versions and decisions to make are in `docs/roadmap.en.md` (and the Japanese version). When releasing, move what went in to the release notes and carry the rest over to the next version.
 - The version number is `X.Y.Z` in `pyproject.toml` and `twinsim/__init__.py`. Raise Y when movement, output formats or defaults change, and Z for fixes only.
 - Write release notes for every version, `docs/release-X.Y.md` and the English `docs/release-X.Y.en.md` (a Z release adds a section to the same file). They contain:
   1. What is included (implementation and changes, with links to sections such as those in docs/validity.md)

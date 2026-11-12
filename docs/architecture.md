@@ -51,6 +51,7 @@ uv run --group gui-test python tools/gui_shot.py [出力] [ポート]   # 画面
 
 ## 版の出し方
 
+- 次の版の目標の案と決めることは `docs/roadmap.md`（英語版も）。版を出すときに、入ったものをリリースノートへ移し、残りを次の版へ送る。
 - 版の番号は `pyproject.toml` と `twinsim/__init__.py` の `X.Y.Z`。人の動き・出力の形・既定の値が変わる版は Y を上げ、直しだけの版は Z を上げる。
 - 版ごとにリリースノート `docs/release-X.Y.md` と英語版 `docs/release-X.Y.en.md` を書く（Z の版は同じファイルに節を足す）。書くこと:
   1. 入っているもの（実装・変更。docs/validity.md などの節へのリンク）
