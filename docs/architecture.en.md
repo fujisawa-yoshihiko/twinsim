@@ -41,10 +41,27 @@ twinsim/spaces/<name>/ ──→ space.load_space (grid of the walkable area, se
 ```bash
 cd ~/twinsim-lib
 uv run --group dev ruff check          # style (configured in pyproject.toml)
-uv run --group dev pytest -q           # operation checks (CPU, about a minute). tests/test_imports.py catches anything missed when splitting or renaming
+uv run --group dev pytest -q           # operation checks (CPU, about 5 minutes). tests/test_imports.py catches anything missed when splitting or renaming
 uv run --group gui-test python tools/gui_shot.py [output] [port]   # screen check (start the server first)
 ```
 
 - Dependencies are in `pyproject.toml` (pinned with `uv.lock`). `./run.sh` is `uv run twinsim`.
 - When pushed to GitHub (private `fujisawa-yoshihiko/twinsim`), `.github/workflows/ci.yml` runs ruff and pytest (no GPU is used).
 - The rules (GPU usage, keeping data out of git) are in `CLAUDE.md`.
+
+## Releasing a version
+
+- The version number is `X.Y.Z` in `pyproject.toml` and `twinsim/__init__.py`. Raise Y when movement, output formats or defaults change, and Z for fixes only.
+- Write release notes for every version, `docs/release-X.Y.md` and the English `docs/release-X.Y.en.md` (a Z release adds a section to the same file). They contain:
+  1. What is included (implementation and changes, with links to sections such as those in docs/validity.md)
+  2. Differences from the previous version (whether results change for the same configuration and seed, whether old configurations still load, output formats)
+  3. What was verified (the checks below, the comparison with the previous version, checks of rendered corpora)
+  4. Known limitations
+- Checks:
+  - `tools/release_check.sh`: ruff and pytest; install the wheel into clean environments (Python 3.10 and 3.13), run it and check that the same configuration and seed give the same ground truth; secrets (detect-secrets); known vulnerabilities in dependencies (pip-audit)
+  - Comparison with the previous version: export the previous code with `git archive`, run the nine templates (`verify_*` with seeds 0–8, the three elevator scenes with seeds 1–16) on both, and compare them with the current checks
+    (shaking, stuck people, overlap, number of "pass" verdicts per check). Keep the results in the data area (`~/dt-data/twinsim/crowd_check/release_X.Y/`) and copy the table into the release notes
+  - No specific company or building names in documents, code or commit messages
+- Publishing: when GitHub CI passes, merge into `main`, tag `vX.Y.Z` and publish it under GitHub Releases
+  (turn the relative links into URLs at the tag with `uv run python tools/release_notes.py X.Y.Z > notes.md`, then `gh release create vX.Y.Z --title "twinsim X.Y.Z" --notes-file notes.md`; the English notes are linked from the first line).
+  Users can pick a version with `pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git@vX.Y.Z"`.

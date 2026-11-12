@@ -41,10 +41,27 @@ twinsim/spaces/<名前>/ ──→ space.load_space（歩ける所の格子・�
 ```bash
 cd ~/twinsim-lib
 uv run --group dev ruff check          # 書き方（設定は pyproject.toml）
-uv run --group dev pytest -q           # 動作確認（CPU、1 分ほど）。分割・名前の変更の取りこぼしは tests/test_imports.py が見つける
+uv run --group dev pytest -q           # 動作確認（CPU、5 分ほど）。分割・名前の変更の取りこぼしは tests/test_imports.py が見つける
 uv run --group gui-test python tools/gui_shot.py [出力] [ポート]   # 画面の確かめ（サーバーを起動してから）
 ```
 
 - 依存は `pyproject.toml`（`uv.lock` で固定）。`./run.sh` は `uv run twinsim`。
 - GitHub（非公開 `fujisawa-yoshihiko/twinsim`）に送ると、`.github/workflows/ci.yml` が ruff と pytest を回す（GPU は使わない）。
 - 決まり（GPU の使い方・データを git に入れない）は `CLAUDE.md`。
+
+## 版の出し方
+
+- 版の番号は `pyproject.toml` と `twinsim/__init__.py` の `X.Y.Z`。人の動き・出力の形・既定の値が変わる版は Y を上げ、直しだけの版は Z を上げる。
+- 版ごとにリリースノート `docs/release-X.Y.md` と英語版 `docs/release-X.Y.en.md` を書く（Z の版は同じファイルに節を足す）。書くこと:
+  1. 入っているもの（実装・変更。docs/validity.md などの節へのリンク）
+  2. 前の版との違い（同じ設定と種で結果が変わるか、前の版の設定が読めるか、出力の形）
+  3. 確かめたこと（下の確かめの結果、前の版との比べ、描画した素材の確かめ）
+  4. 既知の制限
+- 確かめ:
+  - `tools/release_check.sh`: ruff・pytest、wheel をきれいな環境（Python 3.10・3.13）に入れて動かし、同じ設定と種で正解が同じか、秘密の情報（detect-secrets）、依存パッケージの脆弱性（pip-audit）
+  - 前の版との比べ: 前の版のコードを `git archive` で取り出し、テンプレート 9 種（`verify_*` は種 0〜8、EV の前の 3 つは種 1〜16）を両方で計算して、今の判定で比べる
+    （揺れ・動けなくなった人・重なり・判定ごとの「合う」の回数）。結果はデータの置き場所（`~/dt-data/twinsim/crowd_check/release_X.Y/`）に置き、リリースノートに表を写す
+  - 特定の企業・建物の名前が文書・コード・記録のメッセージにないこと
+- 出す: GitHub の CI が通ったら `main` に入れ、タグ `vX.Y.Z` を付け、GitHub の Releases に載せる
+  （`uv run python tools/release_notes.py X.Y.Z > 本文.md` で相対リンクをタグの URL に直してから、`gh release create vX.Y.Z --title "twinsim X.Y.Z" --notes-file 本文.md`。英語版は本文の最初のリンクから）。
+  入れるときは `pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git@vX.Y.Z"` で版を選べる。

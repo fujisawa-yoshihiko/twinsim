@@ -22,6 +22,15 @@ Python 3.10 以上。依存は numpy・scipy・pyyaml・pillow・networkx・matp
 git clone https://github.com/fujisawa-yoshihiko/twinsim.git && cd twinsim && uv sync
 ```
 
+## 版
+
+| 版 | 中身 | リリースノート（実装・変更と確かめた結果） |
+|---|---|---|
+| 1.1 | 人どうしがぶつからない動き（cfsm）を既定に。描画から検出・追跡の正解（見えている部分の枠・隠れの割合）を出す。描画を並べる | [docs/release-1.1.md](docs/release-1.1.md) |
+| 1.0 | 最初の版（JSON の設定・Python のライブラリ・GUI・正解・描画） | [docs/release-1.0.md](docs/release-1.0.md) |
+
+版を選んで入れるときは `pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git@v1.1.0"`。出し方は [docs/architecture.md](docs/architecture.md) の「版の出し方」。
+
 ## Python から使う
 
 ```python

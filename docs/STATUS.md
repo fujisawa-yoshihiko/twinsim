@@ -1,5 +1,15 @@
 # 作業の状態（再開用）
 
+## 2026-11-12（1.1 の準備、ブランチ crowd-cfsm）
+
+- 1.1 の中身は「素材 v6 と同じ人の動き」（0ecaa76 の動き。v6 の 2 件を計算し直して軌跡・`moving` が一致）に、人の動きを変えない直しを足したもの:
+  CI の ruff が 5.3 から落ちていた（31ce45c）、判定の標本の少なさ（8405d76、docs/validity.md の 5.6）。リリースノートは docs/release-1.1.md
+- 版の出し方を docs/architecture.md に書いた。確かめは `tools/release_check.sh`、GitHub の Releases の本文は `tools/release_notes.py`（相対リンクをタグの URL に）
+- 1.0 と 1.1 の比べ: ~/dt-data/twinsim/crowd_check/release_1.1/（code_1.0 は b5c7af1 の git archive、scripts/ の sim_one.py・judge_all.py、summary.md）
+- まだしていない（確認待ち）: main に入れる・タグ v1.0.0（b5c7af1）と v1.1.0・GitHub の Releases
+- 次（1.2）: 2 人連れが横に 2〜4 m 離れる（それぞれが自分の経路を歩き、別のゲートのレーンから引いた経路が 1 m 離れる。横のまとまりの決まりがない）、
+  混む EV の前で乗るまでの裾、混んだ待つ人の中の小さな揺れ、office ゲート前 peak の南の出口のつかえ、空間を多角形・dict から作る
+
 ## 2026-11-08（歩く人がその場で前後に揺れる、ブランチ crowd-cfsm）
 
 - 素材 v5 の映像で、ほかの人の手前で止まった歩く人が歩く姿勢のままその場で揺れていた。決まりと結果は docs/validity.md の 5.5

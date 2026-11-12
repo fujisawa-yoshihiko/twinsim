@@ -101,3 +101,27 @@ def test_files_written_whatever_outputs_says(tmp_path):
     names = {p.name for p in tmp_path.iterdir()}
     assert {"summary.json", "ground_truth.json", "frames.csv.gz", "tasks.json", "scenario_resolved.json"} <= names
     assert not {"preview.png", "validity.json", "mot", "graph"} & names and r.summary["people"] >= 0
+
+
+def github_anchor(heading):
+    """GitHub が見出しに付ける名前（小文字にし、文字・数字・空白・-・_ のほかを消し、空白を - に）。"""
+    return re.sub(r"[^\w\- ]", "", heading.strip().lower()).replace(" ", "-")
+
+
+@pytest.mark.parametrize("name", sorted(p.stem for p in DOCS.glob("release-*.md")))
+def test_release_notes_links_and_languages(name):
+    """リリースノート: リンク先のファイルと見出しがあり、日本語と英語で見出しの組み立てが同じ。"""
+    text = (DOCS / f"{name}.md").read_text(encoding="utf-8")
+    assert "{{" not in text
+    for link in re.findall(r"\]\(([^)\s]+)\)", text):
+        if re.match(r"^https?:", link):
+            continue
+        path, _, anchor = link.partition("#")
+        target = (DOCS / path).resolve()
+        assert target.exists(), link
+        if anchor and target.suffix == ".md":
+            heads = re.findall(r"^#+ (.+)$", target.read_text(encoding="utf-8"), re.M)
+            assert anchor in {github_anchor(h) for h in heads}, link
+    other = name[:-3] if name.endswith(".en") else name + ".en"
+    pair = (DOCS / f"{other}.md").read_text(encoding="utf-8")
+    assert re.findall(r"^#+ ", text, re.M) == re.findall(r"^#+ ", pair, re.M)

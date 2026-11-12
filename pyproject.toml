@@ -1,6 +1,6 @@
 [project]
 name = "twinsim"
-version = "1.0.0"
+version = "1.1.0"
 description = "建物・工場の人流のシミュレータ（人の動き・状態の正解・グラフ・カメラの枠の正解ラベル、Isaac Sim での描画）。設定は JSON、Python から呼べる"
 readme = "README.md"
 requires-python = ">=3.10"
