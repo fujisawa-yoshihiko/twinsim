@@ -178,6 +178,7 @@ def test_gridlock_does_not_count_round_trips():
     """止まった人の判定: 最後の 30 秒で 0.3 m 未満しか動いていない人。その間に 2 m より遠くへ行って戻った人は数えない
     （ゲートを通って引き返した人が、たまたま 30 秒前と同じ所にいた）。押されて前後に 1 m ほど動きながら進めない人は数える。"""
     from types import SimpleNamespace
+
     from twinsim.validity import gridlock
     t = np.arange(1200)
     stay = np.c_[np.minimum(t, 200) * 0.01, np.zeros(1200)]  # 2 m 歩いて止まる

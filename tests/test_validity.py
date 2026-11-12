@@ -137,6 +137,7 @@ def test_gate_headway_and_arrivals_when_queue_spills_outside(tmp_path):
 def test_arrival_dispersion_from_group_sizes():
     """到着の人数の分散 ÷ 平均 = 人の側から見たグループの人数の平均（グループがなければ 1）。"""
     from types import SimpleNamespace
+
     from twinsim.literature import ztp_person_share
     from twinsim.validity import arrival_dispersion
     run = SimpleNamespace(spec={"people": {"group_size": {"type": "zero_truncated_poisson", "lam": 0.5}},
@@ -150,6 +151,7 @@ def test_free_speed_is_compared_with_given_speeds():
     """自由に歩く速さ: 前に人のいない人が遅い人に偏っていても、その人たちに与えた速さどおりに歩き、全員に与えた速さが文献の分布なら「合う」
     （混んだ流れでは速い人ほど前に人がいて測れず、前は文献の値とじかに比べて「注意」になった、2026-11-06）。"""
     from types import SimpleNamespace
+
     from twinsim.validity import free_speed
     rng = np.random.default_rng(0)
     given = np.clip(rng.normal(1.34, 0.26, 200), 0.8, 1.9)
@@ -165,6 +167,7 @@ def test_free_speed_is_compared_with_given_speeds():
 def test_standing_spacing_counts_only_waiting_people():
     """待つ人どうしの距離: 横を歩いて通る人は数えない（歩く人との近さは重なりで見る、2026-11-06）。"""
     from types import SimpleNamespace
+
     from twinsim.validity import standing_spacing
     n = 30 * 40
     P = {"A": {"f0": 0, "xy": np.tile([0.0, 0.0], (n, 1)), "state": ["gate_queue"] * n, "group": None},

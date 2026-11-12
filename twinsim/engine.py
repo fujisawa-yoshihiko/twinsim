@@ -800,7 +800,8 @@ class Sim:
         else:
             ld = 0.0
         if ld_full:
-            a.ld_scale = min(abs(ld / ld_full), scale + LD_RECOVER_PER_S * self.dt) if abs(ld) < abs(ld_full * scale) - 1e-9 else min(1.0, scale + LD_RECOVER_PER_S * self.dt)
+            up = scale + LD_RECOVER_PER_S * self.dt
+            a.ld_scale = min(abs(ld / ld_full), up) if abs(ld) < abs(ld_full * scale) - 1e-9 else min(1.0, up)
         e0 = q + nq * ld - p
         n0 = float(np.hypot(*e0))
         e0 = e0 / n0 if n0 > 1e-6 else tan
@@ -894,7 +895,8 @@ class Sim:
             # （素材 v5 の EV の前で、揺れのコマの 9 割がこれ。和の長さの中央値 0.1、2026-11-08）。和の長さが BALANCE_E より短ければ、
             # 長さに比例して遅くする（釣り合う所では止まる）。行き先と逆向きに押し戻される一歩は BACK_M_S まで（前は空いていれば 1.4 m/s で戻った）。
             # 行ったり来たりしている間だけにする（いつも遅くすると、向かい合ってすれ違う人も遅くなり、verify_counterflow の自由に歩く速さが
-            # 種 9 のうち 9 → 2 で合い、所要が 41 → 49 秒。2 乗で遅くする・上限を付けると揺れはもっと減るが、混んだ所で止まったままの人が出た。docs/validity.md の 5.5）
+            # 種 9 のうち 9 → 2 で合い、所要が 41 → 49 秒。2 乗で遅くする・上限を付けると揺れはもっと減るが、
+            # 混んだ所で止まったままの人が出た。docs/validity.md の 5.5）
             v *= min(1.0, ne / BALANCE_E)
             if float(e @ e0) < 0:
                 v = min(v, BACK_M_S)
