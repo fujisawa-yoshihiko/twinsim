@@ -6,7 +6,7 @@
   CI の ruff が 5.3 から落ちていた（31ce45c）、判定の標本の少なさ（8405d76、docs/validity.md の 5.6）。リリースノートは docs/release-1.1.md
 - 版の出し方を docs/architecture.md に書いた。確かめは `tools/release_check.sh`、GitHub の Releases の本文は `tools/release_notes.py`（相対リンクをタグの URL に）
 - 1.0 と 1.1 の比べ: ~/dt-data/twinsim/crowd_check/release_1.1/（code_1.0 は b5c7af1 の git archive、scripts/ の sim_one.py・judge_all.py、summary.md）
-- まだしていない（確認待ち）: main に入れる・タグ v1.0.0（b5c7af1）と v1.1.0・GitHub の Releases
+- 11/12 に出した: main を 7dfe9a6 へ早送り（PR #2 も入った）、タグ v1.0.0（b5c7af1）・v1.1.0（7dfe9a6）、GitHub の Releases（1.1.0 が最新）。CI は Python 3.10・3.13 とも通った
 - 次の版の目標の案は docs/roadmap.md（1.2: グループの機能・EV 以外の行動の目的になる部品・既知の制限の直し・空間を多角形から。1.3: 2 台以上のカメラ）。直しの残り: 2 人連れが横に 2〜4 m 離れる、
   混む EV の前で乗るまでの裾、混んだ待つ人の中の小さな揺れ、office ゲート前 peak の南の出口のつかえ、空間を多角形・dict から作る
 
