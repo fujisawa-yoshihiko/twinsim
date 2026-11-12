@@ -32,6 +32,7 @@ QUEUE_GAP = 0.65  # ゲートの列の前後の間隔（m）。0.6 では混ん�
 QUEUE_LANE_OFF = 0.6  # 列が経路に沿って曲がった先で、隣のレーンの列との横の間隔（m）
 GROUP_GAP = 0.4  # グループの仲間と前後にこれ以上離れたら、前の人は遅く・後ろの人は速く（最大 1.3 倍）歩いて戻る
 NO_WALL_LAT_M = 0.35  # 扉の向こう（歩ける所の外）との行き来で、まっすぐな線から横へずれてよい幅（m。2 人がすれ違える 2 × 0.18 m 以上）
+NO_WALL_BACK = 0.5  # 扉の向こうへの線から大きく外れたとき、1 コマに戻す幅（自分の速さ × dt に対する割合）
 PASS_SIDE = 1.0  # 真正面の人をよける向き（+1 = 進む向きの左。日本の歩道の左側通行）
 GOAL_NEAR_M, GOAL_STALL_S = 1.2, 2.0  # 行き先からこの距離の中で、この秒数ほとんど進めなければ、そこで着いたことにする
 DOOR_CLEAR_M = 1.0  # EV の扉からこれより近くでは待たない（motion_model "cfsm"）
@@ -967,8 +968,11 @@ class Sim:
                 if out > 0:
                     step = step - nrm * math.copysign(out, off)
                     p2 = p + step
-                if abs(float((p2 - q0) @ nrm)) > NO_WALL_LAT_M + 0.2:  # 大きく外れた（念のため）: 前のとおり線の近くへ戻す
-                    p2 = q0 + nrm * math.copysign(NO_WALL_LAT_M, off)
+                off2 = float((p2 - q0) @ nrm)
+                if abs(off2) > NO_WALL_LAT_M + 0.2:  # 大きく外れた: 線の近くへ、1 コマに自分の速さの半分ずつ戻す
+                    # （前は線から NO_WALL_LAT_M の所へ 1 コマで置き直していた。待つ人をよけて線から離れたまま扉の向こうを見始めた乗る人が、
+                    # 1 コマで最大約 1 m 跳んだ。EV の前の 3 つのテンプレートの 48 回で 198 回、2026-11-12）
+                    p2 = p2 - nrm * math.copysign(min(abs(off2) - NO_WALL_LAT_M, NO_WALL_BACK * a.speed * dt), off2)
                     step = p2 - p
                 k = np.flatnonzero(near & ~mate) if not squeeze else np.zeros(0, int)
                 if len(k):  # 戻した位置でも、ほかの人に近づきすぎないか

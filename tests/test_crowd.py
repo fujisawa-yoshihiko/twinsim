@@ -367,3 +367,13 @@ def test_boarder_waiting_for_alighting_people_steps_aside():
     walk.best_t, walk.best_path = 0.0, walk.path  # 4 秒進めずにいる
     sim.step_agents(120, 4.0)
     assert getattr(board, "nudge", None) is not None and board.nudge[0][1] > 0  # 歩く人の左（北）へよける
+
+
+def test_boarding_people_do_not_jump_back_to_the_door_line(tmp_path):
+    """扉の向こうへの線から待つ人をよけて離れた乗る人は、線の近くへ少しずつ戻る（前は 1 コマで置き直し、最大約 1 m 跳んだ。
+    EV の前の 3 つのテンプレートの 48 回で 198 回、2026-11-12）。どの人も 1 コマの一歩は 0.15 m（4.5 m/s）まで。"""
+    r = twinsim.simulate({**twinsim.template("office_gate_ev"), "seed": 12, "duration_s": 90, "cameras": [], "outputs": ["ground_truth"]},
+                         out_dir=tmp_path / "r")
+    gt = r.ground_truth()
+    worst = max(float(np.hypot(*np.diff(np.array(tr, float)[:, :2], axis=0).T).max()) for tr in gt["tracks"].values() if len(tr) > 1)
+    assert worst <= 0.15, worst

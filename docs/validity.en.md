@@ -360,6 +360,24 @@ No verdict went from "pass" to "caution".
 In corpus v6 `A_office_ev_mid` (1.13 m, 20 dyads), two dyads walked side by side 2–4 m apart for about 20 s while crossing the lobby diagonally.
 Groups keep together along the walking direction, but nothing controls how far apart they are sideways, and each member walks its own route. This is a change to movement and is left for the next version.
 
+### 5.7 The step that puts people back near the line through a door jumped (2026-11-12)
+
+The comparison of 1.0 and 1.1 (the size of each one-frame step) found steps larger than 0.2 m in one frame in the three elevator templates (205 in 48 runs, at most 1.01 m).
+198 were boarding people walking to the door and 7 were people leaving through the east exit of the hospital to beyond the door.
+
+- **Cause:** traffic to and from beyond a door (outside the walkable area) may move at most `NO_WALL_LAT_M` (0.35 m) sideways from the door line. In the hall, people may leave the line to avoid waiting people,
+  but in the frame in which a point a little ahead became non-walkable (they started looking beyond the door), anyone more than 0.55 m from the line was put back 0.35 m from the line in a single frame.
+- **Fix:** instead of putting them back, move them towards the line by half their own speed per frame (`NO_WALL_BACK`).
+
+Verification ("before" has the same movement as 1.1; the three elevator templates with seeds 1–16, and the 18 elevator runs of corpus set A):
+
+| Target | Steps larger than 0.2 m | Largest step | Stuck people | Safety valve (per run) | Overlap | People taking more than 10 s to board |
+|---|---:|---:|---:|---:|---:|---:|
+| `office_gate_ev` | 63 → 0 | 1.01 → 0.09 m | 0 → 0 | 0.88 → 0.81 | 0.042 → 0.021 | 62 → 58 |
+| `office_ev_hall` | 81 → 0 | 1.00 → 0.08 m | 0 → 0 | 1.94 → 2.06 | 0.020 → 0.016 | 148 → 138 |
+| `hospital_gate_ev` | 61 → 0 | 0.93 → 0.08 m | 0 → 0 | 3.75 → 3.75 | 0.156 → 0.163 | 59 → 58 |
+| Corpus set A (elevator) | 12 → 0 | 0.79 → 0.08 m | 0 → 0 | 1.67 → 1.67 | 0.195 → 0.192 | 34 → 32 |
+
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 
 | Value | Current | How to calibrate |
