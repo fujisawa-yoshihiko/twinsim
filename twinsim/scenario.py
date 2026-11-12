@@ -12,8 +12,8 @@ import yaml
 
 from . import dists
 from .characters import MODELS
-from .engine import Agent, Car, Gate, Meet, Sim
-from .literature import PROFILES, WEIDMANN_FD, lift_demand_per_min
+from .engine import Agent, Car, Gate, Meet, Sim, group_slots
+from .literature import GROUP_RELATION_SHARE, GROUP_RELATIONS, PROFILES, WEIDMANN_FD, lift_demand_per_min
 from .space import ROOT, load_space, point_in_poly
 
 TEMPLATES = ROOT / "templates"
@@ -24,7 +24,8 @@ DEFAULTS = {
     "people": {"speed": {"type": "normal", "mean": 1.34, "sd": 0.26, "min": 0.8, "max": 1.9},  # Weidmann 1993
                "models": "all",
                "group_speed": {"model": "moussaid2010", "slope_m_s": 0.04},  # 1 人増えるごとに 0.04 m/s 遅く（Moussaïd ら 2010、低密度）
-               "group_lateral_m": 0.66,  # 2 人連れの横の間隔（Zanlungo ら 2017、大阪 ATC の 1018 組の平均）
+               "group_relation": copy.deepcopy(GROUP_RELATION_SHARE),  # グループの関係の割合（大阪 ATC の 2 人連れの数、Zanlungo ら 2017）。
+               # 関係ごとの横の間隔・3 人組の V 字は literature.GROUP_RELATIONS。group_lateral_m を書くと、2 人連れの横を関係によらずその値にする
                "lateral_max_m": 1.0,  # 経路から横へよけられる幅（廊下の確かめ verify_fundamental_diagram で決めた。motion_model "lane" だけ）
                "motion_model": "cfsm",  # 人の動き: cfsm（ぶつからない動き、Tordeux ら 2016）か lane（前のモデル、経路から横へずれてよける）
                "speed_density": dict(WEIDMANN_FD)},  # 前の人の密度で遅くなる（Weidmann 1993）。null で切る
@@ -201,6 +202,10 @@ def validate(spec):
     errs += [f"render.props: 場所 {k} がない" for k in spec["render"].get("props", []) if k not in space.pois]
     if spec.get("name") is not None and not is_safe_name(spec["name"]):
         errs.append(f"name に使えるのは文字・数字・_・- だけ（今は {spec['name']!r}）")
+    rel = spec["people"].get("group_relation")
+    rel_names = set(rel.get("values", {})) if isinstance(rel, dict) and rel.get("type") == "choice" else {rel} if isinstance(rel, str) else None
+    if rel is not None and (rel_names is None or not rel_names <= set(GROUP_RELATIONS)):
+        errs.append(f"people.group_relation は関係の名前（{', '.join(GROUP_RELATIONS)}）か、その choice の分布（今は {rel!r}）")
 
     def check_to(d, where):
         to = d.get("to") if isinstance(d, dict) else d
@@ -537,8 +542,11 @@ class Builder:
             self.group_n += 1
             group = f"G{self.group_n:03d}"
         speeds = [float(dists.sample(self.spec["people"]["speed"], self.rng)) for _ in range(size)]
-        speed = self.group_speed(speeds)
-        lat = self.spec["people"]["group_lateral_m"]
+        relation = None
+        if size > 1:
+            relation = str(dists.sample(self.spec["people"].get("group_relation") or GROUP_RELATION_SHARE, self.rng))
+        speed = self.group_speed(speeds, relation)
+        slots = group_slots(size, relation, self.spec["people"].get("group_lateral_m"))
         oxy = origin_xy or self.origin_point(origin)
         label = origin if isinstance(origin, str) else origin.get("name") or stream  # 記録の出発地（OD の集計に使う）
         comp = []
@@ -553,10 +561,12 @@ class Builder:
             oxy = shift(hidden, o)
         made = []
         for k in range(size):
-            l_pref = (k - (size - 1) / 2) * lat if size > 1 else self.rng.uniform(-0.3, 0.3)
+            l_pref = slots[k][0] if size > 1 else self.rng.uniform(-0.3, 0.3)  # 経路からの横のずれ = 持ち場の横（engine.group_slots）
             plan = base_plan if k == 0 else self.plan_for_copy(base_plan)
-            a = self.new_agent(plan, t0 + k * self.rng.uniform(0.0, 0.4), oxy, speed if size > 1 else speeds[0], l_pref, group,
-                               {"type": typ, "stream": stream, "destination": d["to"], "origin": label})
+            info = {"type": typ, "stream": stream, "destination": d["to"], "origin": label}
+            if relation:
+                info["relation"] = relation
+            a = self.new_agent(plan, t0 + k * self.rng.uniform(0.0, 0.4), oxy, speed if size > 1 else speeds[0], l_pref, group, info)
             if hidden:
                 a.door, a.entry_alt = origin, alt
             made.append(a)
@@ -572,22 +582,28 @@ class Builder:
             if c["then"]:
                 cplan += self.plan_for(c["then"])
             ca = self.new_agent(cplan, t0 + delay, cxy, speed, 0.3, group or f"G{self.group_n + 1:03d}",
-                                {"type": typ, "stream": stream, "destination": d["to"], "origin": clabel, "role": "companion"})
+                                {"type": typ, "stream": stream, "destination": d["to"], "origin": clabel, "role": "companion",
+                                 "relation": relation or str(dists.sample(self.spec["people"].get("group_relation") or GROUP_RELATION_SHARE,
+                                                                          self.rng))})
             if group is None:
                 self.group_n += 1
                 for a in made:
                     a.group = ca.group
+                    a.info["relation"] = ca.info["relation"]
             c["meet"].members.add(ca.name)
             made.append(ca)
         for a in made:
             sim.add(a)
         return made
 
-    def group_speed(self, speeds):
-        """グループで歩く速さ。moussaid2010: 一人ひとりの速さの平均から、1 人増えるごとに slope_m_s ずつ遅く。min: いちばん遅い人に合わせる。"""
+    def group_speed(self, speeds, relation=None):
+        """グループで歩く速さ。moussaid2010: 一人ひとりの速さの平均から、1 人増えるごとに slope_m_s ずつ遅く。min: いちばん遅い人に合わせる。
+        付き添い（relation companion）は、いちばん遅い人（患者）に合わせる（仮）。"""
         if len(speeds) == 1:
             return speeds[0]
         gs = self.spec["people"].get("group_speed") or {"model": "min"}
+        if relation == "companion":
+            return min(speeds)
         if gs.get("model") == "moussaid2010":
             floor = float(self.spec["people"]["speed"].get("min", 0.5)) if isinstance(self.spec["people"]["speed"], dict) else 0.5
             return max(floor, sum(speeds) / len(speeds) - float(gs.get("slope_m_s", 0.04)) * (len(speeds) - 1))
@@ -693,7 +709,8 @@ class Builder:
                     return names
         sim = Sim(sp, fps, total, gates, cars, spots, lmax=float(spec["people"].get("lateral_max_m", 0.6)), on_arrival=on_arrival,
                   motion_model=spec["people"].get("motion_model", "cfsm"), cfsm=spec["people"].get("cfsm"),
-                  elevator_policy=policy, speed_density=spec["people"].get("speed_density"), ev_timing=timing)
+                  elevator_policy=policy, speed_density=spec["people"].get("speed_density"), ev_timing=timing,
+                  group_lateral_m=spec["people"].get("group_lateral_m"))
         for s in spec["streams"]:
             size_spec = s.get("group_size") or spec["people"].get("group_size")
             rate, note = resolve_rate(spec, s["rate"], size_spec)

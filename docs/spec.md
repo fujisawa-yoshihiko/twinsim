@@ -63,7 +63,7 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 |---|---|
 | `space` | 空間の名前 |
 | `seed`・`fps`・`duration_s` | 乱数の種（0）、1 秒のコマ数（30）、長さ（120 秒） |
-| `people` | `profile`（文献の値の組。`office_commute_jp`・`leisure_low_density`。docs/validity.md）、`speed`（歩く速さの分布、既定は 1.34 ± 0.26 m/s、Weidmann 1993）、`models`（人物モデル。`all`）、`group_size`（流れに書かないときのまとまりの人数）、`group_speed`（既定 `{model: moussaid2010, slope_m_s: 0.04}`。`{model: min}` で遅い人に合わせる）、`group_lateral_m`（2 人連れの横の間隔、既定 0.66、Zanlungo ら 2017）、`speed_density`（速さと密度の関係、既定 Weidmann 1993。`null` で切る）、`lateral_max_m`（経路から横へよけられる幅、1.0）、`motion_model`（歩き方のモデル。既定 `cfsm`、前のモデル `lane`） |
+| `people` | `profile`（文献の値の組。`office_commute_jp`・`leisure_low_density`。docs/validity.md）、`speed`（歩く速さの分布、既定は 1.34 ± 0.26 m/s、Weidmann 1993）、`models`（人物モデル。`all`）、`group_size`（流れに書かないときのまとまりの人数）、`group_speed`（既定 `{model: moussaid2010, slope_m_s: 0.04}`。`{model: min}` で遅い人に合わせる）、`group_relation`（グループの関係の割合: 同僚・友人・家族・付き添い、既定は大阪 ATC の 2 人連れの数。関係ごとの横の間隔は Zanlungo ら 2017・2019、1.2 から）、`group_lateral_m`（書くと 2 人連れの横の間隔を関係によらずこの値に）、`speed_density`（速さと密度の関係、既定 Weidmann 1993。`null` で切る）、`lateral_max_m`（経路から横へよけられる幅、1.0）、`motion_model`（歩き方のモデル。既定 `cfsm`、前のモデル `lane`） |
 | `demand` | EV を使う人の量: `population`（建物にいる人数）、`period`（`morning`・`lunch`）、`peak_pct_5min`（混む 5 分の割合、12）。`rate: {type: lift_demand}` と `alight.count: {type: lift_demand}` が使う（Peters ら 2011） |
 | `streams[]` | 人の流れ: `name`、`origin`（現れる場所。場所の名前か、座標の `{"xy": [x, y]}`・`{"line": [[x0, y0], [x1, y1]]}`。線なら線の上のどこか。`name` を足すと集計での呼び名になる）、`rate`（到着の率）、`group_size`、`types`、`destinations[]`、`start_s`。座標は歩ける所の中で、行き先まで歩いて行ける所に置く（外なら計算の前に誤り） |
 | `elevator` | `cars`（扉の名前）、`capacity`、`schedule`、`alight`（降りる人: `count`・`types`・`destinations`）、`transfer_s`（1 人の乗り降り、1.0 秒）、`door_open_s`（着いてから最初の人が動くまで、1.0 秒、仮） |

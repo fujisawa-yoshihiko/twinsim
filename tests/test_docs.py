@@ -67,7 +67,7 @@ def test_links_lead_somewhere(name):
 def test_reference_covers_every_key(lang):
     text = read("config-reference", lang)
     keys = (CONFIG_KEYS | CAMERA_KEYS | set(OUTPUTS) | set(PROFILES)
-            | {"profile", "speed", "group_size", "group_speed", "group_lateral_m", "lateral_max_m", "speed_density", "models",  # people
+            | {"profile", "speed", "group_size", "group_speed", "group_relation", "group_lateral_m", "lateral_max_m", "speed_density", "models",  # people
                "population", "period", "peak_pct_5min", "level",  # demand
                "origin", "rate", "types", "destinations", "start_s",  # streams
                "to", "p", "via", "dwell", "state", "glance", "meet", "then", "variant_p", "delay", "from",  # 行き先
@@ -91,7 +91,8 @@ def test_reference_lists_the_places_of_each_space():
 def test_stated_defaults_match_the_code():
     spec = twinsim.validate(BASE)
     assert (spec["seed"], spec["fps"], spec["duration_s"]) == (0, 30, 30)
-    assert spec["people"]["group_lateral_m"] == 0.66 and spec["people"]["lateral_max_m"] == 1.0
+    assert "group_lateral_m" not in spec["people"] and spec["people"]["lateral_max_m"] == 1.0
+    assert spec["people"]["group_relation"]["values"] == {"colleagues": 0.388, "friends": 0.345, "family": 0.267}
     assert spec["render"]["width"] == 1280 and spec["render"]["height"] == 720 and spec["render"]["tint"] == "per_person"
     assert set(spec["outputs"]) == set(OUTPUTS) and spec["people"]["models"] == "all"
 

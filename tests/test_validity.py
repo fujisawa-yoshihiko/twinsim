@@ -37,7 +37,8 @@ def test_lift_demand():
 def test_profile_and_rates():
     spec = load_scenario("office_gate_ev")
     pe = spec["people"]
-    assert pe["group_size"]["lam"] == pytest.approx(0.20, abs=0.01) and pe["group_lateral_m"] == 0.72 and pe["speed_density"]["gamma"] == 1.913
+    assert pe["group_size"]["lam"] == pytest.approx(0.20, abs=0.01) and pe["group_relation"]["values"] == {"colleagues": 1.0}
+    assert pe["speed_density"]["gamma"] == 1.913
     rate, note = resolve_rate(spec, spec["streams"][0]["rate"], pe["group_size"])
     assert note["persons_per_min"] == pytest.approx(12.24 * 0.90, rel=1e-3)
     assert rate["per_min"] == pytest.approx(note["persons_per_min"] / note["mean_group_size"], rel=1e-3)  # note は丸めた値

@@ -28,7 +28,10 @@ are not called "valid" until they have been fitted to real data (gate passage lo
 | Group size (leisure) | λ = 0.78 (46% alone) | Moussaïd et al. 2010 | Shopping street in Toulouse, weekday afternoon | `leisure_low_density` |
 | Shape of the group-size distribution | Zero-truncated Poisson | Coleman & James 1961 | Small, naturally forming groups | Shape |
 | Group speed | −0.04 m/s per additional member (−0.08 at medium density) | Moussaïd et al. 2010 | Same as above, about 1500 groups | Default |
-| Lateral spacing of dyads | Colleagues 0.72 m, overall mean 0.66 m, friends 0.66 m | Zanlungo et al. 2017 | Osaka ATC, 1018 dyads | Default 0.66; 0.72 for `office_commute_jp` |
+| Lateral spacing of dyads | Colleagues 0.72 m, friends 0.66 m, family 0.58 m (couples 0.60 m) | Zanlungo et al. 2017 | Osaka ATC, 1018 dyads | Formation slots by relation (from 1.2; `people.group_relation`, default shares colleagues 39%, friends 35%, family 27%); companion uses the family values provisionally |
+| Front–back offset of dyads (mean absolute value) | Colleagues 0.33 m, friends 0.31 m, family 0.50 m | Same (reprinted in Table 4 of Zanlungo et al. 2019) | Same as above | Size of the front–back fluctuation of the slots (from 1.2; its time constant of 5 s is provisional) |
+| Lateral extent of triads | Colleagues 1.10 m, friends 0.97 m, family 0.88 m | Zanlungo et al. 2019 | Osaka ATC, 687 triads | Formation slots by relation (from 1.2) |
+| Group formation and density | Dyad lateral extent 0.646 − 0.538 ρ m, triad 1.096 − 1.370 ρ m (ρ in people/m², 0 to 0.3). Triads walk in a V at every density (the middle person 0.14 m behind) | Zanlungo et al. 2015 | Corridor of Osaka ATC, 3305 dyads and 602 triads; density from 0.5 m cells averaged over 300 s | Slots narrow with density (from 1.2); check |
 | Dyad distance (comparison values) | Colleagues 0.85 m, friends 0.79 m, couples 0.71 m, families 0.86 m | Zanlungo et al. 2017 | Same as above | Check |
 | Dyad speed (comparison values) | Colleagues 1.27, friends 1.14, couples 1.10, families 1.09 m/s; work 1.27, leisure 1.12 m/s | Zanlungo et al. 2017 | Same as above | Reference only (close to 1.34 − 0.04 = 1.30) |
 | Elevator demand (number of users) | Building population × 12% ÷ 5 min (busiest 5 minutes) | Peters et al. 2011 | Current offices in Europe, North America and the UAE (observed maximum 12–13%; the old design guideline was 15%) | `demand` and `rate: {type: lift_demand}` |
@@ -79,7 +82,9 @@ In the GUI, the "People distributions (literature)" section lets you choose the 
 | Interval between consecutive people boarding an elevator | Input reproduction | Median 0.7–1.6 s (10 or more pairs; 5.6) |
 | Gate time per person when crowded | Input reproduction | Median 1.5–4.0 s (10 or more pairs of consecutive passages in a lane where the second person had already stopped in the queue before the first passed) |
 | Speed by density | Emergent quantity | Ratio to the person's own speed matches the formula's v/v0 within an RMS of 0.12 at 0.5 people/m² or more (verdict only for the unidirectional corridor `verify_*`; reference only otherwise) |
-| Dyad distance (excluding the time from joining a gate queue until 5 s after passing) | Emergent quantity | Literature (colleagues 0.85 m, etc.) ± 0.15 m (3 or more dyads and 20 or more samples; 5.6) |
+| Dyad distance (excluding the time from joining a gate queue until 5 s after passing, and meeting groups before they meet) | Emergent quantity | Literature value for each relation (colleagues 0.85 m, etc.; mean weighted by samples) ± 0.15 m (3 or more dyads and 20 or more samples; 5.6, 5.8) |
+| Lateral extent of groups against density (dyads and triads, where the group centre is at least 1 m from walls) | Emergent quantity | Density bins of 0.05 from 0 to 0.3 people/m²; the difference from the low-density value of the relation × (1 − k ρ) (Zanlungo et al. 2015) is within 0.1 m + 2 standard errors of the per-group mean differences (bins with 20 or more samples and 3 or more groups; density as in the literature, 0.5 m cells averaged over 300 s; 5.8) |
+| Times a stranger crossed between group members | Reference only | No literature (crossings of the line joining two members while they are closer than 1.3 m) |
 | Nearest distance between waiting people (between people standing and waiting; people walking past are not counted) | Emergent quantity | Below 0.45 m in at most 5% |
 | People stuck and unable to move | Emergent quantity | In the last 30 s, 0 people en route or in a gate queue who moved less than 0.3 m (excluding people who went more than 2 m away and came back in that time) |
 | Doorway capacity | Emergent quantity | Within ±15% of 1.90–2.19 people/(m·s) from the 1.0 m width experiment (when `validity: {bottleneck: ...}` is set) |
@@ -378,6 +383,46 @@ Verification ("before" has the same movement as 1.1; the three elevator template
 | `hospital_gate_ev` | 61 → 0 | 0.93 → 0.08 m | 0 → 0 | 3.75 → 3.75 | 0.156 → 0.163 | 59 → 58 |
 | Corpus set A (elevator) | 12 → 0 | 0.79 → 0.08 m | 0 → 0 | 1.67 → 1.67 | 0.195 → 0.192 | 34 → 32 |
 
+### 5.8 Group formation (1.2, 2026-11-12)
+
+In 1.1, group members each planned their own route from their own position, and groups had no lateral cohesion (5.6). 1.2 adds the following (`motion_model: cfsm` only).
+
+- **Relations and slots:** each group gets a relation (colleagues, friends, family, companion; `people.group_relation`), and each member gets a slot relative to the leader (the first member to appear).
+  Dyads walk abreast at the lateral spacing of their relation, triads in a V (the middle person 0.14 m behind), groups of four or more in two rows (provisional). The lateral part of the slots
+  narrows with the surrounding density (cell counts in 0.5 m cells averaged over time, as in the literature) following Zanlungo et al. 2015, and members line up where the distance between neighbours
+  would fall below a body width (0.36 m) or a slot would be in a wall. The front–back offset fluctuates so that the mean absolute front–back offset of dyads matches the literature for each relation (the 5 s time constant is provisional).
+  A member does not move to its slot when a stranger is standing there or when it cannot make progress; it then avoids others along its own route.
+- **Joining the leader's route:** when the leader has already started the same itinerary step, a follower joins the leader's route ahead (from two different spots at a reception desk, a dyad walked 7 m apart on opposite sides of an island for 50 s).
+  Standing spots are chosen only where they are in sight of the target point (a member was given a spot behind the reception desk and set off in the opposite direction).
+- **Strangers do not walk between members:** strangers avoid the nearest point on the line joining two members (closer than 1.3 m) as they avoid a person.
+  We also tried steering early around the outer end of such a line, but it increased the safety valve in crowded places (11 → 34 times in office_ev_hall, seeds 17–32), so it is not used.
+  A widely spaced pair may still open up to let an oncoming person through (people do this too).
+- **Splitting and rejoining:** at gates, members prefer the lane where a member is queuing (up to one person longer than the shortest queue), and a member who passes first waits 2 m beyond the gate (state `group_wait`, up to 30 s, provisional).
+  Groups board the same elevator car; if not all fit, they wait together for the next one (a group that was skipped moves to the front for the next car). They wait up to 60 s for members who have not arrived yet.
+  Elevator waiting spots are chosen next to a member's spot (within 1 m).
+- **Output and checks:** the ground truth gets `groups` (members, relation, leader, intervals apart), each person's `relation` and `regroup` events (docs/formats.en.md).
+  The dyad distance check compares with the literature value for each relation; a check of lateral extent against density and a count of strangers crossing between members (reference only) were added (table in section 4).
+  Evaluation of a group-finding task (`twinsim/group_eval.py`, `python -m twinsim group-eval <run> <found.json>`): group-level precision, recall and F1 with the criterion of Setti et al. 2015 (T = 2/3 and 1), and F1 over pairs.
+
+Checks (same templates and seeds as 1.1. The random sequence changes (relations are drawn), so we look at the overall trend, not run-by-run differences. Results in `~/dt-data/twinsim/crowd_check/groups1/`):
+
+| Template | Runs | Dyads within range | Dyad distance, lateral, front–back (gstats measure) | Triad lateral | Safety valve | Overlap (< 0.3 m per 1,000 person-frames) | Shaking (per 1,000 person-seconds) | Spacing of waiting people within range |
+|---|---:|---|---|---|---|---|---|---|
+| `verify_groups` | 9 | 9/9 → 9/9 | 0.88, 0.77, 0.38 → 0.73, 0.60, 0.31 m (friends 0.79, 0.66, 0.31) | 1.35 → 0.90 m (friends 0.97) | 0 → 0 | 0.004 → 0.002 | 0.0 → 0.0 | — |
+| `verify_gate_capacity` | 9 | 7/9 → 8/9 | 1.10, 0.70, 0.71 → 0.90, 0.47, 0.64 m | 1.20 → 0.73 m | 7 → 4 | 0 → 0 | 2.5 → 3.2 | 9/9 → 9/9 |
+| `office_gate_ev` | 16 | 11/16 → 16/16 | 1.09, 0.66, 0.73 → 0.95, 0.50, 0.66 m | 1.15 → 1.30 m | 14 → 15 | 0.042 → 0.063 | 2.8 → 3.9 | 16/16 → 16/16 |
+| `office_ev_hall` | 16 | 13/16 → 16/16 | — | 3.62 → 2.99 m | 31 → 24 | 0.020 → 0.062 | 4.8 → 5.8 | 16/16 → 15/16 |
+| `hospital_gate_ev` | 16 | 13/16 → 16/16 | 1.00, 0.79, 0.49 → 0.77, 0.59, 0.39 m | 1.66 → 0.85 m | 60 → 56 | 0.156 → 0.212 | 5.6 → 5.5 | 16/16 → 15/16 |
+
+- The checks without groups (`verify_bottleneck`, `verify_corridor_speed`, `verify_counterflow`, `verify_fundamental_diagram`) give exactly the same results as 1.1.
+- The new check of lateral extent against density passed in `verify_groups` 8/9, `verify_gate_capacity` 6/9, `office_gate_ev` 16/16, `office_ev_hall` 14/16 and `hospital_gate_ev` 16/16.
+  Pooled over all runs, the differences are within ± 0.1 m in most bins (dyads in `office_ev_hall` are 0.04–0.11 m narrower; `verify_gate_capacity` at 0.05–0.1 people/m² is 0.18 m wider).
+- Shaking and overlap rose slightly, but with every group feature switched off and only the random sequence of 1.2 kept, `office_gate_ev` had shaking 4.5 and overlap 0.083 (3.9 and 0.063 with the group features).
+  Most of the increase comes from the changed random sequence (and the fix in 5.7). The overlaps happen when people walking to board an elevator squeeze past members of another waiting group.
+- In `verify_gate_capacity`, shaking rose around members waiting beyond the gate (2.6 without the waiting, but the safety valve then rises to 15). Moving the waiting spot to the side of the flow
+  was also tried; shaking rose in some templates and fell in others, and the safety valve rose, so it is not used.
+- The "caution" for the spacing of waiting people (`hospital_gate_ev` seeds 10 and 12 and others) occurs in runs with a crowded elevator hall: 5.8–6.5% below 0.45 m (threshold 5%).
+
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 
 | Value | Current | How to calibrate |
@@ -400,6 +445,6 @@ Verification ("before" has the same movement as 1.1; the three elevator template
 - (Earlier model `lane`) When people jam in front of a bottleneck above 2 people/m², they squeeze in from the side and their bodies overlap (49% of frames below 0.4 m). Overlap with the person ahead moving in the same direction
   is prevented (`MIN_SEP` 0.35 m), but because the model shifts people sideways along the path, it cannot represent pushing from the side. The capacity is close to the experiments.
 - (`cfsm`) Bodies overlap a little only while the safety valve lets someone through (table in 5.1). At gates, pairs are split into different lanes.
-  In front of a crowded elevator, a person heading for the elevator can go into the waiting people through the safety valve and stop among them (5.4). Inside a crowd of waiting people, a little shaking in place remains (5.5). Groups have no rule for how far apart members are sideways, so a dyad can walk side by side 2–4 m apart (5.6).
+  In front of a crowded elevator, a person heading for the elevator can go into the waiting people through the safety valve and stop among them (5.4). Inside a crowd of waiting people, a little shaking in place remains (5.5). Group formation was added in 1.2 (5.8). A widely spaced pair may open up to let an oncoming person through. The formation of groups of four or more, the waiting time beyond gates and the time constant of the front–back fluctuation have no literature values and are provisional.
   Pushing (forces between bodies) is not represented.
 - Body heights are those of the 10 character models as-is (not fitted to the height distribution of Japanese people).

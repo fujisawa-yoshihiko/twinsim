@@ -39,6 +39,47 @@ def resolve_cameras(spec, space):
     return out
 
 
+APART_M, APART_MIN_S = 3.0, 1.0  # グループの仲間が「分かれた」: いちばん近い仲間からこの距離（m）より離れた人がいる状態が、この秒数以上続いた
+
+
+def group_summary(sim, agents):
+    """正解の groups: {グループ: {members, relation, leader, apart}}。members は現れた順、leader は先導の人（最初に現れた人。同行者は除く）。
+    apart は仲間が分かれていた区間 [[始まりの秒, 終わりの秒（合流した。終わりまで分かれていれば null）], …]: 2 人以上が映っていて、
+    いちばん近い仲間から APART_M より離れた人がいる状態が APART_MIN_S 秒以上続いた区間。待ち合わせの組は、そろう（meet_end）まで数えない。"""
+    by = {a.name: a for a in agents}
+    out = {}
+    fps = sim.fps
+    for g, gi in sorted(sim.group_info.items()):
+        mem = [by[n] for n in gi["members"] if n in by]
+        if not mem:
+            continue
+        rec = {"members": [a.name for a in mem], "relation": gi.get("relation"), "leader": gi.get("leader"), "apart": []}
+        start = max((a.events.get("meet_end", 0.0) for a in mem), default=0.0)
+        pos = {a.name: {f: (x, y) for f, x, y, *_ in a.frames} for a in mem}
+        frames = sorted({f for a in mem for f, *_ in a.frames})
+        run0, last = None, None
+        for f in frames:
+            here = [pos[n][f] for n in pos if f in pos[n]]
+            apart = False
+            if len(here) >= 2 and f / fps >= start:
+                for i, (x, y) in enumerate(here):
+                    near = min(math.hypot(x - u, y - v) for j, (u, v) in enumerate(here) if j != i)
+                    if near > APART_M:
+                        apart = True
+                        break
+            if apart and run0 is None:
+                run0 = f
+            elif not apart and run0 is not None:
+                if (f - run0) / fps >= APART_MIN_S:
+                    rec["apart"].append([round(run0 / fps, 2), round(f / fps, 2)])
+                run0 = None
+            last = f
+        if run0 is not None and last is not None and (last - run0) / fps >= APART_MIN_S:
+            rec["apart"].append([round(run0 / fps, 2), None])
+        out[g] = rec
+    return out
+
+
 def write_all(sim, builder, spec, out_dir):
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -75,6 +116,7 @@ def write_all(sim, builder, spec, out_dir):
           "gates": {k: {"lanes": [ln.center.tolist() for ln in g.lanes], "in_dir": g.in_dir.tolist(), "service_s": g.service_s}
                     for k, g in sim.gates.items()},
           "zones": {k: [list(p) for p in v] for k, v in sp.zones.items()},
+          "groups": group_summary(sim, agents),
           "note": "tracks[name][k] = [x, y, yaw_deg] は people[name]['start_frame'] + k のコマ（現れてから消えるまで）。moving は歩いているか。"
                   "people[name]['states'] は [始まりのコマ, 終わりのコマ, 状態]。events・*_events は秒。座標は世界の m（Z が上）"}
     (out / "ground_truth.json").write_text(json.dumps(gt, ensure_ascii=False))

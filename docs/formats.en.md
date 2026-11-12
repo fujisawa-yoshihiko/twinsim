@@ -65,6 +65,7 @@ No lens distortion (pinhole). Other values: `eye` and `target` (world coordinate
 | `elevator_times`, `cars`, `spots`, `door` | Elevator arrival times, door position and capacity of each car, the spots where people stand while waiting for the elevator |
 | `gates[name]` | Lane centers `lanes`, entry direction `in_dir`, time per person `service_s` |
 | `zones[name]` | Zone polygon `[[x, y], …]` |
+| `groups[group]` | `{members, relation, leader, apart}` (from 1.2). Member names (in order of appearance), relation (`colleagues`, `friends`, `family`, `companion`), leader (the first member to appear; companions excluded), intervals while the members were apart `[[start s, end s], …]` (someone more than 3 m from the nearest member for at least 1 s; the end is null if they were still apart at the end; meeting groups are counted only after they meet) |
 
 Contents of `people[name]`:
 
@@ -72,10 +73,10 @@ Contents of `people[name]`:
 |---|---|
 | `model`, `kind`, `height_m`, `tint_index` | Character model (Isaac Sim characters, 10 kinds), sex F/M, height (m), clothing color index (rendering gives each person a different color) |
 | `type`, `stream`, `origin`, `destination`, `flow` | Type (staff, visitor, etc.), stream name, where the person appeared, destination, "origin->destination" |
-| `group`, `role` | Group name (`G001`; null if alone), `companion` if the person is a companion |
+| `group`, `role`, `relation` | Group name (`G001`; null if alone), `companion` if the person is a companion, the group's relation (from 1.2; same as in `groups`) |
 | `start_frame`, `arrive_frame`, `speed_m_s` | Frames at which the person appeared and disappeared, desired walking speed |
 | `states` | `[[start frame, end frame, state], …]` (states in the table below) |
-| `events` | In seconds. `start` and `end`, `gate_join` and `gate` (joined the queue, passed through), `hall`, `wait_start`, `car`, `board_start`, `board` (elevator), `stops` (intervals while stopped), `meet_start` and `meet_end`, `spawn_wait_s` (seconds spent waiting outside because the entrance was blocked) |
+| `events` | In seconds. `start` and `end`, `gate_join` and `gate` (joined the queue, passed through), `hall`, `wait_start`, `car`, `board_start`, `board` (elevator), `stops` (intervals while stopped), `meet_start` and `meet_end`, `regroup` (intervals spent waiting for group members beyond a gate, `[[start, end], …]`, from 1.2), `spawn_wait_s` (seconds spent waiting outside because the entrance was blocked) |
 
 | State | Meaning |
 |---|---|
@@ -88,6 +89,7 @@ Contents of `people[name]`:
 | `dwell` | Stopping at any other place |
 | `sign_check` | Looking at a sign / signage |
 | `companion_wait` | Waiting for a companion |
+| `group_wait` | Having passed a gate first, waiting beyond it for the other group members (from 1.2) |
 | `work`, `wait` | Working / waiting in the warehouse (warehouse template) |
 
 ## 3. `frames.csv.gz`

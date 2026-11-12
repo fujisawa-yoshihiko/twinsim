@@ -65,6 +65,7 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `elevator_times`・`cars`・`spots`・`door` | EV の着く時刻、号機の扉の位置・定員、EV 待ちの立つ場所 |
 | `gates[名前]` | レーンの中心 `lanes`・入館の向き `in_dir`・1 人あたりの時間 `service_s` |
 | `zones[名前]` | ゾーンの多角形 `[[x, y], …]` |
+| `groups[グループ]` | `{members, relation, leader, apart}`（1.2 から）。仲間の名前（現れた順）・関係（`colleagues` 同僚・`friends` 友人・`family` 家族・`companion` 付き添い）・先導の人（最初に現れた人。同行者は除く）・分かれていた区間 `[[始まりの秒, 終わりの秒], …]`（いちばん近い仲間から 3 m より離れた人がいる状態が 1 秒以上。終わりまで分かれていれば終わりは null。待ち合わせの組はそろってから数える） |
 
 `people[名前]` の中身:
 
@@ -72,10 +73,10 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 |---|---|
 | `model`・`kind`・`height_m`・`tint_index` | 人物モデル（Isaac Sim の人物、10 種類）・性別 F/M・背の高さ（m）・服の色の番号（描画で人ごとに色を変える） |
 | `type`・`stream`・`origin`・`destination`・`flow` | 種類（staff・visitor など）・流れの名前・現れた場所・行き先・「現れた場所->行き先」 |
-| `group`・`role` | グループの名前（`G001`、1 人なら null）・同行者なら `companion` |
+| `group`・`role`・`relation` | グループの名前（`G001`、1 人なら null）・同行者なら `companion`・グループの関係（1.2 から。`groups` と同じ） |
 | `start_frame`・`arrive_frame`・`speed_m_s` | 現れた・消えたコマ、思う歩く速さ |
 | `states` | `[[始まりのコマ, 終わりのコマ, 状態], …]`（状態は下の表） |
-| `events` | 秒。`start`・`end`、`gate_join`・`gate`（列に並んだ・通った）、`hall`・`wait_start`・`car`・`board_start`・`board`（EV）、`stops`（止まった区間）、`meet_start`・`meet_end`、`spawn_wait_s`（入口がふさがって外で待った秒） |
+| `events` | 秒。`start`・`end`、`gate_join`・`gate`（列に並んだ・通った）、`hall`・`wait_start`・`car`・`board_start`・`board`（EV）、`stops`（止まった区間）、`meet_start`・`meet_end`、`regroup`（ゲートの先で仲間を待った区間 `[[始まり, 終わり], …]`、1.2 から）、`spawn_wait_s`（入口がふさがって外で待った秒） |
 
 | 状態 | 意味 |
 |---|---|
@@ -88,6 +89,7 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `dwell` | そのほかの場所で止まる |
 | `sign_check` | 案内板・サイネージを見る |
 | `companion_wait` | 同行者を待つ |
+| `group_wait` | ゲートを先に通った人が、通った先でグループの仲間を待つ（1.2 から） |
 | `work`・`wait` | 倉庫の作業・待ち（倉庫のテンプレート） |
 
 ## 3. `frames.csv.gz`

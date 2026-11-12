@@ -13,6 +13,8 @@ Decided (2026-11-12):
 - Non-human movers (wheelchairs, AGVs and others) go into 1.3 or later
 - Groups are checked over the density range measured in the literature, 0–0.3 people/m² (table below). Denser places are not judged; their values are only reported
 
+Progress: 1 groups is done (2026-11-12, [validity.en.md, section 5.8](validity.en.md#58-group-formation-12-2026-11-12)).
+
 Order of work: 1 groups → 2 components → 3 remaining movement fixes → 4 making spaces → rendering (seated people, chairs, counters) → comparison with 1.1 and release notes.
 The work is on branch `crowd-1.2`.
 

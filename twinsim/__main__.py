@@ -71,6 +71,9 @@ def cli(argv):
     r.add_argument("--set", action="append")
     c = sub.add_parser("check")
     c.add_argument("run_dir")
+    ge = sub.add_parser("group-eval", help="グループを見つける課題の評価（twinsim/group_eval.py）")
+    ge.add_argument("run_dir")
+    ge.add_argument("found", help="見つけた結果の JSON（{\"frames\": {コマ: [[人, ...], ...]}}）。perfect で正解そのもの（確かめ）")
     rd = sub.add_parser("render")
     rd.add_argument("run_dir")
     rd.add_argument("--frames", nargs=2, type=int)
@@ -147,6 +150,10 @@ def cli(argv):
         for c in rep["kept"]:
             print("元のまま:", json.dumps(c, ensure_ascii=False))
         print("scenario:", path)
+    elif a.cmd == "group-eval":
+        from . import group_eval
+        found = group_eval.perfect(a.run_dir) if a.found == "perfect" else a.found
+        print(json.dumps(group_eval.evaluate(a.run_dir, found), ensure_ascii=False, indent=1))
     elif a.cmd == "check":
         from .quality import check
         from .validity import evaluate

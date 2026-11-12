@@ -40,6 +40,20 @@ REFS = {
         "use": "大阪 ATC の 2 人連れ（1018 組）: 速さは同僚 1.274・友人 1.138・夫婦 1.099・家族 1.094 m/s、仕事の目的 1.271・余暇 1.118 m/s。"
                "2 人の距離 r は同僚 0.851 m（横 0.718 m）、友人 0.792 m（横 0.662 m）、夫婦 0.714 m（横 0.600 m）、家族 0.863 m（横 0.583 m）",
         "where": "日本（大阪 ATC）、低〜中密度"},
+    "zanlungo2015": {
+        "cite": "Zanlungo, F., Brščić, D., Kanda, T. (2015). Spatial-size scaling of pedestrian groups under growing density conditions. "
+                "Physical Review E 91: 062810.",
+        "use": "大阪 ATC の 2 人連れ 3305 組・3 人組 602 組、密度 0〜0.3 人/m²（0.5 m 角のセルを 300 秒ならした値）。横の広がりは密度に比例して狭まる: "
+               "2 人連れ 0.646 − 0.538 ρ m、3 人組 1.096 − 1.370 ρ m。2 人連れの前後の差は平均 0（横に並ぶ）。3 人組はどの密度でも V 字"
+               "（真ん中の人が 0.14 m 後ろ）。速さは 1 人 1.286 − 1.072 ρ、2 人連れ 1.147 − 0.931 ρ、3 人組 1.092 − 0.799 ρ m/s",
+        "where": "日本（大阪 ATC の廊下）、低〜中密度",
+        "check": "論文の図 3・5・8・10 の注と本文（2026-11-12）"},
+    "zanlungo2019": {
+        "cite": "Zanlungo, F., Yücel, Z., Kanda, T. (2019). Intrinsic group behaviour II: On the dependence of triad spatial dynamics on social "
+                "and personal features; and on the effect of social interaction on small group dynamics. PLoS ONE 14(12): e0225704.",
+        "use": "大阪 ATC の 3 人組 687 組: 速さは同僚 1.191・友人 1.038・家族 0.987 m/s、横の広がりは同僚 1.103・友人 0.970・家族 0.878 m（表 3）。"
+               "表 4 に Zanlungo ら 2017 の 2 人連れの関係ごとの値（速さ・距離・横・前後）を再掲",
+        "where": "日本（大阪 ATC）、低〜中密度"},
     "nicolas2021": {
         "cite": "Nicolas, A., Hassan, F. H. (2021). Social groups in pedestrian crowds: review of their influence on the dynamics and their "
                 "modelling. arXiv:2107.13293.",
@@ -65,6 +79,32 @@ REFS = {
                 "call center: a queueing-science perspective. JASA 100(469): 36–50.",
         "use": "人が応対する時間（サービス時間）は対数正規分布に近い（形の根拠。受付の時間への当てはめは類推）"},
 }
+
+# グループの関係ごとの組み方（大阪 ATC）。dyad: 2 人連れの速さ・距離 r・横 x・前後 y（Zanlungo ら 2017、2019 の表 4 に再掲）、
+# triad: 3 人組の速さ・横の広がり x（Zanlungo ら 2019 の表 3）。companion（患者と付き添い）は文献の値がないので、家族の値を仮に使う
+GROUP_RELATIONS = {
+    "colleagues": {"dyad": {"speed": 1.274, "r": 0.851, "x": 0.718, "y": 0.334, "n": 358}, "triad": {"speed": 1.191, "x": 1.103, "n": 79},
+                   "source": "zanlungo2017", "title": "同僚", "title_en": "colleagues"},
+    "friends": {"dyad": {"speed": 1.138, "r": 0.792, "x": 0.662, "y": 0.314, "n": 318}, "triad": {"speed": 1.038, "x": 0.970, "n": 212},
+                "source": "zanlungo2017", "title": "友人", "title_en": "friends"},
+    "family": {"dyad": {"speed": 1.094, "r": 0.863, "x": 0.583, "y": 0.498, "n": 246}, "triad": {"speed": 0.987, "x": 0.878, "n": 396},
+               "source": "zanlungo2017", "title": "家族", "title_en": "family"},
+    "companion": {"dyad": {"speed": 1.094, "r": 0.863, "x": 0.583, "y": 0.498}, "triad": {"speed": 0.987, "x": 0.878},
+                  "source": None, "provisional": True, "title": "付き添い", "title_en": "companion",
+                  "note": "患者と付き添い。文献の値がないので家族の値を仮に使う（速さは遅い人に合わせる）"},
+}
+# 関係の割合の既定: 大阪 ATC の 2 人連れの数（夫婦 96 組は 4 つの関係に入れないので除く。Zanlungo ら 2017）
+GROUP_RELATION_SHARE = {"type": "choice", "values": {"colleagues": 0.388, "friends": 0.345, "family": 0.267}}
+# 密度との関係（Zanlungo ら 2015）: 横の広がり = 低密度の値 × (1 − k ρ)。k = 傾き ÷ 切片（2 人連れ 0.538 / 0.646、3 人組 1.370 / 1.096）
+GROUP_DENSITY = {"range": (0.0, 0.3), "dyad_x": (0.646, -0.538), "triad_x": (1.096, -1.370), "triad_v_m": 0.14,
+                 "speed": {1: (1.286, -1.072), 2: (1.147, -0.931), 3: (1.092, -0.799)}, "source": "zanlungo2015"}
+
+
+def group_lateral_scale(size, rho):
+    """密度 rho（人/m²）での、グループの横の広がりの低密度に対する比（Zanlungo ら 2015 の 1 次式。0 より小さくはしない）。"""
+    a, b = GROUP_DENSITY["dyad_x"] if size <= 2 else GROUP_DENSITY["triad_x"]
+    return max(0.0, 1.0 + b / a * max(0.0, rho))
+
 
 # 速さと密度の関係（Weidmann 1993 の Kladek の式）
 WEIDMANN_FD = {"v0": 1.34, "gamma": 1.913, "rho_max": 5.4, "source": "weidmann1993"}
@@ -130,20 +170,20 @@ PROFILES = {
             "speed": {"type": "normal", "mean": 1.34, "sd": 0.26, "min": 0.8, "max": 1.9},
             "group_size": {"type": "zero_truncated_poisson", "lam": _ztp_from_share("osaka_underground")},
             "group_speed": {"model": "moussaid2010", "slope_m_s": 0.04},
-            "group_lateral_m": 0.72,
+            "group_relation": {"type": "choice", "values": {"colleagues": 1.0}},
             "speed_density": dict(WEIDMANN_FD),
         },
         "gate_service_s": {"type": "lognormal", "median": 2.0, "sigma": 0.25, "min": 1.2, "max": 4.0},
         "elevator": {"transfer_s": 1.0},
         "sources": {"speed": "weidmann1993", "group_size": "zanlungo2014", "group_speed": "moussaid2010",
-                    "group_lateral_m": "zanlungo2017", "speed_density": "weidmann1993", "gate_service_s": "fruin1987",
+                    "group_relation": "zanlungo2017", "speed_density": "weidmann1993", "gate_service_s": "fruin1987",
                     "transfer_s": "peters_transfer", "demand": "peters2011"},
         "notes": ["グループの割合は大阪の地下の歩行者空間の値（オフィスのロビーそのものの値ではない）",
-                  "グループの横の間隔は大阪 ATC の同僚の 2 人連れの値",
+                  "グループの関係は同僚だけ（組み方は大阪 ATC の同僚の値）",
                   "ゲートは 1987 年のカードを読む改札の範囲の中ほど（1 人ごとのばらつきの形は仮）。今の IC カードのゲートはもっと速い可能性がある"],
         "title_en": "Morning commute to a Japanese office",
         "notes_en": ["The group share is from an underground pedestrian space in Osaka (not from an office lobby itself)",
-                     "The lateral spacing of groups is that of colleague dyads at Osaka ATC",
+                     "All groups are colleagues (formation from colleague groups at Osaka ATC)",
                      "The gate value is the middle of the range for 1987 card-reading turnstiles (the per-person spread is provisional); "
                      "today's IC-card gates may be faster"],
     },
@@ -153,14 +193,15 @@ PROFILES = {
             "speed": {"type": "normal", "mean": 1.34, "sd": 0.26, "min": 0.8, "max": 1.9},
             "group_size": {"type": "zero_truncated_poisson", "lam": _ztp_from_share("toulouse_low")},
             "group_speed": {"model": "moussaid2010", "slope_m_s": 0.04},
-            "group_lateral_m": 0.66,
+            "group_relation": {"type": "choice", "values": {"friends": 1.0}},
             "speed_density": dict(WEIDMANN_FD),
         },
         "sources": {"speed": "weidmann1993", "group_size": "moussaid2010", "group_speed": "moussaid2010",
-                    "group_lateral_m": "zanlungo2017", "speed_density": "weidmann1993"},
-        "notes": ["グループの割合はトゥールーズの商店街（平日の午後）の値", "横の間隔は大阪 ATC の友人の 2 人連れ"],
+                    "group_relation": "zanlungo2017", "speed_density": "weidmann1993"},
+        "notes": ["グループの割合はトゥールーズの商店街（平日の午後）の値", "グループの関係は友人だけ（組み方は大阪 ATC の友人の値）"],
         "title_en": "Leisure crowd (midday, commercial, low density)",
-        "notes_en": ["The group share is from a shopping street in Toulouse (weekday afternoon)", "The lateral spacing is that of friend dyads at Osaka ATC"],
+        "notes_en": ["The group share is from a shopping street in Toulouse (weekday afternoon)",
+                     "All groups are friends (formation from friend groups at Osaka ATC)"],
     },
 }
 

@@ -17,7 +17,8 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from .literature import GROUP_SHARE, LIFT_MIX, PROFILES, REFS, weidmann_speed, ztp_person_share
+from .literature import GROUP_DENSITY, GROUP_RELATION_SHARE, GROUP_RELATIONS, GROUP_SHARE, LIFT_MIX, PROFILES, REFS, weidmann_speed, ztp_person_share
+from .space import load_space
 
 WALK_STATES = ("pass", "alight")
 STAND_STATES = ("ev_wait", "gate_queue")
@@ -32,6 +33,13 @@ PROFILE_GROUP_REF = {"office_commute_jp": "osaka_underground", "leisure_low_dens
 DYAD_REF = {"office_commute_jp": ("同僚", 0.851, 0.718), "leisure_low_density": ("友人", 0.792, 0.662)}
 DYAD_ALL = ("1018 組の平均", 0.823, 0.657)  # Zanlungo ら 2017 の表 2 を組の数で重みづけ
 DENSITY_BINS = [0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0]
+# グループの組み方と密度（Zanlungo ら 2015）: 密度は 0.5 m 角のセルの人数を 300 秒ならした値。0〜0.3 人/m² を 0.05 ごとに比べる
+FORM_CELL_M, FORM_AVG_S = 0.5, 300.0
+FORM_BINS = [0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3]
+FORM_MIN_SAMPLES, FORM_MIN_GROUPS = 20, 3  # 区間ごとに判定する点の数・組の数の下限
+FORM_TOL_M = 0.1  # 横の広がりの、文献の式との差の許し（m）。標本のぶれ（組ごとの平均の標準誤差の 2 倍）を足す
+FORM_CLEAR_M = 1.0  # グループの中心から壁までこの距離（m）以上の所だけ比べる（文献は幅の広い廊下で測った。狭い所では縦に並ぶ）
+LINK_M = 1.3  # 仲間を結ぶ線（engine.LINK_M と同じ）
 
 
 def _expand_states(runs, f0, n):
@@ -341,18 +349,36 @@ def group_speed(run, rows, members):
             **verdict(-0.14 <= slope <= 0.0, "グループが少ないと傾きはぶれる" if ng < 30 else None)}, pts
 
 
+def _dyad_ref(run, info):
+    """2 人連れの比べる値 (関係の名前, 距離 r, 横 x)。1.2 からは人ごとの relation（関係ごとの文献の値。付き添いは家族の値で仮）、
+    それより前の結果はプロファイルごとの値（同僚・友人）か全体の平均。"""
+    rel = info.get("relation")
+    if rel in GROUP_RELATIONS:
+        g = GROUP_RELATIONS[rel]
+        return g["title"] + ("（仮）" if g.get("provisional") else ""), g["dyad"]["r"], g["dyad"]["x"]
+    profile = (run.spec.get("people") or {}).get("profile")
+    return DYAD_REF.get(profile, DYAD_ALL)
+
+
+def _together_from(run, names):
+    """グループの仲間がそろって歩き始めたコマ（待ち合わせの組は meet_end から。ほかは 0）。"""
+    t = max((run.P[n].get("info", {}).get("events", {}).get("meet_end", 0.0) for n in names), default=0.0)
+    return int(round(t * run.fps))
+
+
 def dyad_distance(run, members):
     """2 人連れが並んで歩くときの距離・横の間隔（Zanlungo ら 2017 は廊下を歩く 2 人の値）。ゲートの列に加わってから通って
-    DYAD_AFTER_GATE_S 秒までは外す（列では前後に並び、ゲートは 1 人ずつ通るので離れてから並び直す。列の中を数えて 1.1〜1.8 m になった、2026-11-06）。"""
-    profile = (run.spec.get("people") or {}).get("profile")
-    rel_name, r_ref, x_ref = DYAD_REF.get(profile, DYAD_ALL)
-    r_all, x_all, pairs = [], [], 0
+    DYAD_AFTER_GATE_S 秒までは外す（列では前後に並び、ゲートは 1 人ずつ通るので離れてから並び直す。列の中を数えて 1.1〜1.8 m になった、2026-11-06）。
+    1.2 からは関係ごとの文献の値と比べる（比べる値は、点の数で重みづけた関係ごとの値の平均）。"""
+    r_all, x_all, ref_r, ref_x, pairs = [], [], [], [], 0
+    by_rel = defaultdict(lambda: [[], []])
     for _g, names in members.items():
         if len(names) != 2:
             continue
         n_before = len(r_all)
         a, b = (run.P[n] for n in names)
-        f0, f1 = max(a["f0"], b["f0"]), min(a["f0"] + len(a["xy"]), b["f0"] + len(b["xy"]))
+        rel_name, r_ref, x_ref = _dyad_ref(run, a.get("info", {}))
+        f0, f1 = max(a["f0"], b["f0"], _together_from(run, names)), min(a["f0"] + len(a["xy"]), b["f0"] + len(b["xy"]))
         skip = [(j, tp + int(DYAD_AFTER_GATE_S * run.fps)) for j, tp in a["queue_spans"] + b["queue_spans"]]
         for f in range(f0, f1, run.fps // 2):
             if any(s0 <= f <= s1 for s0, s1 in skip):
@@ -363,13 +389,157 @@ def dyad_distance(run, members):
                 y = math.radians(a["yaw"][ka])
                 r_all.append(float(np.hypot(*rel)))
                 x_all.append(abs(float(rel @ np.array([-math.sin(y), math.cos(y)]))))
+                ref_r.append(r_ref)
+                ref_x.append(x_ref)
+                by_rel[rel_name][0].append(r_all[-1])
+                by_rel[rel_name][1].append(x_all[-1])
         pairs += len(r_all) > n_before
     if len(r_all) < 20 or pairs < DYAD_MIN_PAIRS:  # 1 組だけで決まった（素材 A_office_gate_low、2026-11-12）
         return {"n_samples": len(r_all), "n_pairs": pairs, **verdict(None, f"2 人連れの歩く場面が少ない（{DYAD_MIN_PAIRS} 組未満か 20 点未満）")}, r_all
-    r, x = float(np.mean(r_all)), float(np.mean(x_all))
-    return {"n_samples": len(r_all), "n_pairs": pairs, "mean_distance_m": round(r, 3), "mean_abreast_m": round(x, 3),
-            "literature": {"relation": rel_name, "distance_m": r_ref, "abreast_m": x_ref, "source": "zanlungo2017"},
-            **verdict(abs(r - r_ref) <= 0.15)}, r_all
+    r, x, rr, rx = (float(np.mean(v)) for v in (r_all, x_all, ref_r, ref_x))
+    names = sorted(by_rel)
+    lit = {"relation": "・".join(names) if len(names) > 1 else names[0], "distance_m": round(rr, 3), "abreast_m": round(rx, 3), "source": "zanlungo2017"}
+    return {"n_samples": len(r_all), "n_pairs": pairs, "mean_distance_m": round(r, 3), "mean_abreast_m": round(x, 3), "literature": lit,
+            "by_relation": {k: {"n_samples": len(v[0]), "mean_distance_m": round(float(np.mean(v[0])), 3), "mean_abreast_m": round(float(np.mean(v[1])), 3)}
+                            for k, v in sorted(by_rel.items())},
+            **verdict(abs(r - rr) <= 0.15)}, r_all
+
+
+def cell_density(run):
+    """文献（Zanlungo ら 2015）と同じ密度: FORM_CELL_M 角のセルの人数を FORM_AVG_S 秒ならした値（人/m²）。→ 関数 (x, y, コマ) → 密度。
+    1 秒ごとのセルの平均の人数を、前後 FORM_AVG_S / 2 秒（結果の範囲で切る）で平均する。"""
+    fps, c = run.fps, FORM_CELL_M
+    xs = np.concatenate([d["xy"][:, 0] for d in run.P.values()]) if run.P else np.zeros(1)
+    ys = np.concatenate([d["xy"][:, 1] for d in run.P.values()]) if run.P else np.zeros(1)
+    x0, y0 = float(xs.min()) - c, float(ys.min()) - c
+    nx, ny = int((xs.max() - x0) / c) + 2, int((ys.max() - y0) / c) + 2
+    nt = int(run.gt["total_frames"]) // fps + 1
+    occ = np.zeros((nt, nx, ny), np.float32)
+    for d in run.P.values():
+        f = d["f0"] + np.arange(len(d["xy"]))
+        ix = ((d["xy"][:, 0] - x0) / c).astype(int)
+        iy = ((d["xy"][:, 1] - y0) / c).astype(int)
+        np.add.at(occ, (f // fps, ix, iy), 1.0 / fps)
+    cs = np.concatenate([np.zeros((1, nx, ny), np.float32), np.cumsum(occ, axis=0)])
+    half = int(FORM_AVG_S / 2)
+
+    def at(x, y, f):
+        t = int(f) // fps
+        lo, hi = max(0, t - half), min(nt, t + half + 1)
+        i, j = int((x - x0) / c), int((y - y0) / c)
+        if not (0 <= i < nx and 0 <= j < ny):
+            return 0.0
+        return float(cs[hi, i, j] - cs[lo, i, j]) / (hi - lo) / (c * c)
+    return at
+
+
+def group_formation(run, members):
+    """グループの横の広がりと密度（Zanlungo ら 2015）。0.5 秒ごとに、そろって歩く 2 人連れ・3 人組の、進む向き（前後 0.5 秒の動きの平均）に直角な
+    広がり（2 人の横の差・3 人の両端の差）と、グループの中心の密度（cell_density）を取り、密度の区間ごとに文献の式（関係ごとの低密度の値 ×
+    (1 − k ρ)）と比べる。0〜0.3 人/m² の、点が FORM_MIN_SAMPLES 以上の区間がすべて ± FORM_TOL_M なら合う。0.3 人/m² より混んだ所は値だけ。
+    区間ごとの幅は FORM_TOL_M ＋ 組ごとの差の平均の標準誤差の 2 倍（同じ組の点は続けて似るので、点の数でなく組の数でぶれを見る）。
+    比べるのは、中心から壁まで FORM_CLEAR_M 以上の所だけ（文献は幅の広い廊下。扉・狭い通路では縦に並ぶ）。
+    知らない人が、仲間（歩く、LINK_M より近い）を結ぶ線の内側を横切った回数も数える（参考）。"""
+    dens = cell_density(run)
+    try:
+        space = load_space(run.gt["space"])
+    except (FileNotFoundError, KeyError, ValueError):
+        space = None
+    fps, h = run.fps, run.fps // 2
+    a2, b2 = GROUP_DENSITY["dyad_x"]
+    a3, b3 = GROUP_DENSITY["triad_x"]
+    pts = {2: [], 3: []}
+    for _g, names in members.items():
+        if len(names) not in (2, 3):
+            continue
+        D = [run.P[n] for n in names]
+        rel = GROUP_RELATIONS.get(D[0].get("info", {}).get("relation"))
+        x_low = (rel["dyad"]["x"] if len(names) == 2 else rel["triad"]["x"]) if rel else (a2 if len(names) == 2 else a3)
+        k = b2 / a2 if len(names) == 2 else b3 / a3
+        f0 = max(max(d["f0"] for d in D) + h, _together_from(run, names))
+        f1 = min(d["f0"] + len(d["xy"]) for d in D) - h - 1
+        skip = [(j, tp + int(DYAD_AFTER_GATE_S * fps)) for d in D for j, tp in d["queue_spans"]]
+        for f in range(f0, f1, h):
+            if any(s0 <= f <= s1 for s0, s1 in skip):
+                continue
+            ks = [f - d["f0"] for d in D]
+            if not all(d["state"][kk] == "pass" and d["moving"][kk] for d, kk in zip(D, ks)):
+                continue
+            X = np.array([d["xy"][kk] for d, kk in zip(D, ks)])
+            v = np.mean([d["xy"][kk + h] - d["xy"][kk - h] for d, kk in zip(D, ks)], axis=0)
+            nv = float(np.hypot(*v))
+            if nv < 0.2:
+                continue
+            nrm = np.array([-v[1], v[0]]) / nv
+            lat = X @ nrm
+            c = X.mean(0)
+            if space is not None and space.clearance(c[0], c[1]) < FORM_CLEAR_M:
+                continue
+            rho = dens(c[0], c[1], f)
+            pts[len(names)].append((float(lat.max() - lat.min()), rho, x_low * (1 + k * rho), hash(_g) % 1000003))
+    out = {}
+    ok_all = []
+    for size, key in ((2, "dyad"), (3, "triad")):
+        P = np.array(pts[size]).reshape(-1, 4)
+        bins = []
+        for lo, hi in zip(FORM_BINS[:-1], FORM_BINS[1:]):
+            m = (P[:, 1] >= lo) & (P[:, 1] < hi)
+            if m.sum():
+                d = float(P[m, 0].mean() - P[m, 2].mean())
+                # 同じ組の点は続けて似た値になるので、標本のぶれは組ごとの（差の）平均のばらつきから出す
+                per = [float((P[m & (P[:, 3] == g), 0] - P[m & (P[:, 3] == g), 2]).mean()) for g in np.unique(P[m, 3])]
+                se = float(np.std(per, ddof=1) / math.sqrt(len(per))) if len(per) > 1 else math.inf
+                judged = int(m.sum()) >= FORM_MIN_SAMPLES and len(per) >= FORM_MIN_GROUPS
+                tol = FORM_TOL_M + 2 * se
+                bins.append({"rho": [lo, hi], "n": int(m.sum()), "n_groups": len(per), "mean_x_m": round(float(P[m, 0].mean()), 3),
+                             "literature_x_m": round(float(P[m, 2].mean()), 3), "diff_m": round(d, 3),
+                             "tolerance_m": round(tol, 3) if judged else None, "judged": judged})
+                if judged:
+                    ok_all.append(abs(d) <= tol)
+        hi_m = P[:, 1] >= FORM_BINS[-1]
+        out[key] = {"n_samples": len(P), "bins": bins,
+                    "above_range": {"n": int(hi_m.sum()), "mean_x_m": round(float(P[hi_m, 0].mean()), 3)} if hi_m.any() else None}
+    out["passes_between"] = passes_between(run, members)
+    out.update(verdict(all(ok_all) if ok_all else None, None if ok_all else f"0〜0.3 人/m² の区間に {FORM_MIN_SAMPLES} 点以上の区間がない"))
+    return out
+
+
+def passes_between(run, members):
+    """知らない人が、そろって歩く仲間（LINK_M より近い 2 人）を結ぶ線の内側（両端 10% を除く）を、1 コマの動きで横切った回数と、線があった分。"""
+    fps = run.fps
+    total = int(run.gt["total_frames"])
+    mem_of = {n: g for g, names in members.items() for n in names}
+    names_all = list(run.P)
+    n, link_frames = 0, 0
+    pairs = [(a, b) for names in members.values() for i, a in enumerate(names) for b in names[i + 1:]]
+    if not pairs:
+        return {"count": 0, "link_minutes": 0.0}
+    for f in range(1, total):
+        here = {}
+        for m in names_all:
+            k, k0 = run.at(m, f), run.at(m, f - 1)
+            if k is not None and k0 is not None:
+                here[m] = (run.P[m]["xy"][k0], run.P[m]["xy"][k], run.P[m]["state"][k])
+        for a, b in pairs:
+            if a not in here or b not in here or here[a][2] != "pass" or here[b][2] != "pass":
+                continue
+            A, B = here[a][1], here[b][1]
+            AB = B - A
+            if float(np.hypot(*AB)) >= LINK_M:
+                continue
+            link_frames += 1
+            g = mem_of[a]
+            for m, (p0, p1, _st) in here.items():
+                if mem_of.get(m) == g:
+                    continue
+                s0 = AB[0] * (p0[1] - A[1]) - AB[1] * (p0[0] - A[0])
+                s1 = AB[0] * (p1[1] - A[1]) - AB[1] * (p1[0] - A[0])
+                if s0 * s1 < 0:
+                    d = p1 - p0
+                    den = AB[0] * d[1] - AB[1] * d[0]
+                    if abs(den) > 1e-12 and 0.1 < ((p0[0] - A[0]) * d[1] - (p0[1] - A[1]) * d[0]) / den < 0.9:
+                        n += 1
+    return {"count": n, "link_minutes": round(link_frames / fps / 60, 2)}
 
 
 def gate_headways(run):
@@ -528,7 +698,17 @@ def ledger(spec, inputs):
     add("グループの速さ", gs, "moussaid2010" if gs and gs.get("model") == "moussaid2010" else None,
         "文献" if gs and gs.get("model") == "moussaid2010" else "仮")
     lat = people.get("group_lateral_m")
-    add("グループの横の間隔", lat, "zanlungo2017" if lat in (0.72, 0.66, 0.6, 0.583) else None, "文献" if lat in (0.72, 0.66, 0.6, 0.583) else "仮")
+    if lat is not None:  # 書いたときだけ（1.2 から既定は関係ごとの値）
+        add("グループの横の間隔（関係によらず）", lat, "zanlungo2017" if lat in (0.718, 0.72, 0.662, 0.66, 0.6, 0.583) else None,
+            "文献" if lat in (0.718, 0.72, 0.662, 0.66, 0.6, 0.583) else "仮")
+    rel = people.get("group_relation")
+    if rel is not None:
+        names = set(rel.get("values", {})) if isinstance(rel, dict) else {rel}
+        add("グループの関係の割合", rel, "zanlungo2017" if rel == GROUP_RELATION_SHARE else src_of(rel),
+            "文献（大阪 ATC の割合）" if rel == GROUP_RELATION_SHARE else "文献" if src_of(rel) else "仮（割合）")
+        add("グループの組み方（関係ごとの横の間隔・3 人組の V 字・密度で狭まる）", sorted(names), "zanlungo2015・2017・2019",
+            "文献（付き添いは家族の値で仮）" if "companion" in names else "文献")
+        add("グループの組み方の前後の揺らぎの時定数・4 人以上の 2 列・ゲートの先で仲間を待つ 30 秒", "5 秒・0.7 m・30 秒", None, "仮")
     if people.get("group_size"):
         add("グループの人数（既定）", people["group_size"], psrc.get("group_size") or src_of(people["group_size"]),
             "文献" if psrc.get("group_size") or src_of(people["group_size"]) else "形だけ文献（coleman1961）")
@@ -600,6 +780,7 @@ def evaluate(run_dir, figure=True):
     sdn, sd_data = speed_density(run, rows)
     gsp, gsp_data = group_speed(run, rows, members)
     dy, dy_data = dyad_distance(run, members)
+    gf = group_formation(run, members)
     gh, gh_data = gate_headways(run)
     bi, bi_data = boarding_intervals(run)
     ss, ss_data = standing_spacing(run)
@@ -607,7 +788,8 @@ def evaluate(run_dir, figure=True):
         "run": str(run.dir), "scenario": run.gt.get("scenario"), "profile": profile,
         "input_reproduction": {"free_walking_speed": fs, "group_size": gsz, "group_speed": gsp, "arrivals": arrivals(run),
                                "lift_mix": lift_mix(run), "elevator_boarding_interval": bi, "gate_headway": gh},
-        "emergent": {"speed_density": sdn, "dyad_distance": dy, "standing_spacing": ss, "gridlock": gridlock(run), "waiting": waiting(run),
+        "emergent": {"speed_density": sdn, "dyad_distance": dy, "group_formation": gf, "standing_spacing": ss, "gridlock": gridlock(run),
+                     "waiting": waiting(run),
                      **({"bottleneck": bn} if (bn := bottleneck(run)) else {})},
         "ledger": ledger(run.spec, run.summary.get("inputs") or {}),
         "refs": {k: REFS[k]["cite"] for k in REFS},
@@ -688,6 +870,18 @@ def _md_emergent(em):
     dl = dy.get("literature", {})
     rows.append(_row("2 人連れの距離・横の間隔", f"{dy.get('mean_distance_m', '-')} m・{dy.get('mean_abreast_m', '-')} m",
                      f"{dl.get('relation', '-')} {dl.get('distance_m', '-')} m・{dl.get('abreast_m', '-')} m（zanlungo2017）", dy["verdict"]))
+    gf = em.get("group_formation")
+    if gf:
+        for key, title in (("dyad", "2 人連れ"), ("triad", "3 人組")):
+            bs = gf[key]["bins"]
+            cells = "、".join(f"{b['rho'][0]}–{b['rho'][1]}: {b['mean_x_m']} m（式 {b['literature_x_m']}、{b['n']} 点）" for b in bs) or "-"
+            ab = gf[key].get("above_range")
+            if ab:
+                cells += f"、0.3 人/m² 以上（参考）: {ab['mean_x_m']} m（{ab['n']} 点）"
+            rows.append(_row(f"{title}の横の広がりと密度（人/m²）", cells, "関係ごとの低密度の値 × (1 − k ρ)（zanlungo2015・2017・2019）",
+                             gf["verdict"] if key == "dyad" else "（上と合わせて）"))
+        pb = gf["passes_between"]
+        rows.append(_row("知らない人が仲間の間を横切った回数（参考）", f"{pb['count']} 回（仲間を結ぶ線 {pb['link_minutes']} 分）", "-", "参考"))
     ss = em["standing_spacing"]
     rows.append(_row("待つ人どうしのいちばん近い距離", f"中央 {ss.get('median_m', '-')} m・0.45 m 未満 {ss.get('share_below_0.45m', '-')}",
                      "密接の距離 0.45 m 未満は少ない（hall1966）", ss["verdict"]))

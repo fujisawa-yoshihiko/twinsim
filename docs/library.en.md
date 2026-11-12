@@ -213,6 +213,20 @@ def policy(sim, t):
 result = twinsim.simulate("config.json", out_dir="runs/ev", elevator_policy=policy)
 ```
 
+## Evaluating a group-finding task
+
+From 1.2. The ground truth is, for each frame, how the visible people are split into groups (from `groups` in `ground_truth.json`; a person more than 3 m from the nearest member is left out in that frame).
+Pass what was found as `{"frames": {"frame": [["P0001", "P0002"], ...]}}` to get group-level precision, recall and F1 with the criterion of Setti et al. 2015 (a group counts as found when at least 2/3 of its members are found and at most 1/3 are wrong; T = 1 requires an exact match),
+and F1 over pairs of people. When using tracker ids, add `"id_map": {"id": "P0001"}`.
+
+```python
+from twinsim import group_eval
+scores = group_eval.evaluate("runs/a", "found.json")          # {"groups": {"T=0.667": {...}, "T=1": {...}}, "pairs": {...}}
+sample = group_eval.perfect("runs/a", stride=30)              # the ground truth itself in the same format (a format example)
+```
+
+On the command line: `python -m twinsim group-eval runs/a found.json` (`perfect` instead of `found.json` evaluates the ground truth itself).
+
 ## Environment variables
 
 | Name | Contents |

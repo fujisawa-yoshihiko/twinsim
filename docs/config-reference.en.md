@@ -72,7 +72,8 @@ Objects are combined key by key. Arrays and distributions (objects with `type`) 
 | `speed` | [distribution](#distributions) | normal 1.34 ± 0.26 m/s (0.8 to 1.9) | Free walking speed |
 | `group_size` | [distribution](#distributions) | none (1 person) | Group size when a stream does not set one |
 | `group_speed` | object | `{"model": "moussaid2010", "slope_m_s": 0.04}` | Group speed: slower than the average by this much per added person. `{"model": "min"}` matches the slowest member |
-| `group_lateral_m` | number | `0.66` | Side-by-side spacing of a pair (m) |
+| `group_relation` | [distribution](#distributions) (`choice`) or a relation name | `{"type": "choice", "values": {"colleagues": 0.388, "friends": 0.345, "family": 0.267}}` (numbers of dyads at Osaka ATC, Zanlungo et al. 2017) | Relation of each group (from 1.2): `colleagues`, `friends`, `family`, `companion` (patient and companion; no literature values, so the family values are used provisionally and the group walks at the slowest member's speed). The lateral spacing of pairs and the lateral extent of triads follow the literature for each relation and narrow with the surrounding density (table under 1.2 in docs/roadmap.en.md) |
+| `group_lateral_m` | number | none | Side-by-side spacing of a pair (m). If set, this value is used for every relation (triads widen by the literature ratio). The default was 0.66 up to 1.1 |
 | `motion_model` | string | `"cfsm"` | How people move. `"cfsm"` keeps people from colliding (Collision-Free Speed Model, Tordeux et al. 2016); `"lane"` is the earlier model (people step aside from their path; bodies overlap in crowded places) |
 | `cfsm` | object | `{}` | Changes the `"cfsm"` values (`radius`, `time_gap`, `neighbor_strength`, `neighbor_range`, `mate_range`, `wall_strength`, `wall_range` and others; defaults in section 5 of docs/validity.en.md) |
 | `lateral_max_m` | number | `1.0` | How far people can step aside from their path (m, `"lane"` only) |
@@ -83,8 +84,8 @@ Values of `profile`:
 
 | Name | Contents |
 |---|---|
-| `office_commute_jp` | Morning commute to a Japanese office: 82% walk alone, spacing 0.72 m, gate median 2.0 s |
-| `leisure_low_density` | Leisure crowd: 46% walk alone, spacing 0.66 m |
+| `office_commute_jp` | Morning commute to a Japanese office: 82% walk alone, groups are colleagues (pair spacing 0.72 m), gate median 2.0 s |
+| `leisure_low_density` | Leisure crowd: 46% walk alone, groups are friends (pair spacing 0.66 m) |
 
 Values you write take priority over the group. The sources are in [validity.en.md](validity.en.md).
 

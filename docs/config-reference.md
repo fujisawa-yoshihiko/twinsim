@@ -72,7 +72,8 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | `speed` | [分布](#distributions) | 正規分布 1.34 ± 0.26 m/s（0.8〜1.9） | 自由に歩く速さ |
 | `group_size` | [分布](#distributions) | なし（1 人） | 流れに書かないときのグループの人数 |
 | `group_speed` | オブジェクト | `{"model": "moussaid2010", "slope_m_s": 0.04}` | グループの速さ。平均から 1 人増えるごとに遅くする。`{"model": "min"}` はいちばん遅い人に合わせる |
-| `group_lateral_m` | 数 | `0.66` | 2 人連れの横の間隔（m） |
+| `group_relation` | [分布](#distributions)（`choice`）か関係の名前 | `{"type": "choice", "values": {"colleagues": 0.388, "friends": 0.345, "family": 0.267}}`（大阪 ATC の 2 人連れの数、Zanlungo ら 2017） | グループの関係（1.2 から）。`colleagues` 同僚・`friends` 友人・`family` 家族・`companion` 付き添い（患者と付き添い。文献の値がないので家族の値を仮に使い、速さは遅い人に合わせる）。関係ごとに 2 人連れの横の間隔・3 人組の横の広がりを文献の値にし、周りの密度で狭める（docs/roadmap.md の 1.2 の表） |
+| `group_lateral_m` | 数 | なし | 2 人連れの横の間隔（m）。書くと関係によらずこの値（3 人組は文献の比で広げる）。1.1 までは既定 0.66 |
 | `motion_model` | 文字列 | `"cfsm"` | 人の動き。`"cfsm"` は人どうしがぶつからない動き（Collision-Free Speed Model、Tordeux ら 2016）、`"lane"` は前のモデル（経路から横へずれてよける。混んだ所では体が重なる） |
 | `cfsm` | オブジェクト | `{}` | `"cfsm"` の値を変える（`radius`・`time_gap`・`neighbor_strength`・`neighbor_range`・`mate_range`・`wall_strength`・`wall_range` など。既定は docs/validity.md の 5） |
 | `lateral_max_m` | 数 | `1.0` | 経路から横へよけられる幅（m、`"lane"` だけ） |
@@ -83,8 +84,8 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 
 | 名前 | 中身 |
 |---|---|
-| `office_commute_jp` | 日本のオフィスの朝の出勤。1 人で歩く人 82%、横の間隔 0.72 m、ゲート 中央 2.0 秒 |
-| `leisure_low_density` | 余暇の人出。1 人で歩く人 46%、横の間隔 0.66 m |
+| `office_commute_jp` | 日本のオフィスの朝の出勤。1 人で歩く人 82%、グループの関係は同僚（2 人連れの横 0.72 m）、ゲート 中央 2.0 秒 |
+| `leisure_low_density` | 余暇の人出。1 人で歩く人 46%、グループの関係は友人（2 人連れの横 0.66 m） |
 
 書いた値は組の値より優先します。値の根拠は [validity.md](validity.md) にあります。
 

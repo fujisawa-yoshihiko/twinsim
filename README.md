@@ -126,7 +126,7 @@ office・カメラ 1 台・300 コマ（映る人 25 人ほど）を本数と同
 | ファイル | 形 | 中身 |
 |---|---|---|
 | `scenario_resolved.json` | JSON | 既定の値を足した設定。そのまま渡すと同じ計算になる |
-| `ground_truth.json` | JSON | 人ごとの軌跡 `tracks[名前] = [[x, y, yaw], …]`・歩いているか・状態の区間・出来事（ゲート・EV）・属性（人物モデル・背の高さ・種類・グループ）、カメラ（4×4 の行列と画角）、ゾーン |
+| `ground_truth.json` | JSON | 人ごとの軌跡 `tracks[名前] = [[x, y, yaw], …]`・歩いているか・状態の区間・出来事（ゲート・EV）・属性（人物モデル・背の高さ・種類・グループ）、グループ（仲間・関係・先導の人・分かれていた区間）、カメラ（4×4 の行列と画角）、ゾーン |
 | `frames.csv.gz` | CSV | 1 コマ 1 人 1 行: `frame, t, person, x, y, yaw, moving, state, zone, group, type` |
 | `mot/<カメラ>.txt`・`mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility`（コマは 1 始まり、id はカメラをまたいで同じ。計算だけで作る近似） |
 | `labels/<カメラ>.csv`・`_mot.txt` | CSV・MOTChallenge | 描画から出した人ごとの枠（見えている部分・全身）と `visibility`・`occlusion`・`truncation`・`portal`・`glass`（すりガラスの奥の割合）（`render --labels` のとき。名前を確かめた数は `identity.json`） |

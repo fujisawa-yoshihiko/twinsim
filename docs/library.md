@@ -213,6 +213,20 @@ def policy(sim, t):
 result = twinsim.simulate("config.json", out_dir="runs/ev", elevator_policy=policy)
 ```
 
+## グループを見つける課題の評価
+
+1.2 から。正解はコマごとの、映っている人のグループの分け方（`ground_truth.json` の `groups` から。いちばん近い仲間から 3 m より離れている人は、そのコマでは入れない）。
+見つけた結果を `{"frames": {"コマ": [["P0001", "P0002"], ...]}}` の形で渡すと、Setti ら 2015 の決め方（正解の人の 2/3 以上が見つかり、まちがいが 1/3 以下なら当たり。T = 1 は過不足なし）の
+グループ単位の適合率・再現率・F1 と、2 人ずつの組の F1 を返す。追跡の番号で書くときは `"id_map": {"番号": "P0001"}` を添える。
+
+```python
+from twinsim import group_eval
+scores = group_eval.evaluate("runs/a", "found.json")          # {"groups": {"T=0.667": {...}, "T=1": {...}}, "pairs": {...}}
+sample = group_eval.perfect("runs/a", stride=30)              # 正解そのものを同じ形に（形の見本）
+```
+
+コマンドは `python -m twinsim group-eval runs/a found.json`（`found.json` の代わりに `perfect` で正解そのものを評価）。
+
 ## 環境変数
 
 | 名前 | 中身 |

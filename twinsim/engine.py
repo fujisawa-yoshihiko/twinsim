@@ -10,7 +10,8 @@ digitaltwin の hospital-sim/scripts/flow_scene_lib.py・flow_scene2_lib.py（�
   ("wait_ev", 見回す角度)                         EV 待ちの場所に立ち、着いた EV に着いた順に定員まで乗る（扉で消える）。
                                                   扉が開いてから降りる人 → 乗る人の順に 1 人 transfer_s 秒ずつ
   ("exit",)                                       消える（出口・建物の外へ）
-状態（1 コマごとの正解）: pass・gate_queue・ev_approach・ev_wait・alight・reception・dwell・sign_check・companion_wait
+  ("regroup", ゲートの段取り, 最長の秒数)         ゲートを先に通った人が、通った先で仲間を待つ（cfsm。ゲートを通ったときに足す）
+状態（1 コマごとの正解）: pass・gate_queue・ev_approach・ev_wait・alight・reception・dwell・sign_check・companion_wait・group_wait
 歩く速さは、前の半円（半径 speed_density.radius m）の人の密度から Weidmann (1993) の速さと密度の関係で落とす（グループの仲間は数えない）。
 """
 
@@ -21,7 +22,7 @@ import zlib
 import numpy as np
 
 from . import dists
-from .literature import weidmann_speed
+from .literature import GROUP_DENSITY, GROUP_RELATIONS, group_lateral_scale, weidmann_speed
 
 TURN_DEG_S = 90.0
 WALKING = ("walk", "to_spot", "board", "to_gate", "gate_pass")
@@ -42,6 +43,27 @@ MATE_SPAWN_M = 0.4  # グループの仲間が現れる点からこの距離（m
 LEAVE_LOOK_M = 5.0  # 入る人が出る人の線を使うのは、そこを出ていく人が扉の点からこの距離（m）の中にいないとき
 NUDGE_ASK_S, NUDGE_ASK_M = 3.0, 0.9  # この秒数進めずにいる歩く人は、行き先の向きの前側のこの距離（m）以内に立つ人に道をあけてもらう
 GROUP_STOP_WAIT_S = 60.0  # 止まる段取りを先に済ませた人が、仲間を待つ最長の秒数
+# グループの組み方（motion_model "cfsm"、1.2）。仲間はそれぞれ、先導の人（最初に現れた人）からの持ち場（横・前後）へ寄る
+# グループの周りの密度: 文献（Zanlungo ら 2015、0.5 m 角のセルの人数を 300 秒ならした値）に合わせ、0.5 m 角のセルの人数を FORM_RHO_TAU 秒の
+# 指数移動平均でならし、グループの中心の周り 3 × 3 のセル（1.5 m 角）で平均する。前は周り 2 m の今の人数で測り、EV の前では横で立って待つ人も
+# 数えて、判定（文献と同じ測り方）より混んでいると見て横を狭めすぎた（office_ev_hall の 0.15〜0.3 人/m² で 0.2 m 狭い、2026-11-12）
+FORM_RHO_CELL_M, FORM_RHO_TAU = 0.5, 150.0
+FORM_FILE_LAT = 0.36  # 隣の持ち場との距離がこれより狭くなる（混む・通路が狭い）と、縦 1 列に並ぶ（m。体の幅。3 人組は V 字の前後 0.14 m も入れた距離）
+# 持ち場の前後の揺らぎの時定数（秒。文献の値がないので仮）。揺らぎの大きさは、2 人連れの前後の差の平均（関係ごと、Zanlungo ら 2017）に合わせる
+FORM_LON_TAU = 5.0
+FORM_FILE_GAP = 0.8  # 縦 1 列のときの前後の間隔（m。仲間についていく間隔 0.36 + 0.5 秒 × 0.9 m/s ほど）
+FORM_ROW_GAP = 0.7  # 4 人以上の後ろの列の、前の列からの距離（m。文献の値がないので仮）
+FORM_NEAR = 4.0  # 先導の人からこの距離より遠い仲間は、持ち場へ寄らず自分の経路を歩く（前後のまとまりで追いつく）
+FORM_GAIN = 1.0  # 持ち場との前後のずれ 1 m あたりに足し引きする速さ（m/s）
+FORM_END_M = 2.5  # 行き先（止まる所など）の手前この距離からは、持ち場へ寄らず自分の行き先へ歩く
+REGROUP_M = 2.0  # ゲートを先に通った人が仲間を待つ所（通った向きに、ゲートからこの距離。m）
+REGROUP_MAX_S = 30.0  # ゲートの先で仲間を待つ最長の秒数（文献の値がないので仮）
+GROUP_LANE_EXTRA = 1  # ゲートで、仲間が並ぶレーンの列が、いちばん短い列よりこの人数まで長くても、仲間のレーンに並ぶ
+GROUP_EV_WAIT_S = 60.0  # EV の前で、まだ来ない仲間を待って乗らずにいる最長の秒数
+FORM_TAKEN_M = 0.5  # 持ち場からこの距離（m）の中に知らない人がいれば、持ち場へ寄らず自分の経路を歩く
+FORM_STALL_S, FORM_OFF_S = 2.0, 4.0  # この秒数行き先に近づけなければ、この秒数のあいだ持ち場へ寄らない
+MATE_SPOT_M = 1.0  # EV を待つ場所は、グループの仲間の待つ場所からこの距離（m）以内の空いた所を選ぶ（なければ扉に近い所）
+LINK_M = 1.3  # この距離より近い仲間どうしを結ぶ線を、知らない人はよける（間を通らない。3 人組の両端 1.1 m を入れる）
 LD_RECOVER_PER_S = 0.5  # 歩く人の横のずれ（l_pref）を壁の手前で減らしたあと、1 秒に戻す割合
 YIELD_S, YIELD_LAT, YIELD_D = 5.0, 0.6, 1.0  # 合流で譲る: この秒数進めずにいる人が、斜め前のこの横・距離（m）の中にいれば先に入れる
 UNSTICK_S, SQUEEZE_S = 15.0, 2.0  # 安全弁: この秒数行き先に近づけなければ、この秒数だけ周りの人を無視して通り抜ける
@@ -64,7 +86,36 @@ MOVE_ON_M_S, MOVE_OFF_M_S = 0.2, 0.1  # ならした速さがこれを超えた�
 # 0.1・0.2・0.25・0.3 m と強さ 3・5・8 を比べ、Weidmann の式と幅 1 m の出入口の実験に合う組を選んだ。docs/validity.md の 5、2026-11-05）
 CFSM = {"radius": FOLLOW["a"] / 2, "time_gap": FOLLOW["b"], "neighbor_strength": 8.0, "neighbor_range": 0.25,
         "wall_strength": 5.0, "wall_range": 0.1,  # JuPedSim の既定は 0.02 m。歩ける所の格子が 0.25〜0.5 m と粗いので広くする
-        "mate_range": 0.1, "mate_time_gap": 0.5, "cutoff": 3.0, "look_m": 1.0, "arrive_m": 0.15, "min_sep": 0.32}
+        "mate_range": 0.05, "mate_time_gap": 0.5, "cutoff": 3.0, "look_m": 1.0, "arrive_m": 0.15, "min_sep": 0.32}
+
+
+def group_slots(size, relation, lateral_m=None, scale=1.0):
+    """グループの持ち場 [(横, 前後), ...]（m。横は左が正、前後は前が正）。並びは仲間の順（先導の人が 0 番）。
+    2 人連れは横に並ぶ（前後の差は平均 0、Zanlungo ら 2015）、3 人組は V 字（真ん中の人が 0.14 m 後ろ、同じ）。
+    横の広がりは関係ごとの値（GROUP_RELATIONS）× scale（密度で狭める比、group_lateral_scale）。lateral_m を与えると 2 人連れの横はその値
+    （設定の people.group_lateral_m、3 人組は文献の比 1.096 / 0.646 で広げる）。4 人以上は前の列と後ろの列の 2 列（文献の値がないので仮）。
+    隣との横の間隔が FORM_FILE_LAT より狭ければ、縦 1 列（FORM_FILE_GAP おき）。"""
+    if size <= 1:
+        return [(0.0, 0.0)]
+    rel = GROUP_RELATIONS.get(relation) or GROUP_RELATIONS["friends"]
+    x2 = float(lateral_m) if lateral_m is not None else rel["dyad"]["x"]
+    x3 = x2 * GROUP_DENSITY["triad_x"][0] / GROUP_DENSITY["dyad_x"][0] if lateral_m is not None else rel["triad"]["x"]
+    if size == 2:
+        gap = x2 * scale
+        slots = [(gap / 2, 0.0), (-gap / 2, 0.0)]
+    elif size == 3:
+        gap = x3 * scale / 2
+        slots = [(gap, 0.0), (0.0, -GROUP_DENSITY["triad_v_m"]), (-gap, 0.0)]
+        gap = math.hypot(gap, GROUP_DENSITY["triad_v_m"])
+    else:
+        gap = x2 * scale
+        front = (size + 1) // 2
+        slots = [((front - 1) / 2 * gap - k * gap, 0.0) for k in range(front)]
+        back = size - front
+        slots += [((back - 1) / 2 * gap - k * gap, -FORM_ROW_GAP) for k in range(back)]
+    if gap < FORM_FILE_LAT:
+        slots = [(0.0, -FORM_FILE_GAP * k) for k in range(size)]
+    return slots
 
 
 class Path:
@@ -193,7 +244,7 @@ class Sim:
     elevator_policy(sim, t) は毎秒呼ばれ、EV の到着を足してよい（運行の最適化を差し込む所）。"""
 
     def __init__(self, space, fps, total_frames, gates=None, cars=None, spots=None, lmax=0.6, on_arrival=None, elevator_policy=None,
-                 speed_density=None, ev_timing=None, motion_model="cfsm", cfsm=None):
+                 speed_density=None, ev_timing=None, motion_model="cfsm", cfsm=None, group_lateral_m=None):
         self.space, self.fps, self.total, self.dt = space, fps, total_frames, 1.0 / fps
         if motion_model not in ("cfsm", "lane"):
             raise ValueError(f"motion_model は cfsm か lane（今は {motion_model!r}）")
@@ -224,6 +275,13 @@ class Sim:
             self.sd.setdefault("radius", 1.5)
             self.sd_area = 0.5 * math.pi * self.sd["radius"] ** 2
         self.ev_timing = ev_timing or {"door_open_s": 0.5, "transfer_s": 0.0}
+        # グループ（1.2）: 名前 → {members: [仲間の名前、現れた順], relation: 関係, leader: 先導の人}。組み方は毎コマ formation に
+        self.group_info, self.group_rho, self.formation = {}, {}, {}
+        c = FORM_RHO_CELL_M
+        self.occ0 = (space.x0, space.y0)
+        self.occ = np.zeros((int(math.ceil(space.nx * space.res / c)) + 1, int(math.ceil(space.ny * space.res / c)) + 1))  # [x, y] のセルの人数（ならした値）
+        self.group_lateral_m = group_lateral_m  # 設定の people.group_lateral_m（2 人連れの横を関係によらずこの値に。なければ関係ごとの文献の値）
+        self.links = (np.zeros((0, 2)), np.zeros((0, 2)), [])  # 知らない人がよける、仲間どうしを結ぶ線（始まり、終わり、グループ）
 
     def add(self, a):
         # 入口で待つ順（try_enter）: 着いた順。グループは最初の人の時刻でまとめる（同行者 companion は別に来る）
@@ -232,6 +290,12 @@ class Sim:
         a.entry_key = (min(first, a.t0), a.t0, len(self.agents))
         self.agents.append(a)
         self.by_name[a.name] = a
+        if a.group is not None:
+            gi = self.group_info.setdefault(a.group, {"members": [], "relation": None, "leader": None})
+            gi["members"].append(a.name)
+            gi["relation"] = gi["relation"] or a.info.get("relation")
+            if gi["leader"] is None and a.info.get("role") != "companion":
+                gi["leader"] = a.name
 
     # ---- 位置 ----
     def pos(self, a):
@@ -278,10 +342,20 @@ class Sim:
                 return False
         return True
 
-    def pick_spot(self, p):
+    def pick_spot(self, p, a=None):
         cand = [i for i, ok in enumerate(self.free) if ok and self.door_clear(self.spots[i])]
         if not cand:
             return None
+        if a is not None and a.group is not None and self.model == "cfsm":
+            # グループの仲間がもう待つ場所を取っていれば、その隣（MATE_SPOT_M 以内）の空いた所（仲間がそれぞれ扉に近い所を選び、
+            # 3 m 以上離れて 50 秒待った、hospital_gate_ev の種 7、2026-11-12）
+            # 仲間のうち、列で自分より先の人（列にまだ入っていない、待つ場所へ歩く途中の人も）の場所。列の先の人は扉に近い所へ詰め、後の人はその隣へ
+            ahead = self.queue[:self.queue.index(a)] if a in self.queue else self.queue
+            mine = [self.spots[b.spot] for b in self.agents if b is not a and b.group == a.group and b.spot is not None
+                    and (b in ahead or (b.mode == "to_spot" and b not in self.queue))]
+            near = [k for k in cand if any(math.hypot(self.spots[k][0] - q[0], self.spots[k][1] - q[1]) <= MATE_SPOT_M for q in mine)]
+            if near:
+                return min(near, key=lambda k: min(math.hypot(self.spots[k][0] - q[0], self.spots[k][1] - q[1]) for q in mine))
         return min(cand, key=lambda k: self.door_d(k) + 0.3 * math.hypot(self.spots[k][0] - p[0], self.spots[k][1] - p[1]))
 
     def overflow_spot(self, a, p, gap=0.6):
@@ -294,7 +368,8 @@ class Sim:
             off = a.rng.random() * 2 * math.pi
             ring = [(px + r * math.cos(off + 2 * math.pi * k / n), py + r * math.sin(off + 2 * math.pi * k / n)) for k in range(n)]
             ok = [(x, y) for x, y in ring if self.space.walkable(x, y) and self.space.clearance(x, y) >= 0.2 and self.door_clear((x, y))
-                  and all(math.hypot(x - ox, y - oy) >= gap for ox, oy in others)]
+                  and all(math.hypot(x - ox, y - oy) >= gap for ox, oy in others)
+                  and (self.model != "cfsm" or r == 0.0 or self.space.los((px, py), (x, y), 0.0))]
             if ok:  # 同じ半径なら扉に近い所
                 xy = min(ok, key=lambda q: math.hypot(*np.subtract(self.nearest_door(q), q)))
                 self.alloc[a.name] = xy
@@ -309,7 +384,8 @@ class Sim:
 
     # ---- 立つ場所 ----
     def alloc_stand(self, a, target, gap=0.65):
-        """target に近く、ほかの人の立つ場所から gap m 以上離れた、歩ける所（壁から 0.2 m）を割り当てる。"""
+        """target に近く、ほかの人の立つ場所から gap m 以上離れた、歩ける所（壁から 0.2 m）で、target から見通せる所を割り当てる
+        （見通しを見ないと、受付の机の向こう側に立つ場所を取り、仲間と逆向きに歩き出した、hospital_gate_ev の種 7、2026-11-12）。"""
         others = [xy for k, xy in self.alloc.items() if k != a.name]
         tx, ty = float(target[0]), float(target[1])
         cands = [(tx, ty)]
@@ -319,6 +395,8 @@ class Sim:
             cands += [(tx + r * math.cos(off + 2 * math.pi * k / n), ty + r * math.sin(off + 2 * math.pi * k / n)) for k in range(n)]
         for x, y in cands:
             if not self.space.walkable(x, y) or self.space.clearance(x, y) < 0.2:
+                continue
+            if self.model == "cfsm" and (x, y) != (tx, ty) and not self.space.los((tx, ty), (x, y), 0.0):
                 continue
             if all(math.hypot(x - ox, y - oy) >= gap for ox, oy in others):
                 self.alloc[a.name] = (x, y)
@@ -347,8 +425,9 @@ class Sim:
         a.l = a.l_pref if l0 is None else l0
 
     def next_step(self, a, t, p):
-        if 0 <= a.k < len(a.plan) and a.plan[a.k][0] in ("stop", "meet"):
+        if 0 <= a.k < len(a.plan) and a.plan[a.k][0] in ("stop", "meet", "regroup"):
             self.alloc.pop(a.name, None)  # 止まり終えたので立つ場所を空ける
+            a.regroup = None
         a.k += 1
         a.until_zone = None
         if a.k >= len(a.plan):
@@ -365,8 +444,9 @@ class Sim:
             a.until_zone = None
         elif kind == "walk":
             opts = step[3] if len(step) > 3 else {}
-            target = self.alloc_stand(a, step[1]) if nxt in ("stop", "meet") else step[1]
-            self.walk_to(a, p, target, step[2], taper=nxt in ("stop", "meet"), l0=a.l_pref if a.k == 0 else 0.0)
+            target = self.alloc_stand(a, step[1]) if nxt in ("stop", "meet", "regroup") else step[1]
+            self.walk_to(a, p, target, step[2], taper=nxt in ("stop", "meet", "regroup"), l0=a.l_pref if a.k == 0 else 0.0)
+            self._join_leader_path(a, p, step, target)
             a.until_zone = opts.get("until_zone")
         elif kind == "gate":
             g = self.gates[step[1]]
@@ -374,6 +454,12 @@ class Sim:
             a.gate_dir = g.in_dir * d
             lanes = g.lanes_in if d > 0 else g.lanes_out
             lane = min(lanes, key=lambda ln: (len(ln.queue), float(np.linalg.norm(ln.center - p))))
+            if a.group is not None and self.model == "cfsm":  # 仲間が並ぶレーンがあり、列がいちばん短い列より GROUP_LANE_EXTRA 人までの長さなら、そこに並ぶ
+                mates = [ln for ln in lanes if any(b.group == a.group for b in ln.queue)]
+                if mates:
+                    ml = min(mates, key=lambda ln: len(ln.queue))
+                    if len(ml.queue) <= len(lane.queue) + GROUP_LANE_EXTRA:
+                        lane = ml
             lane.queue.append(a)
             a.lane = lane
             a.events.setdefault("gate_join", []).append(round(t, 2))  # 列に加わった時刻（ここから通るまでは列の歩き）
@@ -382,6 +468,10 @@ class Sim:
             a.mode, a.until = "stop", t + step[1]
             self.stand(a, t, p, step[3], step[2], step[4])
             a.events.setdefault("stops", []).append([round(t, 2), round(t + step[1], 2), step[3]])
+        elif kind == "regroup":  # ゲートの先で、まだ通っていない仲間を待つ（step[1] はゲートの段取り、step[2] は最長の秒数）
+            a.mode, a.until, a.regroup = "stop", t + step[2], step[1]
+            self.stand(a, t, p, "group_wait", tuple(np.asarray(p) - a.gate_dir) if a.gate_dir is not None else None, 30.0)
+            a.events.setdefault("regroup", []).append([round(t, 2), None])
         elif kind == "meet":
             a.mode = "meet"
             self.stand(a, t, p, step[3], step[2], step[4])
@@ -389,7 +479,7 @@ class Sim:
             a.events["meet_start"] = round(t, 2)
         elif kind == "wait_ev":
             a.events["hall"] = round(t, 2)
-            i = self.pick_spot(p)
+            i = self.pick_spot(p, a)
             a.wait_glance = step[1]
             if i is None:  # 待つ場所が埋まっている: ほかの人から離れた所まで歩いてから待つ（着くと to_spot の扱いで列に入る）
                 a.spot = None
@@ -530,7 +620,7 @@ class Sim:
             alighted = self.on_arrival(self, car, t) if self.on_arrival else []
             door_open, tp = self.ev_timing["door_open_s"], self.ev_timing["transfer_s"]
             boarded = []
-            for k, a in enumerate(self.queue[:car.capacity]):  # 降りる人のあとに、並んだ順に 1 人 tp 秒ずつ
+            for k, a in enumerate(self.board_order(car.capacity, t)):  # 降りる人のあとに、並んだ順に 1 人 tp 秒ずつ
                 p, _ = self.where(a)
                 self.here[a.name] = np.asarray(p, float)  # 詰めている途中なら、その場で待つ
                 a.nudge_home = None
@@ -538,12 +628,21 @@ class Sim:
                 a.board_side = 1.0 if k % 2 == 0 else -1.0
                 a.events["car"] = car.name
                 boarded.append(a.name)
-            self.queue = self.queue[car.capacity:]
+            self.queue = [a for a in self.queue if a.name not in boarded]
             for a in self.queue:  # 残った人は扉に近い空いた場所へ詰める
                 p, _ = self.where(a)
-                i = self.pick_spot(p)
-                if i is None or (a.spot is not None and self.door_d(i) > self.door_d(a.spot) - 0.5):
+                i = self.pick_spot(p, a)
+                if i is None:
                     continue
+                if a.spot is not None:
+                    mates = [self.spots[b.spot] for b in self.queue[:self.queue.index(a)] if b.group is not None and b.group == a.group and b.spot is not None]
+                    if mates:  # 仲間の隣へ（仲間が詰めたら、ついていく）
+                        def gap(k, mates=mates):
+                            return min(math.hypot(self.spots[k][0] - q[0], self.spots[k][1] - q[1]) for q in mates)
+                        if gap(i) >= gap(a.spot) - 0.3:
+                            continue
+                    elif self.door_d(i) > self.door_d(a.spot) - 0.5:
+                        continue
                 if a.spot is not None:
                     self.free[a.spot] = True
                 self.alloc.pop(a.name, None)  # あふれて立っていた所を空ける
@@ -552,6 +651,41 @@ class Sim:
                 self.walk_to(a, p, self.spots[i], "ev_wait", mode="to_spot", taper=True, l0=0.0)
                 a.requeue = True
             self.ev_events.append({"t": round(t, 2), "car": car.name, "boarded": boarded, "alighted": alighted})
+
+    def board_order(self, capacity, t):
+        """着いたかごに乗る人（並んだ順に定員まで）。グループは一緒に乗る（motion_model "cfsm"）: 全員が乗れなければ一緒に次を待ち、
+        後ろの人が先に乗る。まだ待つ場所に来ていない仲間がいれば、待ち始めてから GROUP_EV_WAIT_S 秒までは乗らずに待つ。"""
+        if self.model != "cfsm":
+            return self.queue[:capacity]
+        out, seen = [], set()
+        # 定員で一度見送ったグループは、次のかごでは列の前に回す（見送るたびに後ろの 1 人の人が先に乗り、3 人組が 40 秒以上待った、
+        # hospital_gate_ev の種 12、2026-11-12）
+        order = sorted(self.queue, key=lambda b: not getattr(b, "ev_skipped", False))
+        for a in order:
+            if len(out) >= capacity:
+                break
+            if a.name in seen:
+                continue
+            if a.group is None:
+                out.append(a)
+                seen.add(a.name)
+                continue
+            mates = [b for b in self.queue if b.group == a.group]
+            seen.update(b.name for b in mates)
+            step = a.plan[a.k] if 0 <= a.k < len(a.plan) else None
+            coming = any(b.mode not in ("done", "board", "board_wait") and b not in mates
+                         and any(b.plan[j] is step for j in range(max(b.k, 0), len(b.plan)))
+                         for b in (self.by_name[n] for n in self.group_info.get(a.group, {}).get("members", ())))
+            if coming and t - a.events.get("wait_start", t) < GROUP_EV_WAIT_S:
+                continue
+            if len(out) + len(mates) <= capacity:
+                out += mates
+            elif len(mates) > capacity:  # 1 台に入りきらないグループは、入るだけ乗る
+                out += mates[:capacity - len(out)]
+            else:
+                for b in mates:
+                    b.ev_skipped = True
+        return out
 
     def try_enter(self, a, t, busy, held):
         """現れてよいか。入口ごとに着いた順（グループはまとめて、entry_key）で、前に待つ人がいれば後ろの人も待つ
@@ -679,6 +813,43 @@ class Sim:
                     break
         return False
 
+    def _join_leader_path(self, a, p, step, target):
+        """グループの仲間（先導の人でない人）が、先導の人がもう歩き始めた同じ段取り step を歩き始めるとき、自分で引いた経路の代わりに、
+        先導の人の経路の今いる所の先へ合流し、その経路に沿って歩く（終わりだけ自分の行き先へ）（motion_model "cfsm"）。
+        仲間がそれぞれ自分の位置から経路を引くと、受付の別々の立ち位置から EV まで、島の反対側を 7 m 離れて 50 秒歩いた
+        （hospital_gate_ev の種 7、2026-11-12。持ち場へ寄るのは先導の人から FORM_NEAR の中だけ）。"""
+        if self.model != "cfsm" or a.group is None:
+            return
+        gi = self.group_info.get(a.group)
+        if not gi or gi["leader"] in (None, a.name):
+            return
+        b = self.by_name[gi["leader"]]
+        if b.mode != "walk" or b.k < 0 or b.plan[b.k] is not step or b.path is None or b.no_walls:
+            return
+        lp = b.path
+        j = int(np.searchsorted(lp.cum, min(lp.length, b.s + 1.0)))
+        if j >= len(lp.p) - 1 or float(np.hypot(*(lp.p[j] - np.asarray(p)))) > 15.0:
+            return
+        head = self.space.route(tuple(p), tuple(lp.p[j]))
+        end = tuple(lp.p[-1])
+        tail = [tuple(target)] if math.hypot(end[0] - target[0], end[1] - target[1]) < 0.3 else list(self.space.route(end, tuple(target)))
+        pts = list(head) + [tuple(q) for q in lp.p[j + 1:]] + tail[1:]
+        if len(pts) >= 2:
+            a.path, a.s = Path(pts), 0.0
+
+    def mates_before(self, a, step):
+        """グループの仲間で、段取り step（ゲートなど）をまだ済ませていない人がいるか（その段取りの途中の人も入れる）。"""
+        if a.group is None:
+            return False
+        for name in self.group_info.get(a.group, {}).get("members", ()):
+            b = self.by_name[name]
+            if b is a or b.mode in ("done",):
+                continue
+            for j in range(max(b.k, 0), len(b.plan)):
+                if b.plan[j] is step:
+                    return True
+        return False
+
     def reroute_pts(self, p, path):
         """今の位置 p から path の終わりまでの経路の点。終わりが歩ける所の外なら、歩ける所の最後の点まで探し、その先の元の点を足す。"""
         end = path.at(path.length)[0]
@@ -734,6 +905,133 @@ class Sim:
         nn = float(np.hypot(*n))
         return c, (n / nn if nn > 1e-9 else np.zeros(2))
 
+    def _update_formation(self, active, P, XY, groups):
+        """このコマのグループの組み方（cfsm）。歩いているグループごとに、周りの密度（0.5 m 角のセルの人数を FORM_RHO_TAU でならした値、中心の周り 1.5 m 角）から
+        横の広がりの比を出し（Zanlungo ら 2015）、歩いている仲間の持ち場を決める。知らない人がよける、仲間どうしを結ぶ線も作る。"""
+        self.formation = {}
+        self._taken_xy = [(float(P[id(b)][0][0]), float(P[id(b)][0][1]), b.group) for b in active]
+        c, (x0, y0) = FORM_RHO_CELL_M, self.occ0
+        k_dt = min(1.0, self.dt / FORM_RHO_TAU)
+        self.occ *= 1.0 - k_dt
+        if len(XY):
+            ix = np.clip(((XY[:, 0] - x0) / c).astype(int), 0, self.occ.shape[0] - 1)
+            iy = np.clip(((XY[:, 1] - y0) / c).astype(int), 0, self.occ.shape[1] - 1)
+            np.add.at(self.occ, (ix, iy), k_dt)
+        for g, mem in groups.items():
+            gi = self.group_info.get(g)
+            walking = [b for b in mem if b.mode == "walk"]
+            if not gi or not walking:
+                continue
+            order = {n: k for k, n in enumerate(gi["members"])}
+            walking.sort(key=lambda b: order.get(b.name, 99))
+            cen = np.mean([P[id(b)][0] for b in walking], axis=0)
+            i, j = int((cen[0] - x0) / c), int((cen[1] - y0) / c)
+            win = self.occ[max(i - 1, 0):i + 2, max(j - 1, 0):j + 2]
+            r = float(win.mean()) / (c * c) if win.size else 0.0
+            self.group_rho[g] = r
+            scale = group_lateral_scale(len(walking), r)
+            slots = group_slots(len(walking), gi["relation"], self.group_lateral_m, scale)
+            file_ = len(walking) > 1 and all(abs(sl[0]) < 1e-9 for sl in slots)
+            # 前後の揺らぎ（先導の人以外。縦 1 列のときは入れない）: 平均 0・標準偏差 sd の Ornstein-Uhlenbeck。2 人連れの前後の差の平均 |y| が
+            # 文献の値になるように sd = |y| √(π/2)（半正規分布）。揺らぎなしでは |y| が 0.09 m（文献 0.31〜0.50 m）で、横に並びすぎた
+            y_rel = (GROUP_RELATIONS.get(gi["relation"]) or GROUP_RELATIONS["friends"])["dyad"]["y"]
+            sd, kk = y_rel * math.sqrt(math.pi / 2), self.dt / FORM_LON_TAU
+            out = {}
+            for b, (lat, lon) in zip(walking, slots):
+                if b.name != gi["leader"] and not file_:
+                    b.form_dy = getattr(b, "form_dy", 0.0) * (1 - kk) + sd * math.sqrt(2 * kk) * b.rng.gauss(0.0, 1.0)
+                    lon += b.form_dy
+                out[b.name] = (lat, lon)
+            self.formation[g] = {"slots": out, "rank": {b.name: k for k, b in enumerate(walking)}, "rho": r, "scale": scale}
+        la, lb, lg = [], [], []
+        by_g = {}
+        for b in active:
+            if b.group is not None and b.mode in ("walk", "stop", "meet"):
+                by_g.setdefault(b.group, []).append(P[id(b)][0])
+        for g, pts in by_g.items():
+            for u in range(len(pts)):
+                for w in range(u + 1, len(pts)):
+                    if float(np.hypot(*(pts[w] - pts[u]))) < LINK_M:
+                        la.append(pts[u])
+                        lb.append(pts[w])
+                        lg.append(g)
+        self.links = (np.array(la, float).reshape(-1, 2), np.array(lb, float).reshape(-1, 2), lg)
+
+    def _link_points(self, a, p):
+        """ほかのグループの仲間どうしを結ぶ線の上で、p にいちばん近い点（線の両端の近くは除く。両端は仲間の体そのもの）。→ (p からの向き, 距離)"""
+        A, B, G = self.links
+        empty = (np.zeros((0, 2)), np.zeros(0))
+        if not len(G):
+            return empty
+        keep = np.array([g != a.group for g in G], bool)
+        A, B = A[keep], B[keep]
+        if not len(A):
+            return empty
+        AB = B - A
+        tt = np.clip(((p - A) * AB).sum(1) / np.maximum((AB * AB).sum(1), 1e-9), 0.0, 1.0)
+        rel = A + tt[:, None] * AB - p
+        dist = np.hypot(*rel.T)
+        ok = (tt > 0.1) & (tt < 0.9) & (dist < self.C["cutoff"]) & (dist > 1e-9)
+        return rel[ok], dist[ok]
+
+    def _form_target(self, a, p, s, L, P):
+        """グループの仲間（先導の人でない人）が寄る持ち場の向きと速さ（cfsm）。→ (向き, 速さ) か、寄らないとき None。
+        先導の人と同じ段取りを歩いていて、近く（FORM_NEAR）にいて、どちらも行き先の手前（FORM_END_M）でないときだけ。
+        持ち場 = 先導の人の位置 + 先導の人の向きに直した（自分の持ち場 − 先導の人の持ち場）。持ち場が壁の中・壁の向こうなら、横を半分に、
+        それでも駄目なら先導の人の後ろに縦に並ぶ（通路が狭い所）。速さは、持ち場との前後のずれ 1 m あたり FORM_GAIN m/s 足し引きする
+        （自分の速さの 1.3 倍まで）。前は仲間がそれぞれ自分の経路を歩き、2 人連れが 2〜4 m 横に離れて並んで歩いた（validity.md の 5.6）。"""
+        g = a.group
+        if g is None or a.mode != "walk" or a.no_walls or L - s < FORM_END_M or self.t < getattr(a, "form_off_until", -1.0):
+            return None
+        if self.t - getattr(a, "best_t", self.t) >= FORM_STALL_S:  # 進めずにいる: しばらく持ち場へ寄らず、自分の経路でよける
+            # （混んだ EV の前で、知らない人の立つ所を持ち場として向かい続け、15 秒たって安全弁を使った。hospital_gate_ev で 60 → 104 回、2026-11-12）
+            a.form_off_until = self.t + FORM_OFF_S
+            return None
+        fm = self.formation.get(g)
+        gi = self.group_info.get(g)
+        if not fm or not gi or a.name not in fm["slots"] or gi["leader"] == a.name or gi["leader"] not in fm["slots"]:
+            return None
+        b = self.by_name[gi["leader"]]
+        if b.mode != "walk" or b.no_walls or b.k < 0 or a.k < 0 or b.plan[b.k] is not a.plan[a.k] or b.path.length - b.s < FORM_END_M:
+            return None
+        hp = P[id(b)][0]
+        if float(np.hypot(*(hp - p))) > FORM_NEAR:
+            return None
+        # 向きは先導の人の経路の向き（今の所から 1 m 先までの弦）。先導の人の位置から 1 m 先の点への向きにすると、先導の人は経路から横に
+        # ずれて歩く（l_pref）ので向きが 15 度ほど傾き、持ち場も回って、2 人連れの横が 0.66 m のところ 0.94 m になった（2026-11-12）
+        h = b.path.at(min(b.s + 1.0, b.path.length))[0] - b.path.at(b.s)[0]
+        nh = float(np.hypot(*h))
+        h = h / nh if nh > 1e-6 else b.path.at(b.s)[1]
+        nrm = np.array([-h[1], h[0]])
+        (lat_a, lon_a), (lat_b, lon_b) = fm["slots"][a.name], fm["slots"][b.name]
+        sp, rad = self.space, self.C["radius"]
+        tgt = None
+        for k in (1.0, 0.5):
+            q = hp + nrm * (lat_a - lat_b) * k + h * (lon_a - lon_b)
+            if sp.walkable(*q) and sp.clearance(*q) >= rad and sp.los(tuple(hp), tuple(q), 0.0):
+                tgt = q
+                break
+        if tgt is None:  # 通路が狭い: 先導の人の後ろに縦に並ぶ
+            tgt = hp - h * FORM_FILE_GAP * fm["rank"].get(a.name, 1)
+            if not sp.walkable(*tgt):
+                return None
+        for o in self._taken_xy:  # 持ち場に知らない人がいる: 寄らない
+            if o[2] != g and math.hypot(o[0] - tgt[0], o[1] - tgt[1]) < FORM_TAKEN_M:
+                return None
+        aim = tgt + h * self.C["look_m"]
+        if not (sp.walkable(*aim) and sp.los(tuple(p), tuple(aim), 0.0)):
+            aim = tgt
+            if not sp.los(tuple(p), tuple(tgt), 0.0):
+                return None
+        e = aim - p
+        ne = float(np.hypot(*e))
+        if ne < 1e-6:
+            return None
+        lon_err = float((tgt - p) @ h)
+        # 基準は先導の人の今の速さ（決めた速さにすると、先導の人が遅くしている間、持ち場より前に出た。V 字の真ん中が前に出ていた）
+        v = float(np.clip(getattr(b, "v_now", b.speed) + FORM_GAIN * lon_err, 0.0, 1.3 * a.speed))
+        return e / ne, v
+
     def _cfsm_step(self, a, i, p, tan, active, XY, groups, P):
         """motion_model "cfsm" の 1 コマ（CFSM の説明は上）。→ (新しい位置, 経路の向き, 進んだ長さ)"""
         C, dt = self.C, self.dt
@@ -757,7 +1055,11 @@ class Sim:
                 vv = weidmann_speed(front / self.sd_area, self.sd["v0"], self.sd["gamma"], self.sd["rho_max"])
                 factor = max(0.1, vv / self.sd["v0"])
         if a.group is not None and a.mode == "walk":
-            offs = [float((P[id(b)][0] - p) @ tan) for b in groups.get(a.group, ()) if b is not a and np.hypot(*(P[id(b)][0] - p)) < 12.0]
+            # 仲間との前後のずれ（持ち場の前後の差を引く。V 字の真ん中・縦 1 列の後ろの人は、後ろにいるのが持ち場）
+            slots = (self.formation.get(a.group) or {}).get("slots", {})
+            mine = slots.get(a.name)
+            offs = [float((P[id(b)][0] - p) @ tan) - (slots[b.name][1] - mine[1] if mine and b.name in slots else 0.0)
+                    for b in groups.get(a.group, ()) if b is not a and np.hypot(*(P[id(b)][0] - p)) < 12.0]
             if offs:
                 m = sum(offs) / len(offs)
                 if m < -GROUP_GAP:
@@ -806,6 +1108,9 @@ class Sim:
         e0 = q + nq * ld - p
         n0 = float(np.hypot(*e0))
         e0 = e0 / n0 if n0 > 1e-6 else tan
+        form = self._form_target(a, p, s, L, P)
+        if form is not None:  # グループの持ち場へ寄る（先導の人の位置と向きから）
+            e0, v0 = form
         e = e0.copy()
         # 安全弁: 行き先に UNSTICK_S 秒近づけない人は、SQUEEZE_S 秒だけ周りの人を無視して半分の速さで通り抜ける（壁は見る）。
         # 込み入った所（扉の角・EV の扉・列の後ろ）で、人どうしが互いによけきれず止まったままになるのを防ぐ（そのぶん少し重なる、docs/validity.md の 5）
@@ -840,6 +1145,13 @@ class Sim:
                 head_on = (ahead > 0) & (np.abs(side) < 0.05) & (d[k] < 1.5)
                 if head_on.any():  # よける側は全員そろえる（人ごとに決めると、向かい合う 2 人が同じ側へよけて止まった）
                     e += PASS_SIDE * 0.3 * np.array([-e0[1], e0[0]])
+            lrel, ld_ = self._link_points(a, p)
+            if len(ld_):  # ほかのグループの仲間を結ぶ線: 線の上のいちばん近い点を、人と同じようによける（仲間の間を通らない）
+                e -= ((C["neighbor_strength"] * np.exp((r2 - ld_) / C["neighbor_range"]))[:, None] * lrel / ld_[:, None]).sum(0)
+                if ((lrel @ e0 > 0) & (np.abs(lrel @ np.array([-e0[1], e0[0]])) < 0.05) & (ld_ < 1.5)).any():
+                    e += PASS_SIDE * 0.3 * np.array([-e0[1], e0[0]])
+                # 手前から（2.5 m）線の端の外側へ回り込む向きも試したが、混んだ所で安全弁が増えた（office_ev_hall の種 17〜32 で 11 → 34 回、
+                # 2026-11-12）。混んだ所の 2 人連れは 0.5〜0.7 m の間隔で、体の幅でもともと間を通れない
             if not nw:
                 c, n = self._wall(p)
                 if c < C["radius"] + 5 * C["wall_range"]:
@@ -882,6 +1194,12 @@ class Sim:
             queued = np.array([b.state == "gate_queue" or b.mode in ("gate_wait", "to_gate") for b in active], bool)
             gap_min[queued & ~mate] = QUEUE_GAP
         v = min(v0, max(0.0, float(((d[cone] - gap_min[cone]) / tg[cone]).min()))) if cone.any() else v0
+        if not lane and not squeeze:  # 仲間を結ぶ線が前にあれば、人が前にいるのと同じに遅くする
+            lrel, ld_ = self._link_points(a, p)
+            if len(ld_):
+                lc = (lrel @ e > 0) & (np.abs(lrel @ np.array([-e[1], e[0]])) < r2)
+                if lc.any():
+                    v = min(v, max(0.0, float((ld_[lc].min() - r2) / C["time_gap"])))
         prev = getattr(a, "e_prev", None)
         damped = self.t < getattr(a, "chatter_until", -1.0)
         # 前のコマの向きから 90 度より大きく変わった（行ったり来たり）か、遅くしている間に和がまだ短い（釣り合ったまま）: 遅くし続ける
@@ -980,6 +1298,7 @@ class Sim:
                     if ((dn < C["min_sep"]) & (dn < d[k])).any():
                         step, p2 = np.zeros(2), p.copy()
         a.xy = p2
+        a.v_now = float(np.hypot(*step)) / dt  # 今の速さ（グループの仲間が持ち場へ寄るときの基準）
         a.s = a.path.project(p2, s - 2.0, s + C["look_m"] + 1.0)  # 押し戻されたら進み具合も戻す
         if not lane and not nw and float(np.hypot(*(p2 - a.path.at(a.s)[0]))) > REROUTE_M:  # 経路から離れすぎたら、今の位置から引き直す
             try:
@@ -1018,6 +1337,7 @@ class Sim:
         if self.model == "cfsm":  # 全員の位置（このコマの始め。全員を同じ時刻の位置から動かす）
             XY = np.array([P[id(b)][0] for b in active], float).reshape(-1, 2)
             idx = {id(b): k for k, b in enumerate(active)}
+            self._update_formation(active, P, XY, groups)
         for a in active:
             p, tan = P[id(a)]
             if a.mode == "board_wait" and t >= a.until:
@@ -1096,7 +1416,11 @@ class Sim:
                 a.yaw = cur + max(-TURN_DEG_S * dt, min(TURN_DEG_S * dt, _wrap(goal - cur)))
                 a.frames.append((f, float(p[0]), float(p[1]), a.yaw, self._out_motion(a, p - P[id(a)][0], nudged)[0]))
                 a.states.append(a.state)
-                if a.mode == "stop" and t >= a.until and not (t < a.until + GROUP_STOP_WAIT_S and self.mates_behind(a, t)):
+                if a.mode == "stop" and getattr(a, "regroup", None) is not None:  # ゲートの先で仲間を待つ: 全員が通ったか、最長の秒数で次へ
+                    if t >= a.until or not self.mates_before(a, a.regroup):
+                        a.events["regroup"][-1][1] = round(t, 2)
+                        self.next_step(a, t, p)
+                elif a.mode == "stop" and t >= a.until and not (t < a.until + GROUP_STOP_WAIT_S and self.mates_behind(a, t)):
                     self.next_step(a, t, p)
                 elif a.mode == "meet":
                     m = a.plan[a.k][1]
@@ -1226,6 +1550,11 @@ class Sim:
                 self.stand(a, t, p2, "gate_queue", tuple(a.lane.center + a.gate_dir), 0.0)
             elif a.mode == "gate_pass":
                 a.lane = None
+                gstep = a.plan[a.k]
+                if self.model == "cfsm" and a.group is not None and self.mates_before(a, gstep) and a.k + 1 < len(a.plan):
+                    # 仲間がまだ通っていない（別のレーン・列の後ろ）: 通った先 REGROUP_M で待ってから、元の段取りを続ける
+                    # （流れの脇へ 1 m ずらすのも試したが、揺れが減るテンプレートと増えるテンプレートがあり、安全弁は増えた。2026-11-12）
+                    a.plan[a.k + 1:a.k + 1] = [("walk", tuple(p2 + a.gate_dir * REGROUP_M), "pass"), ("regroup", gstep, REGROUP_MAX_S)]
                 self.next_step(a, t, p2)
             else:
                 self.next_step(a, t, p2)
