@@ -4,7 +4,17 @@
 
 Draft goals for the next versions and the decisions still to make. Once decided, items move to the release notes of that version (`release-X.Y.en.md`). The current version is [1.1](release-1.1.en.md).
 
-## 1.2 (draft goals, to be decided)
+## 1.2 (goals, decided on 2026-11-12)
+
+Decided (2026-11-12):
+
+- Four group relations (colleagues, friends, family, companion). Also build ground truth and evaluation for a group-finding task (group detection and tracking)
+- Components come in this order: counter, called waiting, seating, room. Values without literature (such as service times) go in as provisional values (marked "provisional" in the ledger of `validity.en.md`)
+- Non-human movers (wheelchairs, AGVs and others) go into 1.3 or later
+- Groups are checked over the density range measured in the literature, 0–0.3 people/m² (table below). Denser places are not judged; their values are only reported
+
+Order of work: 1 groups → 2 components → 3 remaining movement fixes → 4 making spaces → rendering (seated people, chairs, counters) → comparison with 1.1 and release notes.
+The work is on branch `crowd-1.2`.
 
 ### 1. Groups (from dyads to a general group feature)
 
@@ -17,24 +27,31 @@ What exists now:
 What the 1.1 checks showed to be missing ([validity.en.md, section 5.6](validity.en.md#56-checks-with-few-samples-2026-11-12)):
 
 - No lateral cohesion. Each member walks its own route, so a dyad can walk side by side 2–4 m apart
-- In a crowded stream, a stranger can walk between the members. With other people around, the dyad distance widens from 0.87 m to 1.13–1.23 m (in the literature, groups get closer and line up front to back as it gets crowded)
+- In a crowded stream, a stranger can walk between the members. With other people around, the dyad distance widens from 0.87 m to 1.13–1.23 m (in the literature, the lateral extent of groups narrows as density rises; table below)
 - Nothing defines what happens after members are split by different gate lanes or by elevator capacity
 
-Proposed features:
+Literature values (ATC, Osaka. Dyads by relation: Zanlungo et al. 2017; triads: 2019; dependence on density: 2015):
 
-| Feature | Content | Literature and quantities to check |
+| Quantity | Value | Source |
 |---|---|---|
-| Formation | Switch between abreast, V-shape and single file by density and corridor width | Zanlungo et al. 2015 (groups get longer as density rises), Moussaïd et al. 2010 (V-shape of groups of three) |
-| Cohesion | Lateral and front–back cohesion. Strangers do not pass between members | Dyad distance and lateral spacing (Zanlungo et al. 2017), number of times someone passed between members |
-| Splitting and rejoining | When split by gate lanes or elevator capacity, wait at the next place. Board the same car, and if not all fit, wait together for the next | Time spent apart, time spent waiting for members |
-| Relations and roles | Colleagues, friends, family, patient and companion, person pushing a wheelchair. A leader decides where to go and the others follow | Distance by relation (tables in Zanlungo et al. 2017) |
-| Output | Besides `group` in the ground truth, the formation and the times of splitting and rejoining | (to be added to docs/formats.en.md) |
+| Density range studied | 0–0.3 people/m² (bins of 0.05 people/m²; density from 0.5 m cells averaged over 300 s) | Zanlungo et al. 2015 |
+| Lateral extent of dyads | 0.646 − 0.538 ρ m (ρ in people/m²). The front–back offset is 0 on average (abreast); its spread grows with density | same |
+| Lateral extent of triads | 1.096 − 1.370 ρ m. V-shape at every density (the middle person 0.14 m behind); the front–back distance does not change with density | same |
+| Speed against density | individuals 1.286 − 1.072 ρ, dyads 1.147 − 0.931 ρ, triads 1.092 − 0.799 ρ m/s | same |
+| Dyads by relation (speed, distance, lateral, front–back) | colleagues 1.27 m/s, 0.85, 0.72, 0.33 m; friends 1.14, 0.79, 0.66, 0.31; family 1.09, 0.86, 0.58, 0.50; couples 1.10, 0.71, 0.60, 0.29 (358, 318, 246, 96 dyads) | Zanlungo et al. 2017 |
+| Triads by relation (speed, lateral, front–back) | colleagues 1.19 m/s, 1.10, 0.65 m; friends 1.04, 0.97, 0.61; family 0.99, 0.88, 0.75 (79, 212, 396 triads) | Zanlungo et al. 2019 |
 
-To decide:
+What to build:
 
-- How many relation types to model (for example colleagues, friends, family, companion)
-- Whether to also build ground truth and evaluation for a group-finding task (group detection and tracking) in the benchmark
-- Up to which density to verify (decide after checking the density range measured in the literature)
+| Feature | Content | Quantities to check |
+|---|---|---|
+| Relation | `people.group_relation` sets the shares of relations (`colleagues`, `friends`, `family`, `companion`). Lateral and front–back spacing follow the literature for each relation. `companion` (patient and companion) has no literature values, so its values are provisional | Dyad distance, lateral and front–back spacing by relation (table above) |
+| Formation | Each member gets a position relative to the group centre (lateral and front–back) and moves towards it. The lateral extent narrows with density following the literature fits. Triads walk in a V. In narrow passages, members line up | Lateral extent by density bin (0–0.3 people/m²) |
+| Cohesion | Lateral and front–back cohesion. Strangers do not pass between members (other people avoid the line joining the members) | Dyad distance, number of times a stranger passed between members |
+| Splitting and rejoining | When split by gate lanes, wait beyond the gate. Board the same elevator car, and if not all fit, wait together for the next | Time spent apart, time spent waiting for members |
+| Leader | One member decides where to go (leader); the others follow | — |
+| Output | Add each group's relation, leader and the times of splitting and rejoining to the ground truth (docs/formats.en.md) | — |
+| Group-finding task | Ground truth (who is in the same group, over time) and evaluation (group-level precision, recall and F1, where a group counts as found when at least 2/3 of its members match; F1 over pairs of people) | — |
 
 ### 2. Components that are the purpose of a trip (other than elevators)
 
@@ -52,23 +69,19 @@ Components derived from offices, hospitals, warehouses and other domains:
 | Seating | A number of seats; walk to a free seat and sit | Lobby sofas, café | Waiting-room chairs | Rest area | Benches |
 | Short stop | Used by one to a few people at a time; if busy, queue or go elsewhere | Toilets, vending machines, printers, pantry | Toilets, vending machines | Time clock | ATM, toilets |
 | Work point | Work standing; visit in a set order | — | Nurse station, ward rounds | Shelves, packing, inspection, staging | Restocking |
-| Non-human movers | People avoid them. Width and speed differ from people | Carts, cleaning machines | Wheelchairs, stretchers, meal carts | Forklifts, AGVs, carts | Shopping carts |
+| Non-human movers (1.3 or later) | People avoid them. Width and speed differ from people | Carts, cleaning machines | Wheelchairs, stretchers, meal carts | Forklifts, AGVs, carts | Shopping carts |
 | Staff movement | Fixed rounds, go when called | Security rounds | Nurse rounds and calls | Work instructions | Shop staff |
 | Changing floors | Stairs, escalators (as entrances and exits within one floor) | Stairs | Stairs | Stairs | Escalators |
 
-Proposal (candidates for 1.2):
+What to build (1.2):
 
-- Add three common components: counter (`service`: number of servers, service time distribution, queue shape, calling), seating (`seats`: seat positions and number) and room (`room`: capacity, time inside).
-  Configurations written with today's `spot`, `dwell` and `wait_zone` keep loading
-- Add state names to the ground truth (for example `service_queue` in a counter queue, `service` while served, `seated` while waiting seated, `in_room` inside a room)
+- Counter (`service`): number of service points, service time distribution, queue shape (line or area). With calling (`call`), people do not queue; they wait at a waiting place (seats or an area) and are called in order as service points free up (called waiting)
+- Seating (`seats`): seat positions and directions. People walk to a free seat and sit; if all are taken, they stand nearby
+- Room (`room`): door, capacity and time inside. People who enter are no longer visible (their boxes in the ground truth end too) and come out after the time with the same person id. Calling can be added (waiting area → consultation room)
+- Geometry (positions, directions, queue lines, seats) goes in the space (space.yaml); behaviour values (number of servers, times, capacity) go in the configuration (the same split as gates). Configurations written with today's `spot`, `dwell` and `wait_zone` keep loading
+- Add states to the ground truth (`service_queue` in a counter queue, `service` while served, `call_wait` while waiting to be called, `seated` while sitting) and the times of entering and leaving rooms
 - Templates: hospital outpatients (reception → waiting area → consultation room → payment → pharmacy), office lunchtime (café queue, seating), warehouse (work points with capacity and queues)
-
-To decide:
-
-- Which components come first (proposal: counter, called waiting, seating, room)
-- Whether to add components without literature values (such as service times) with provisional values (marked "provisional" in the ledger of `validity.en.md`)
-- Whether non-human movers (wheelchairs, AGVs) go into 1.2 or 1.3 or later
-- Where the objects needed for rendering (chairs, counters, 3D models of AGVs) come from (including their licence terms)
+- Rendering: sitting uses the same NVIDIA assets as today's people (such as `SitAndStandChair` in Isaac's People). Chairs and counters are first placed to match the furniture already in the space's USD; if more are needed, they come from the same NVIDIA assets (after checking the licence terms)
 
 ### 3. Remaining movement fixes from 1.1
 
@@ -97,4 +110,8 @@ What is missing (draft):
 - Apply camera clock offsets and dropped frames (`clock_offset_s`, `drop_rate`) to the video and ground truth (today they are only recorded)
 - Pairs of cameras with and without overlapping views, and checks that camera placement is plausible
 
-To decide: what to build first under "support for two or more cameras" (one of the drafts above, or something else)
+Decided (2026-11-12): as drafted above, start with matching people across cameras at different places and with flows of counts.
+
+### Non-human movers
+
+Wheelchairs, stretchers, carts, AGVs, forklifts and others ("non-human movers" in the component list of 1.2). People avoid them; their width and speed differ from people. 1.3 or later.
