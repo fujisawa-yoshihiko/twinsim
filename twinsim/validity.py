@@ -23,6 +23,9 @@ WALK_STATES = ("pass", "alight")
 STAND_STATES = ("ev_wait", "gate_queue")
 HALL_INTIMATE_M = 0.45
 DYAD_AFTER_GATE_S = 5.0  # 2 人連れの距離は、ゲートを通ってからこの秒数（離れた 2 人が並び直す間）を外す
+DYAD_MIN_PAIRS = 3  # 2 人連れの距離を判定する組の数の下限
+BOARD_MIN_PAIRS = 10  # EV に続けて乗る間隔を判定する組の数の下限（ゲートの間隔と同じ）
+ARRIVAL_Z = 3.0  # 到着の判定の幅（z）
 DENSITY_R = 1.5
 FREE_R = 2.5  # 自由に歩く速さ: 前の半円のこの半径（m）に人がいない歩き（cfsm で 2.0 m/s の人が前の人に詰まらない距離 0.36 + 1.06 × 2.0）
 PROFILE_GROUP_REF = {"office_commute_jp": "osaka_underground", "leisure_low_density": "toulouse_low"}
@@ -112,7 +115,8 @@ def verdict(ok, note=None):
 def free_speed(run, rows):
     """自由に歩く速さ。前の半円 FREE_R（2.5 m）に人のいない歩き（グループの人は除く）の、人ごとの中央値。
     2 つを確かめる: (1) 歩き方: その人たちの速さが、その人たちに与えた速さ（正解の speed_m_s）と ± 0.05 m/s で合う。
-    (2) 入れた値: 全員（グループの人は除く）に与えた速さの分布が、文献（またはシナリオ）の平均 ± 0.08・標準偏差 ± 0.08 に入る。
+    (2) 入れた値: 全員（グループの人は除く）に与えた速さの分布が、文献（またはシナリオ）の平均・標準偏差と ± 0.08 で合う
+    （人が少ないときは標本のぶれの 3 倍まで広げる）。
     前は 1.5 m の半円で選び、文献の値とじかに比べていた。cfsm では速い人は前の人が 0.36 + 1.06 × 速さ（1.9 m/s で 2.4 m）より近いと遅くなるので、
     1.5 m では速い人が遅く出た（与えた速さに対する比 1.8 m/s で 0.82）。また混んだ流れでは、速い人ほど前の人に追いつき「前に人がいない」場面に
     入らないので、測れる人が遅い人に偏る（verify_fundamental_diagram で 1.23 m/s。2.5 m にすると比はどの速さでも 0.99〜1.00、2026-11-06）。"""
@@ -141,9 +145,13 @@ def free_speed(run, rows):
     gm, gs = float(given.mean()), float(given.std(ddof=1))
     em, es = float(every.mean()), float(every.std(ddof=1))
     walk_ok = abs(m - gm) <= 0.05 and abs(s - gs) <= 0.05
-    input_ok = abs(em - mu) <= 0.08 and max(0.0, sd - 0.08) <= es <= sd + 0.08
+    # 与えた速さは分布から引いた値なので、人が少ないと偶然ずれる（素材 A_office_ev_low の 19 人で平均 1.498、平均の標準誤差 0.06。
+    # 幅 ± 0.08 では「注意」になった、2026-11-12）。幅は ± 0.08 か、標本のぶれの 3 倍（平均 sd/√n・標準偏差 sd/√(2(n−1))）の広い方
+    tol_m = max(0.08, 3 * sd / math.sqrt(len(every)))
+    tol_s = max(0.08, 3 * sd / math.sqrt(2 * (len(every) - 1)))
+    input_ok = abs(em - mu) <= tol_m and max(0.0, sd - tol_s) <= es <= sd + tol_s
     out.update({"given_same_people": {"mean": round(gm, 3), "sd": round(gs, 3)},
-                "given_all": {"n": int(len(every)), "mean": round(em, 3), "sd": round(es, 3)},
+                "given_all": {"n": int(len(every)), "mean": round(em, 3), "sd": round(es, 3), "tolerance": {"mean": round(tol_m, 3), "sd": round(tol_s, 3)}},
                 "walk_matches_given": bool(walk_ok), "input_matches_target": bool(input_ok)})
     return {**out, **verdict(walk_ok and input_ok, note)}, per
 
@@ -229,7 +237,8 @@ def arrivals(run):
         if "persons_per_min" in r:
             exp = r["persons_per_min"] * dur / 60
             z = (n - exp) / math.sqrt(max(exp * arrival_dispersion(run, s), 1e-9))  # グループで来るので分散は平均より大きい
-            item.update({"expected_per_min": r["persons_per_min"], "z": round(z, 2), "source": r.get("source"), **verdict(abs(z) <= 2)})
+            # 3σ（2026-11-12 まで 2σ で、正しい到着でも 20 の流れに 1 つほど「注意」になった）
+            item.update({"expected_per_min": r["persons_per_min"], "z": round(z, 2), "source": r.get("source"), **verdict(abs(z) <= ARRIVAL_Z)})
         out[s] = item
     return out
 
@@ -267,8 +276,8 @@ def boarding_intervals(run):
         ts = sorted(t_by[n] for n in e["boarded"] if n in t_by)
         diffs += [b - a for a, b in zip(ts, ts[1:])]
     tp = ((run.summary.get("inputs") or {}).get("elevator") or {}).get("transfer_s")
-    if len(diffs) < 5:
-        return {"n": len(diffs), **verdict(None, "続けて乗った人が 5 組未満")}, diffs
+    if len(diffs) < BOARD_MIN_PAIRS:  # 5 組では 1 回の乗り込みで決まった（素材 A_hospital_ev_low の 0.67 秒、2026-11-12）
+        return {"n": len(diffs), **verdict(None, f"続けて乗った人が {BOARD_MIN_PAIRS} 組未満")}, diffs
     med = float(np.median(diffs))
     return {"n": len(diffs), "median_s": round(med, 2), "scenario_transfer_s": tp,
             "literature": {"range_s": [1.0, 1.2], "source": "peters_transfer"}, **verdict(0.7 <= med <= 1.6)}, diffs
@@ -337,10 +346,11 @@ def dyad_distance(run, members):
     DYAD_AFTER_GATE_S 秒までは外す（列では前後に並び、ゲートは 1 人ずつ通るので離れてから並び直す。列の中を数えて 1.1〜1.8 m になった、2026-11-06）。"""
     profile = (run.spec.get("people") or {}).get("profile")
     rel_name, r_ref, x_ref = DYAD_REF.get(profile, DYAD_ALL)
-    r_all, x_all = [], []
+    r_all, x_all, pairs = [], [], 0
     for _g, names in members.items():
         if len(names) != 2:
             continue
+        n_before = len(r_all)
         a, b = (run.P[n] for n in names)
         f0, f1 = max(a["f0"], b["f0"]), min(a["f0"] + len(a["xy"]), b["f0"] + len(b["xy"]))
         skip = [(j, tp + int(DYAD_AFTER_GATE_S * run.fps)) for j, tp in a["queue_spans"] + b["queue_spans"]]
@@ -353,10 +363,11 @@ def dyad_distance(run, members):
                 y = math.radians(a["yaw"][ka])
                 r_all.append(float(np.hypot(*rel)))
                 x_all.append(abs(float(rel @ np.array([-math.sin(y), math.cos(y)]))))
-    if len(r_all) < 20:
-        return {"n_samples": len(r_all), **verdict(None, "2 人連れの歩く場面が少ない")}, r_all
+        pairs += len(r_all) > n_before
+    if len(r_all) < 20 or pairs < DYAD_MIN_PAIRS:  # 1 組だけで決まった（素材 A_office_gate_low、2026-11-12）
+        return {"n_samples": len(r_all), "n_pairs": pairs, **verdict(None, f"2 人連れの歩く場面が少ない（{DYAD_MIN_PAIRS} 組未満か 20 点未満）")}, r_all
     r, x = float(np.mean(r_all)), float(np.mean(x_all))
-    return {"n_samples": len(r_all), "mean_distance_m": round(r, 3), "mean_abreast_m": round(x, 3),
+    return {"n_samples": len(r_all), "n_pairs": pairs, "mean_distance_m": round(r, 3), "mean_abreast_m": round(x, 3),
             "literature": {"relation": rel_name, "distance_m": r_ref, "abreast_m": x_ref, "source": "zanlungo2017"},
             **verdict(abs(r - r_ref) <= 0.15)}, r_all
 
@@ -635,7 +646,8 @@ def _md_input(ir):
     if "given_all" in f:
         g1, g2 = f["given_same_people"], f["given_all"]
         calc += f"。その人たちに与えた速さ {g1['mean']} ± {g1['sd']}、全員に与えた速さ {g2['mean']} ± {g2['sd']}（{g2['n']} 人）"
-        lit += "。歩きは与えた速さと ± 0.05、与えた速さは文献と ± 0.08"
+        tol = g2.get("tolerance", {"mean": 0.08})["mean"]
+        lit += f"。歩きは与えた速さと ± 0.05、与えた速さは文献と ± {tol:g}" + ("（人が少ないので標本のぶれの 3 倍）" if tol > 0.08 else "")
     rows.append(_row("自由に歩く速さ（前 2.5 m に人がいない）", calc, lit, f["verdict"]))
     g = ir["group_size"]
     gl = g.get("literature")
@@ -645,7 +657,8 @@ def _md_input(ir):
     rows.append(_row("グループの速さ（1 人増えるごと）", f"{gs.get('slope_m_s_per_member', '-')} m/s（{gs.get('n_groups')} 組）",
                      "−0.04〜−0.08 m/s（moussaid2010）", gs["verdict"]))
     for s, a in ir["arrivals"].items():
-        calc = f"{a['observed_per_min']} 人/分（{a['persons']} 人" + (f"、うち終わりまで外で待った {a['outside_at_end']} 人）" if a.get("outside_at_end") else "）")
+        tail = f"、うち終わりまで外で待った {a['outside_at_end']} 人）" if a.get("outside_at_end") else "）"
+        calc = f"{a['observed_per_min']} 人/分（{a['persons']} 人" + tail
         if "expected_per_min" in a:
             rows.append(_row(f"到着 {s}", calc, f"{a['expected_per_min']} 人/分（{a['source']}、z = {a['z']}）", a["verdict"]))
         else:

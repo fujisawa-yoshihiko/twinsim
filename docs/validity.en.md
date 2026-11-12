@@ -71,15 +71,15 @@ In the GUI, the "People distributions (literature)" section lets you choose the 
 
 | Item | Type | Verdict criterion |
 |---|---|---|
-| Free walking speed (walking with nobody in the 2.5 m half-circle ahead, per-person median; group members excluded) | Input reproduction | Mean and standard deviation within ± 0.05 of the speeds given to those people, and the speeds given to everyone have mean 1.34 ± 0.08 and standard deviation 0.18–0.34 (changed on 2026-11-06; 5.3) |
+| Free walking speed (walking with nobody in the 2.5 m half-circle ahead, per-person median; group members excluded) | Input reproduction | Mean and standard deviation within ± 0.05 of the speeds given to those people, and the speeds given to everyone match mean 1.34 and standard deviation 0.26 within ± 0.08 (widened to three times the sampling spread when there are few people; 5.3, 5.6) |
 | Group size (share of people) | Input reproduction | Difference from the input distribution (total variation distance) at most 0.08 or 1.5/√(number of people) |
 | Group speed (slope against group size) | Input reproduction | −0.14 to 0 m/s per person (when there are 15 or more groups) |
-| Arrivals (per stream; people still waiting outside at the end are counted) | Input reproduction | Difference from the specified people/min within ±2 in z (variance = mean × the person-weighted mean group size; with a 2σ test, about one in 20 correct streams is still flagged "caution") |
+| Arrivals (per stream; people still waiting outside at the end are counted) | Input reproduction | Difference from the specified people/min within ±3 in z (variance = mean × the person-weighted mean group size; changed from 2σ to 3σ in 5.6) |
 | Outgoing share of elevator use | Input reproduction | Difference from the literature (morning 0.105, lunch 0.5) within 2 standard errors + 0.03 |
-| Interval between consecutive people boarding an elevator | Input reproduction | Median 0.7–1.6 s |
+| Interval between consecutive people boarding an elevator | Input reproduction | Median 0.7–1.6 s (10 or more pairs; 5.6) |
 | Gate time per person when crowded | Input reproduction | Median 1.5–4.0 s (10 or more pairs of consecutive passages in a lane where the second person had already stopped in the queue before the first passed) |
 | Speed by density | Emergent quantity | Ratio to the person's own speed matches the formula's v/v0 within an RMS of 0.12 at 0.5 people/m² or more (verdict only for the unidirectional corridor `verify_*`; reference only otherwise) |
-| Dyad distance (excluding the time from joining a gate queue until 5 s after passing) | Emergent quantity | Literature (colleagues 0.85 m, etc.) ± 0.15 m |
+| Dyad distance (excluding the time from joining a gate queue until 5 s after passing) | Emergent quantity | Literature (colleagues 0.85 m, etc.) ± 0.15 m (3 or more dyads and 20 or more samples; 5.6) |
 | Nearest distance between waiting people (between people standing and waiting; people walking past are not counted) | Emergent quantity | Below 0.45 m in at most 5% |
 | People stuck and unable to move | Emergent quantity | In the last 30 s, 0 people en route or in a gate queue who moved less than 0.3 m (excluding people who went more than 2 m away and came back in that time) |
 | Doorway capacity | Emergent quantity | Within ±15% of 1.90–2.19 people/(m·s) from the 1.0 m width experiment (when `validity: {bottleneck: ...}` is set) |
@@ -255,7 +255,7 @@ Remaining:
 - In crowded configurations the safety valve in front of the gate increased (26 → 55 over 3 runs in `A_office_gate_peak`; it surfaced because the specified number now enters).
   (Recounted in 5.4: the explanation written here, "people leaving cannot get past the queue", was wrong. Of the 55, 25 were people who, because of an error in the corpus
   configuration, passed the gate and then turned back to the east room, and 28 were people appearing and people leaving meeting head-on at the south exit.)
-- The arrival check is a 2σ test, so about one in 20 correct streams is flagged "caution" (`verify_counterflow` seeds 2 and 5 have z = −2.2 and +2.6; arrivals are a Poisson process,
+- The arrival check is a 2σ test, so about one in 20 correct streams is flagged "caution" (changed to 3σ in 5.6; `verify_counterflow` seeds 2 and 5 have z = −2.2 and +2.6; arrivals are a Poisson process,
   and the variance-to-mean ratio over the 16 streams is 1.39).
 - A pair who stood apart at the reception sometimes takes different corridors from there (dyads 1.14 m with seeds 9–16 of `hospital_gate_ev`, 1.03 m in the previous version, both 5/8).
   Pairs can also split into different lanes at the gate.
@@ -341,6 +341,25 @@ Remaining:
 - In front of a crowded elevator, 8–16% of boarding people took more than 10 s to board even in the previous version (they walk to the door through the waiting people).
 - In `hospital_gate_ev`, overlap and safety-valve use went up a little (large variation between seeds).
 
+### 5.6 Checks with few samples (2026-11-12)
+
+Three of the four "caution" verdicts in corpus v6 came from small samples, not from how people move. Only the checks were changed; movement is unchanged.
+
+| Check | What happened in corpus v6 | Change |
+|---|---|---|
+| Free walking speed (speeds given) | In `A_office_ev_low` the 19 people were given speeds with mean 1.498 (literature 1.34). The standard error of a mean of 19 is 0.06, so this is within chance | Widen the ± 0.08 tolerance to three times the sampling spread (mean sd/√n, standard deviation sd/√(2(n−1))) |
+| Interval between consecutive boardings | In `A_hospital_ev_low` the median of 5 pairs was 0.67 s (decided by a single boarding) | Judge from 10 pairs (as for the gate headway) |
+| Dyad distance | In `A_office_gate_low` a single dyad gave 1.00 m | Judge from 3 dyads and 20 samples |
+| Arrivals | (In the templates with seeds 1–16, about one in 20 correct streams was flagged "caution") | Widen the z tolerance from ±2 to ±3 |
+
+The 129 runs of the previous comparison (5.5) were judged with the old and the new checks (the simulations were not rerun).
+"Caution" disappeared in 18 runs (arrivals 8, free walking speed 5, dyads 3, consecutive boardings 2), and "pass" became "not applicable" in 7 runs (elevator 6, dyads 1).
+No verdict went from "pass" to "caution".
+
+24 "caution" verdicts remain; the most common is the dyad distance (15 runs, 1.0–2.1 m, in `office_gate_ev`, `office_ev_hall`, `hospital_gate_ev`, `verify_gate_capacity` and the corpus elevator cases).
+In corpus v6 `A_office_ev_mid` (1.13 m, 20 dyads), two dyads walked side by side 2–4 m apart for about 20 s while crossing the lobby diagonally.
+Groups keep together along the walking direction, but nothing controls how far apart they are sideways, and each member walks its own route. This is a change to movement and is left for the next version.
+
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 
 | Value | Current | How to calibrate |
@@ -363,6 +382,6 @@ Remaining:
 - (Earlier model `lane`) When people jam in front of a bottleneck above 2 people/m², they squeeze in from the side and their bodies overlap (49% of frames below 0.4 m). Overlap with the person ahead moving in the same direction
   is prevented (`MIN_SEP` 0.35 m), but because the model shifts people sideways along the path, it cannot represent pushing from the side. The capacity is close to the experiments.
 - (`cfsm`) Bodies overlap a little only while the safety valve lets someone through (table in 5.1). At gates, pairs are split into different lanes.
-  In front of a crowded elevator, a person heading for the elevator can go into the waiting people through the safety valve and stop among them (5.4). Inside a crowd of waiting people, a little shaking in place remains (5.5).
+  In front of a crowded elevator, a person heading for the elevator can go into the waiting people through the safety valve and stop among them (5.4). Inside a crowd of waiting people, a little shaking in place remains (5.5). Groups have no rule for how far apart members are sideways, so a dyad can walk side by side 2–4 m apart (5.6).
   Pushing (forces between bodies) is not represented.
 - Body heights are those of the 10 character models as-is (not fitted to the height distribution of Japanese people).

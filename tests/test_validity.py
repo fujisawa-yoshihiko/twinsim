@@ -176,3 +176,35 @@ def test_standing_spacing_counts_only_waiting_people():
     run = SimpleNamespace(gt={"total_frames": n}, fps=30, P=P, at=lambda name, f: f if 0 <= f < n else None)
     res, _ = standing_spacing(run)
     assert res["share_below_0.45m"] == 0.0 and res["verdict"] == "合う"
+
+
+def test_judges_need_enough_samples():
+    """標本が少ないときは判定しない・幅を広げる（素材 v6 の「注意」のうち 3 つが標本の少なさだった、2026-11-12）:
+    与えた速さは人数に応じた幅、EV に続けて乗る間隔は 10 組から、2 人連れは 3 組から。"""
+    from types import SimpleNamespace
+
+    from twinsim.validity import boarding_intervals, dyad_distance, free_speed
+    # 19 人に与えた速さの平均が 1.50（文献 1.34 との差 0.16 は、19 人の平均の標準誤差 0.06 の 2.7 倍）
+    rng = np.random.default_rng(3)
+    given = 1.50 + 0.26 * (lambda z: (z - z.mean()) / z.std(ddof=1))(rng.normal(size=19))
+    P = {f"P{i}": {"group": None, "info": {"speed_m_s": float(v)}} for i, v in enumerate(given)}
+    rows = [(n, f, P[n]["info"]["speed_m_s"], 0.0, "pass", True, 0) for n in P for f in range(3)]
+    res, _ = free_speed(SimpleNamespace(P=P, spec={}), rows)
+    assert res["given_all"]["tolerance"]["mean"] > 0.16 and res["verdict"] == "合う"
+    P2 = {f"P{i}": {"group": None, "info": {"speed_m_s": float(v) + 0.2}} for i, v in enumerate(given)}  # 平均 1.70 は外れる
+    rows2 = [(n, f, P2[n]["info"]["speed_m_s"], 0.0, "pass", True, 0) for n in P2 for f in range(3)]
+    assert free_speed(SimpleNamespace(P=P2, spec={}), rows2)[0]["verdict"] == "注意"
+
+    # EV: 1 回の乗り込みの 6 人（5 組）は判定しない
+    names = [f"B{i}" for i in range(6)]
+    run = SimpleNamespace(P={n: {"info": {"events": {"board": 10.0 + 0.6 * i}}} for i, n in enumerate(names)},
+                          gt={"elevator_events": [{"boarded": names}]}, summary={})
+    assert boarding_intervals(run)[0]["verdict"] == "対象外"
+
+    # 2 人連れ: 1 組だけ（40 点）は判定しない
+    n = 30 * 20
+    walk = {"f0": 0, "yaw": np.zeros(n), "moving": np.ones(n, bool), "state": ["pass"] * n, "queue_spans": []}
+    P = {"A": {**walk, "xy": np.c_[np.linspace(0, 20, n), np.zeros(n)]}, "B": {**walk, "xy": np.c_[np.linspace(0, 20, n), np.full(n, 1.5)]}}
+    run = SimpleNamespace(P=P, fps=30, spec={})
+    res, r = dyad_distance(run, {"G1": ["A", "B"]})
+    assert len(r) >= 20 and res["n_pairs"] == 1 and res["verdict"] == "対象外"
