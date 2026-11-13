@@ -64,9 +64,17 @@ class Space:
                 for j in range(self.nx):
                     if self.grid[i, j] and point_in_poly(poly, self.x0 + j * self.res, self.y0 + i * self.res):
                         self.grid[i, j] = False
+        self.pois = spec.get("pois", {})
+        for p in self.pois.values():  # 座る場所（1.2）の席は家具: 歩ける所から外す（経路が席の列を通らないように。座る人は席の前から決まった速さで入る）
+            if p.get("kind") == "seats":
+                from .scenario import seats_of
+                for (x, y), _yaw in seats_of(p):
+                    for i in range(max(0, int((y - SEAT_BLOCK_M - self.y0) / self.res)), min(self.ny, int((y + SEAT_BLOCK_M - self.y0) / self.res) + 2)):
+                        for j in range(max(0, int((x - SEAT_BLOCK_M - self.x0) / self.res)), min(self.nx, int((x + SEAT_BLOCK_M - self.x0) / self.res) + 2)):
+                            if math.hypot(self.x0 + j * self.res - x, self.y0 + i * self.res - y) <= SEAT_BLOCK_M:
+                                self.grid[i, j] = False
         self.clear = distance_transform_edt(self.grid) * self.res  # 壁からの距離（m）
         self.zones = {k: [tuple(map(float, p)) for p in v["polygon"]] for k, v in spec.get("zones", {}).items()}
-        self.pois = spec.get("pois", {})
         self._route_cache = {}
 
     # ---- 格子と座標 ----
@@ -220,6 +228,13 @@ class Space:
         p = self.poi(name)
         if "xy" in p:
             return tuple(map(float, p["xy"]))
+        if p.get("kind") == "service" and "points" in p:  # 窓口（1.2）: 応対の場所の真ん中（line は列の線）
+            return float(np.mean([q[0] for q in p["points"]])), float(np.mean([q[1] for q in p["points"]]))
+        if p.get("kind") == "seats":  # 座る場所（1.2）: 最初の席の前（歩ける所）
+            from .components import SEAT_APPROACH_M
+            from .scenario import seats_of
+            (x, y), yaw = seats_of(p)[0]
+            return x + SEAT_APPROACH_M * math.cos(math.radians(yaw)), y + SEAT_APPROACH_M * math.sin(math.radians(yaw))
         if "line" in p:
             (x0, y0), (x1, y1) = p["line"]
             return (x0 + x1) / 2, (y0 + y1) / 2
@@ -307,6 +322,9 @@ def find_space(name):
         if (folder / "space.yaml").exists() or (folder / "space.json").exists():
             return folder
     raise FileNotFoundError(f"空間 {name} がない（付属の空間: {', '.join(list_spaces())}。自分の空間はフォルダの場所を書くか、環境変数 TWINSIM_SPACES に置く）")
+
+
+SEAT_BLOCK_M = 0.25  # 席の点からこの距離（m）の中の格子を歩けなくする
 
 
 def load_space(name):

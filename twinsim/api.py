@@ -58,7 +58,7 @@ class Result:
         return self._json("validity.json")
 
     def frames(self):
-        """1 コマ 1 人の行を順に返す（dict: frame, t, person, x, y, yaw, moving, state, zone, group, type）。"""
+        """1 コマ 1 人の行を順に返す（dict: frame, t, person, x, y, yaw, moving, state, zone, group, type, pose）。部屋の中の人の行はない。"""
         num = {"frame": int, "t": float, "x": float, "y": float, "yaw": float, "moving": int}
         with gzip.open(self.out_dir / "frames.csv.gz", "rt", newline="") as fh:
             for row in csv.DictReader(fh):

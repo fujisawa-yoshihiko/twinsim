@@ -24,6 +24,10 @@ WALK_STATES = ("pass", "alight")
 STAND_STATES = ("ev_wait", "gate_queue")
 HALL_INTIMATE_M = 0.45
 DYAD_AFTER_GATE_S = 5.0  # 2 人連れの距離は、ゲートを通ってからこの秒数（離れた 2 人が並び直す間）を外す
+# 部品（1.2）の状態。終わってから REJOIN_S 秒は、2 人連れの距離・グループの横の広がりを測らない（応対を終えた人に、待っていた付き添いが歩いてきて
+# 合流する間。そろって歩く組の文献の値とは違う場面。hospital_outpatient で離れて歩いた点の 98% がこれだった、2026-11-13）
+COMPONENT_STATES = ("service_queue", "service", "call_wait", "companion_wait", "seated", "in_room", "group_wait")
+REJOIN_M, REJOIN_MAX_S = 1.5, 30.0  # 合流は、2 人が初めてこの距離（m）の中にそろうまで（最長この秒数）
 DYAD_MIN_PAIRS = 3  # 2 人連れの距離を判定する組の数の下限
 BOARD_MIN_PAIRS = 10  # EV に続けて乗る間隔を判定する組の数の下限（ゲートの間隔と同じ）
 ARRIVAL_Z = 3.0  # 到着の判定の幅（z）
@@ -71,6 +75,29 @@ class Run:
         """ゲートの列に加わってから通るまで（コマ）。列の歩きは流れの速さと密度の比べから外す。"""
         ev = info.get("events", {})
         return [(int(round(j * self.fps)), int(round(tp * self.fps))) for j, tp in zip(ev.get("gate_join", []), ev.get("gate", []))]
+
+    def rejoin_spans(self, names):
+        """仲間 names のだれかの部品の状態（COMPONENT_STATES）が終わってから、全員がいちばん近い仲間から REJOIN_M の中にそろうまで
+        （最長 REJOIN_MAX_S 秒）の区間（コマ）。"""
+        out = []
+        cap = int(REJOIN_MAX_S * self.fps)
+        for n in names:
+            info = self.P[n].get("info", {})
+            for _s0, s1, st in info.get("states", []):
+                if st not in COMPONENT_STATES:
+                    continue
+                end = s1 + cap
+                for f in range(s1, s1 + cap):
+                    ks = [self.at(m, f) for m in names]
+                    if any(k is None for k in ks):
+                        continue
+                    X = np.array([self.P[m]["xy"][k] for m, k in zip(names, ks)])
+                    D = np.hypot(*(X[:, None] - X[None]).transpose(2, 0, 1)) + np.eye(len(names)) * 99
+                    if float(D.min(1).max()) < REJOIN_M:
+                        end = f
+                        break
+                out.append((s1, end))
+        return out
 
     def at(self, name, f):
         d = self.P[name]
@@ -380,6 +407,7 @@ def dyad_distance(run, members):
         rel_name, r_ref, x_ref = _dyad_ref(run, a.get("info", {}))
         f0, f1 = max(a["f0"], b["f0"], _together_from(run, names)), min(a["f0"] + len(a["xy"]), b["f0"] + len(b["xy"]))
         skip = [(j, tp + int(DYAD_AFTER_GATE_S * run.fps)) for j, tp in a["queue_spans"] + b["queue_spans"]]
+        skip += run.rejoin_spans(names) if hasattr(run, "rejoin_spans") else []
         for f in range(f0, f1, run.fps // 2):
             if any(s0 <= f <= s1 for s0, s1 in skip):
                 continue
@@ -459,6 +487,7 @@ def group_formation(run, members):
         f0 = max(max(d["f0"] for d in D) + h, _together_from(run, names))
         f1 = min(d["f0"] + len(d["xy"]) for d in D) - h - 1
         skip = [(j, tp + int(DYAD_AFTER_GATE_S * fps)) for d in D for j, tp in d["queue_spans"]]
+        skip += run.rejoin_spans(names)
         for f in range(f0, f1, h):
             if any(s0 <= f <= s1 for s0, s1 in skip):
                 continue
@@ -712,6 +741,14 @@ def ledger(spec, inputs):
     if people.get("group_size"):
         add("グループの人数（既定）", people["group_size"], psrc.get("group_size") or src_of(people["group_size"]),
             "文献" if psrc.get("group_size") or src_of(people["group_size"]) else "形だけ文献（coleman1961）")
+    for key, item, dkey in (("services", "応対の時間", "service_s"), ("rooms", "部屋にいる時間", "stay_s")):  # 部品（1.2）
+        for k, c in (spec.get(key) or {}).items():
+            if not isinstance(c, dict):
+                continue
+            v = c.get(dkey)
+            add(f"{k}: {item}", v if v is not None else "既定（仮）", src_of(v), "文献" if src_of(v) else "仮")
+            if c.get("call"):
+                add(f"{k}: 呼び出し（待つ場所で待ち、空いた順に呼ばれる）", True, None, "形だけ（呼ぶ順は着いた順）")
     for s in spec.get("streams", []):
         name = s.get("name", s.get("origin"))
         r = s.get("rate")

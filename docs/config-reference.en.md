@@ -12,7 +12,7 @@ YAML works in the same form. Coordinates are world coordinates (m, Z up), and ti
 | Overall | [All keys](#top-level), [how values are combined](#merge) |
 | People | [`space`](#space), [`people`](#people), [`demand`](#demand) |
 | Streams | [`streams[]`](#streams), [`origin`](#origin), [`rate`](#rate), [`destinations[]`](#destinations), [`meet`](#meet) |
-| Facilities | [`elevator`](#elevator), [`schedule`](#schedule), [`alight`](#alight), [`gates`](#gates) |
+| Facilities | [`elevator`](#elevator), [`schedule`](#schedule), [`alight`](#alight), [`gates`](#gates), [`services`](#services), [`rooms`](#rooms) |
 | Cameras and outputs | [`cameras[]`](#cameras), [`render`](#render), [`outputs`](#outputs) |
 | Comparing and checking | [`variants`](#variants), [`validity`](#validity) |
 | Others | [`graph` and more](#others) |
@@ -35,6 +35,8 @@ Only `space` is required. Any key not listed here is an error.
 | [`streams`](#streams) | array | `[]` | Streams of people |
 | [`elevator`](#elevator) | object | none | Elevators |
 | [`gates`](#gates) | object | `{}` | Service time per gate |
+| [`services`](#services) | object | `{}` | Service time and calling per counter (from 1.2) |
+| [`rooms`](#rooms) | object | `{}` | Time inside, capacity and calling per room (from 1.2) |
 | [`cameras`](#cameras) | array | `[]` | Cameras |
 | [`render`](#render) | object | see below | Rendering |
 | [`outputs`](#outputs) | array | all | What to write |
@@ -166,7 +168,7 @@ Elements of `streams[].destinations` and `elevator.alight.destinations`. A name 
 | `p` | number | `1.0` | Selection weight |
 | `types` | array | none | Types of person who choose this destination. If none match, any destination can be chosen |
 | `via` | array | `[]` | Names of gates to pass. The direction comes from the position |
-| `dwell` | [distribution](#distributions) | `10.0` | Stop time (seconds) |
+| `dwell` | [distribution](#distributions) | `10.0` | Stop time (seconds). For a counter it replaces the service time, for a room the time inside, for seating the time seated (default `60.0`), for this destination only |
 | `state` | string | depends on the place | State while stopped: `reception` at reception, `sign_check` at a sign, otherwise `dwell` |
 | `glance` | number | stop `0`, elevator `20`, meeting `45` | How far to look around while stopped (degrees) |
 | [`meet`](#meet) | object | none | Meeting up |
@@ -180,7 +182,10 @@ Values of `to`:
 | `"elevator"` | Wait for an elevator and board. Needs the [`elevator`](#elevator) settings |
 | A place of kind `exit` or `spawn` | Walk there and leave |
 | A place of kind `spot` or `prop` | Walk there and stop |
-| The start of a place name (`"reception"`) | One of `reception_*` |
+| A place of kind `service` (counter, from 1.2) | Queue (or, with calling, wait at the waiting place) → get served at a free service point. In a group only the leader is served; the others wait nearby (`aside`) |
+| A place of kind `room` (from 1.2) | Wait in front of the door (or, with calling, at the waiting place) → go inside (not visible) → come out with the same id. A group enters and leaves together |
+| A place of kind `seats` (from 1.2) | Walk to a free seat and sit (if all are taken, stand near a wall nearby). Members take neighbouring seats |
+| The start of a place name (`"reception"`) | One of `reception_*` (the same for a group). The candidates must be of one kind (otherwise an error) |
 
 Destinations are place names only; they cannot be coordinates.
 
@@ -252,6 +257,47 @@ The keys are gate place names.
 
 ```json
 "gates": {"gate": {"service_s": 2.5}}
+```
+
+<a id="services"></a>
+
+## `services`
+
+From 1.2. Behaviour of each counter (a place of kind `service` in the space). Keys are place names or the start of a name (`consult` for `consult_1` and so on). The geometry (service points, directions, queue line, waiting place) is in the space ([spec.en.md](spec.en.md), section 1).
+
+| Key | Type | Default | Contents |
+|---|---|---|---|
+| `service_s` | [distribution](#distributions) | lognormal, median 60 s (10 to 600, provisional) | Service time per person (seconds) |
+| `servers` | integer | number of service points | Number of service points to use (from the start of `points` in the space) |
+| `call` | boolean | `false` | Calling: people do not queue; they wait at the waiting place (`wait`) and are called in order as points free up |
+| `wait` | string | `wait` of the space | Waiting place (a place of kind `seats` or a zone name) |
+| `queue` | string | `"line"` if the space has `line`, otherwise `"area"` | `"line"` (queue along the line) or `"area"` (wait at the waiting place in order of arrival) |
+| `note` | string | none | Note |
+
+```yaml
+# from hospital_outpatient.yaml (space: hospital)
+services:
+  front_desk: {service_s: {type: lognormal, median: 45, sigma: 0.5}, call: true}
+```
+
+<a id="rooms"></a>
+
+## `rooms`
+
+From 1.2. Behaviour of each room (a place of kind `room` in the space). Keys as for `services`.
+
+| Key | Type | Default | Contents |
+|---|---|---|---|
+| `stay_s` | [distribution](#distributions) | lognormal, median 300 s (30 to 3600, provisional) | Time a party stays inside (seconds) |
+| `capacity` | integer | `capacity` of the space (else 1) | Number of parties inside at the same time |
+| `call` | boolean | `false` | Calling: wait at the waiting place (`wait`) instead of the door, and go in when called |
+| `wait` | string | `wait` of the space | Waiting place (a place of kind `seats` or a zone name) |
+| `note` | string | none | Note |
+
+```yaml
+# from hospital_outpatient.yaml (space: hospital)
+rooms:
+  consult: {stay_s: {type: lognormal, median: 421, sigma: 0.714, source: mhlw2023}, call: true}
 ```
 
 <a id="cameras"></a>
@@ -375,14 +421,14 @@ Except in `uniform`, `min` and `max` clip the value. A literature name in `sourc
 
 Names for `origin`, `to`, `via`, `cars` and `props`. To see them on a map, run `twinsim show-space <space>` (`annotate.png` in the space folder, or in the current folder if that is not writable). The `corridor` spaces have no top-down image, so it does not work for them.
 
-| Space | Appear and leave | Gates | Elevators | Stops | Candidate cameras |
-|---|---|---|---|---|---|
-| `office` | `entrance`, `south_exit`, `west_corridor`, `east_room` | `gate` | `EV1`, `EV2` | `reception_w1`, `reception_w2`, `reception_e1`, `lounge_1` to `3`, `sign_view`, `sign` | `CamGate`, `CamEV`, `CamLobby` |
-| `hospital` | `lobby_entrance`, `west`, `hall_side`, `west_room` | | `EV` | `reception_1`, `reception_2` | `CamGate`, `CamHall` |
-| `warehouse` | `dock` | | | `pick_1` to `12`, `pack_1` to `4`, `staging_1`, `staging_2`, `break_1` | `CamAisles`, `CamPack` |
-| `simple_room` | `door_w`, `door_e` | | | `table_1`, `table_2` | `CamRoom` |
-| `corridor` | `west`, `start`, `east`, `finish`, `east_narrow` | | | | |
-| `corridor_door` | `west`, `east` | | | | |
+| Space | Appear and leave | Gates | Elevators | Stops | Counters, rooms, seating (1.2) | Candidate cameras |
+|---|---|---|---|---|---|---|
+| `office` | `entrance`, `south_exit`, `west_corridor`, `east_room` | `gate` | `EV1`, `EV2` | `reception_w1`, `reception_w2`, `reception_e1`, `lounge_1` to `3`, `sign_view`, `sign` | | `CamGate`, `CamEV`, `CamLobby` |
+| `hospital` | `lobby_entrance`, `west`, `hall_side`, `west_room` | | `EV` | `reception_1`, `reception_2` | counters `front_desk`, `cashier`, `pharmacy`; rooms `consult_1` to `5`, `other_clinics`; seating `lobby_seats`, `clinic_seats` | `CamGate`, `CamHall`, `CamClinic`, `CamWaiting` |
+| `warehouse` | `dock` | | | `pick_1` to `12`, `pack_1` to `4`, `staging_1`, `staging_2`, `break_1` | | `CamAisles`, `CamPack` |
+| `simple_room` | `door_w`, `door_e` | | | `table_1`, `table_2` | | `CamRoom` |
+| `corridor` | `west`, `start`, `east`, `finish`, `east_narrow` | | | | | |
+| `corridor_door` | `west`, `east` | | | | | |
 
 The office map is in the [tutorial](config-tutorial.en.md#origin).
 

@@ -39,6 +39,9 @@ The area around a `spawn`, `exit` or `elevator` (within 0.8 m of the segment fro
 It is used for the `portal` column of the rendered label table (docs/formats.en.md, section 4) and as an area excluded from evaluation.
 | `spot` | Place where people stop (reception, meeting up, in front of a sign) | `xy`, `face` (point to face). Spots can be grouped into one destination by name prefix (`reception_`, `lounge_`) |
 | `prop` | Object placed by the simulator (not in the USD) | `xy`, `face`, `prop` (`signage`) |
+| `service` | Counter (from 1.2, twinsim/components.py) | `points` (list of points where the person being served stands), `faces` (point to face for each), `line` (optional; queue line `[[x, y], …]`, people line up every 0.65 m from its start), `wait` (optional; where people wait with calling or in order of arrival: a place of kind `seats` or a zone name), `aside` (optional; a point, or a seats or zone name, where group members wait; otherwise 1.5 m in front of the service point). Behaviour values are in `services` of the configuration |
+| `room` | Room (from 1.2) | `xy` (in front of the door, walkable), `inside` (point inside; may be outside the walkable area; people inside are not visible), `capacity` (parties inside at the same time, default 1), `wait` (optional; where people wait to be called). Behaviour values are in `rooms` of the configuration |
+| `seats` | Seating (from 1.2) | `seats: [[x, y, direction (deg)], …]` or `row: {from, to, n, yaw}` / `rows: [...]` (n seats along a line). Seats are furniture and are removed from the walkable area (radius 0.25 m); people walk to a point 0.6 m in front of the seat and then sit |
 
 To create a new space: `python -m twinsim export-space <name> --usd URL --region ...` (in Isaac Sim, this produces the walkable-area grid, the top-down image and
 a list of prims that look like elevators or doors, and puts a space.yaml skeleton in place) → look at the top-down image and the list, and write `pois`, `zones` and `cameras`.
@@ -120,7 +123,13 @@ Arrival rates (`per_min` is groups per minute; with `unit: persons` it is person
 | `reception` | Stopped at reception |
 | `dwell` | Stopped at another place |
 | `sign_check` | Looking at a sign / signage |
-| `companion_wait` | Waiting for a companion |
+| `companion_wait` | Waiting for a companion. Also group members waiting for the leader at a counter or room (from 1.2) |
+| `group_wait` | Having passed a gate first, waiting beyond it for the other group members (from 1.2) |
+| `service_queue` | Queuing at a counter, waiting in order of arrival, or waiting in front of a room door (from 1.2) |
+| `service` | Being served at a counter (from 1.2) |
+| `call_wait` | Waiting to be called (whether seated is in `pose`; from 1.2) |
+| `seated` | Sitting at seating (from 1.2) |
+| `in_room` | Inside a room (not visible; not in `frames.csv` or MOT; from 1.2) |
 
 ## 5. Outputs (location of results; default <TWINSIM_DATA>/runs/<scenario name>, TWINSIM_DATA defaults to ~/.twinsim, and to ~/dt-data/twinsim with ./run.sh)
 

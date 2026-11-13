@@ -22,6 +22,7 @@ import zlib
 import numpy as np
 
 from . import dists
+from .components import SEAT_MOVE_M_S, ComponentsMixin
 from .literature import GROUP_DENSITY, GROUP_RELATIONS, group_lateral_scale, weidmann_speed
 
 TURN_DEG_S = 90.0
@@ -66,6 +67,8 @@ MATE_SPOT_M = 1.0  # EV を待つ場所は、グループの仲間の待つ場�
 LINK_M = 1.3  # この距離より近い仲間どうしを結ぶ線を、知らない人はよける（間を通らない。3 人組の両端 1.1 m を入れる）
 LD_RECOVER_PER_S = 0.5  # 歩く人の横のずれ（l_pref）を壁の手前で減らしたあと、1 秒に戻す割合
 YIELD_S, YIELD_LAT, YIELD_D = 5.0, 0.6, 1.0  # 合流で譲る: この秒数進めずにいる人が、斜め前のこの横・距離（m）の中にいれば先に入れる
+DETOUR_MOVED_M = 0.3  # その 1 秒にこれ以上動いた人だけ、大回りの経路の残りの長さでも進み具合を見る（m）
+DETOUR_M = 2.0  # 経路の残りの長さが行き先までの直線距離よりこれ以上長ければ、大回りの経路として残りの長さでも進み具合を見る（m）
 UNSTICK_S, SQUEEZE_S = 15.0, 2.0  # 安全弁: この秒数行き先に近づけなければ、この秒数だけ周りの人を無視して通り抜ける
 BOARD_LANE_M = (0.25, 0.35)  # EV に乗る 2 列の、扉とかごの中での真ん中からの横のずれ（m）
 REROUTE_M = 1.5  # 歩く人が経路からこれより離れたら、今の位置から経路を引き直す（m）
@@ -192,6 +195,8 @@ class Agent:
         self.wait_glance, self.requeue = 0.0, False
         self.xy, self.no_walls = None, False  # 歩く人の位置（motion_model "cfsm"）、壁を見ない歩き（歩ける所の外との行き来）
         self.blocker, self.walk_state = None, None  # 前でふさいでいる人、列の後ろで止まる前の状態（motion_model "cfsm"）
+        # 部品（components.py）: 今の部品の段取り、着いたら呼ぶ関数、段取りを終えるときに呼ぶ関数、放されるまで待つ、取った席、座っているか、座ったコマの区間
+        self.comp, self.on_arrive, self.on_done, self.hold, self.seat, self.sitting, self.sit_spans = None, None, None, False, None, False, []
 
 
 class Lane:
@@ -238,13 +243,14 @@ def _wrap(d):
     return (d + 180.0) % 360.0 - 180.0
 
 
-class Sim:
+class Sim(ComponentsMixin):
     """sim = Sim(space, fps, total_frames, gates, cars, spots); sim.add(agent); sim.run()。
+    services・rooms・seatsets は部品（components.py の Service・Room・SeatSet、名前 → 物）。
     on_arrival(sim, car, t) は EV が着いたときに呼ばれ、降りる人を足すのに使う（scenario.py が入れる）。
     elevator_policy(sim, t) は毎秒呼ばれ、EV の到着を足してよい（運行の最適化を差し込む所）。"""
 
     def __init__(self, space, fps, total_frames, gates=None, cars=None, spots=None, lmax=0.6, on_arrival=None, elevator_policy=None,
-                 speed_density=None, ev_timing=None, motion_model="cfsm", cfsm=None, group_lateral_m=None):
+                 speed_density=None, ev_timing=None, motion_model="cfsm", cfsm=None, group_lateral_m=None, services=None, rooms=None, seatsets=None):
         self.space, self.fps, self.total, self.dt = space, fps, total_frames, 1.0 / fps
         if motion_model not in ("cfsm", "lane"):
             raise ValueError(f"motion_model は cfsm か lane（今は {motion_model!r}）")
@@ -280,6 +286,7 @@ class Sim:
         c = FORM_RHO_CELL_M
         self.occ0 = (space.x0, space.y0)
         self.occ = np.zeros((int(math.ceil(space.nx * space.res / c)) + 1, int(math.ceil(space.ny * space.res / c)) + 1))  # [x, y] のセルの人数（ならした値）
+        self.services, self.rooms, self.seatsets = dict(services or {}), dict(rooms or {}), dict(seatsets or {})
         self.group_lateral_m = group_lateral_m  # 設定の people.group_lateral_m（2 人連れの横を関係によらずこの値に。なければ関係ごとの文献の値）
         self.links = (np.zeros((0, 2)), np.zeros((0, 2)), [])  # 知らない人がよける、仲間どうしを結ぶ線（始まり、終わり、グループ）
 
@@ -418,14 +425,21 @@ class Sim:
         a.state = state
         self.face(a, t, p, q, glance)
 
+    def _path(self, pts):
+        return Path(pts)
+
     def walk_to(self, a, p, target, state, mode="walk", taper=False, l0=None):
         a.path = Path(self.space.route(tuple(p), tuple(target)))
         a.s, a.mode, a.state, a.taper = 0.0, mode, state, taper
-        a.no_walls = False
+        a.no_walls, a.direct = False, False
         a.l = a.l_pref if l0 is None else l0
 
     def next_step(self, a, t, p):
-        if 0 <= a.k < len(a.plan) and a.plan[a.k][0] in ("stop", "meet", "regroup"):
+        if a.on_done is not None:  # 部品の段取りの後始末（窓口の応対の場所を空けるなど）
+            fn, a.on_done = a.on_done, None
+            fn()
+        a.on_arrive, a.hold, a.comp, a.direct = None, False, None, False
+        if 0 <= a.k < len(a.plan) and a.plan[a.k][0] in ("stop", "meet", "regroup", "service", "room", "seat"):
             self.alloc.pop(a.name, None)  # 止まり終えたので立つ場所を空ける
             a.regroup = None
         a.k += 1
@@ -468,6 +482,8 @@ class Sim:
             a.mode, a.until = "stop", t + step[1]
             self.stand(a, t, p, step[3], step[2], step[4])
             a.events.setdefault("stops", []).append([round(t, 2), round(t + step[1], 2), step[3]])
+        elif kind in ("service", "room", "seat"):  # 部品（components.py）
+            self.comp_step(a, t, p, step)
         elif kind == "regroup":  # ゲートの先で、まだ通っていない仲間を待つ（step[1] はゲートの段取り、step[2] は最長の秒数）
             a.mode, a.until, a.regroup = "stop", t + step[2], step[1]
             self.stand(a, t, p, "group_wait", tuple(np.asarray(p) - a.gate_dir) if a.gate_dir is not None else None, 30.0)
@@ -768,6 +784,9 @@ class Sim:
                     a.events["spawn_wait_s"] = round(a.events.get("spawn_wait_s", 0.0) + self.dt, 2)
             self.step_elevators(f, t)
             self.step_gates(t)
+            if self.services or self.rooms:
+                self.step_components(t)
+            self.step_away(f, t)
             self.step_agents(f, t)
         return self
 
@@ -805,6 +824,8 @@ class Sim:
         step = a.plan[a.k]
         for b in self.agents:
             if b is a or b.group != a.group or b.mode == "done":
+                continue
+            if b.comp is not None and b.comp.get("role") == "follower":  # 部品の段取りで先導の人を待つ仲間（待たせ合わない）
                 continue
             for j in range(max(b.k, 0), len(b.plan)):
                 if b.plan[j] is step:
@@ -955,6 +976,14 @@ class Sim:
                         la.append(pts[u])
                         lb.append(pts[w])
                         lg.append(g)
+        for S in self.services.values():  # 窓口の列（components.py）: 前後に並んで待つ人どうしも結ぶ（知らない人が列の間を通り抜けないように。
+            # 列の人の間 0.65 m を歩く人がすり抜けて重なった、hospital_outpatient、2026-11-13）
+            qs = [P[id(b)][0] for b in S.queue if b.mode == "stop" and id(b) in P]
+            for u in range(len(qs) - 1):
+                if float(np.hypot(*(qs[u + 1] - qs[u]))) < 1.0:
+                    la.append(qs[u])
+                    lb.append(qs[u + 1])
+                    lg.append(f"queue:{S.name}")
         self.links = (np.array(la, float).reshape(-1, 2), np.array(lb, float).reshape(-1, 2), lg)
 
     def _link_points(self, a, p):
@@ -963,7 +992,8 @@ class Sim:
         empty = (np.zeros((0, 2)), np.zeros(0))
         if not len(G):
             return empty
-        keep = np.array([g != a.group for g in G], bool)
+        mine = getattr(a, "link_key", None)
+        keep = np.array([g != a.group and g != mine for g in G], bool)
         A, B = A[keep], B[keep]
         if not len(A):
             return empty
@@ -1045,6 +1075,9 @@ class Sim:
         d = np.hypot(rel[:, 0], rel[:, 1])
         near = d < C["cutoff"]
         near[i] = False
+        if self.seatsets:  # 座っている人は席（歩ける所の外、家具）の中: 人としてはよけない（席の列の端で、座っている人から離れる向きと行き先の向きが
+            # 打ち消し合って止まり、動けなくなった、hospital_outpatient の種 13、2026-11-13）
+            near &= ~np.array([b.sitting for b in active], bool)
         mate = np.array([a.group is not None and b.group == a.group for b in active], bool)
         # 自分の速さ: グループのまとまり（前のモデルと同じ）。密度で遅くなるのは、前の人までの距離の規則から出るので、
         # Weidmann の式（speed_density）は掛けない（掛けると 2 重に遅くなり、ボトルネックで 1.43 人/(m·s)、2026-11-05）
@@ -1239,8 +1272,8 @@ class Sim:
                     e, v = away / na, SEPARATE_M_S
         b = a.blocker
         yielders = ("stop", "meet", "wait", "board_wait")  # 道をあけてもらえる立つ人
-        def yields(o):  # 立つ人と、扉の前で降りる人を待つ乗る人
-            return o.mode in yielders or (o.mode == "board" and getattr(o, "waiting_alight", False))
+        def yields(o):  # 立つ人と、扉の前で降りる人を待つ乗る人（座っている人は除く）
+            return (o.mode in yielders and not o.sitting) or (o.mode == "board" and getattr(o, "waiting_alight", False))
         if v < 0.05 and b is not None and yields(b):  # 立っている人にふさがれたら、その人に横へよけてもらう
             side = np.array([-e[1], e[0]])
             sgn = 1.0 if float((self.where(b)[0] - p) @ side) >= 0 else -1.0
@@ -1420,8 +1453,15 @@ class Sim:
                     if t >= a.until or not self.mates_before(a, a.regroup):
                         a.events["regroup"][-1][1] = round(t, 2)
                         self.next_step(a, t, p)
-                elif a.mode == "stop" and t >= a.until and not (t < a.until + GROUP_STOP_WAIT_S and self.mates_behind(a, t)):
-                    self.next_step(a, t, p)
+                elif a.mode == "stop" and t >= a.until and not (t < a.until + GROUP_STOP_WAIT_S and (a.comp is None or a.comp.get("kind") == "seat")
+                                                                  and self.mates_behind(a, t)):  # 窓口の先導の人は仲間を待たない（仲間が待つ）
+                    if a.comp is not None and a.comp.get("kind") == "seat":  # 席から立ってから次へ（次も同じ席の場所で待つなら座ったまま）
+                        if self.next_waits_on_seat(a):
+                            self._finish(a, t, p)
+                        else:
+                            self.leave_seat(a, t, p, self._finish)
+                    else:
+                        self.next_step(a, t, p)
                 elif a.mode == "meet":
                     m = a.plan[a.k][1]
                     if not m.done and m.arrived >= m.members:
@@ -1431,7 +1471,12 @@ class Sim:
                             b.events["meet_end"] = round(t, 2)
                             self.next_step(b, t, self.here[b.name])
                 continue
-            if self.model == "cfsm":
+            if getattr(a, "direct", False):  # 席への出入り（components.py）: 決まった速さでまっすぐ
+                step = min(SEAT_MOVE_M_S * dt, max(0.0, a.path.length - a.s))
+                a.s += step
+                p2, tan2 = a.path.at(a.s)
+                a.xy = np.asarray(p2, float).copy()
+            elif self.model == "cfsm":
                 p2, tan2, step = self._cfsm_step(a, idx[id(a)], p, tan, active, XY, groups, P)
                 self.queue_state(a, step)
             else:  # 前のモデル（lane）: 経路に沿って進み、横へずれてよける
@@ -1518,13 +1563,26 @@ class Sim:
                 goal = tuple(np.round(a.path.at(a.path.length)[0], 2))
                 if getattr(a, "best_goal", None) != goal:  # 行き先が変わった: 進み具合を数え直す（経路を引き直しただけなら続ける。
                     # 引き直すたびに数え直すと、引き直しを繰り返す人に安全弁が働かず、動けないままだった、2026-11-05）
-                    a.best_goal, a.best_end, a.best_t = goal, np.inf, t
+                    a.best_goal, a.best_end, a.best_rem, a.best_t = goal, np.inf, np.inf, t
                 a.best_path = a.path
-                if to_end < a.best_end - 0.05:
-                    a.best_end, a.best_t = to_end, t
+                # 進み具合は行き先までの直線距離で測り、大回りの経路（残りの長さが直線距離より DETOUR_M 以上長い）では、経路に沿った残りの長さが
+                # 縮んでも進んだとみる（直線距離だけでは、ロビーから東へ大回りして廊下に入る人が、ふつうに歩いているのに安全弁を使った
+                # （hospital_outpatient）。いつも残りの長さも見ると、押し合いの中で経路への当てはめが揺れて進んだようにみえ、
+                # verify_bottleneck で動けない人が出た、2026-11-13）
+                rem = a.path.length - a.s
+                # 残りの長さで見るのは、この 1 秒で実際に DETOUR_MOVED_M 以上動いたときだけ（扉の手前でその場で前後に揺れる人の経路を引き直すたびに
+                # 残りの長さがわずかに縮んで「進んだ」ことになり、安全弁が働かずに 150 秒動けなかった、office_ev_hall の種 13、2026-11-13）
+                if t - getattr(a, "moved_t", -1e9) >= 1.0:
+                    a.moved_ok = float(np.hypot(*(p2 - getattr(a, "moved_xy", p2)))) >= DETOUR_MOVED_M
+                    a.moved_xy, a.moved_t = np.asarray(p2, float).copy(), t
+                if to_end < a.best_end - 0.05 or (rem - to_end > DETOUR_M and getattr(a, "moved_ok", False)
+                                                  and rem < getattr(a, "best_rem", np.inf) - 0.05):
+                    a.best_end, a.best_rem, a.best_t = min(to_end, a.best_end), min(rem, getattr(a, "best_rem", np.inf)), t
                 stall = (to_end < GOAL_NEAR_M and t - a.best_t >= GOAL_STALL_S and a.mode not in ("gate_pass", "to_gate", "board")
                          and not a.no_walls and self.space.walkable(*p2))  # 歩ける所の外（かごの中など）では使わない
                 arrived = a.s >= a.path.length - 0.05 or to_end < self.C["arrive_m"] or stall
+                if getattr(a, "direct", False):  # 席への出入りは最後まで動いてから（手前 0.15 m で着いたことにすると、席の点へ跳んだ）
+                    arrived = a.s >= a.path.length - 1e-6
             else:
                 arrived = a.s >= a.path.length - 1e-6
             if a.until_zone and self.space.zone_of(*p2) == a.until_zone:
@@ -1548,6 +1606,9 @@ class Sim:
             elif a.mode == "to_gate":
                 a.mode = "gate_wait"
                 self.stand(a, t, p2, "gate_queue", tuple(a.lane.center + a.gate_dir), 0.0)
+            elif a.on_arrive is not None:  # 部品の歩き（列・席・扉・応対の場所）の着いた先で
+                fn, a.on_arrive = a.on_arrive, None
+                fn(a, t, p2)
             elif a.mode == "gate_pass":
                 a.lane = None
                 gstep = a.plan[a.k]

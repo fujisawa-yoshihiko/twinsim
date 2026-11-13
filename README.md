@@ -127,7 +127,7 @@ office・カメラ 1 台・300 コマ（映る人 25 人ほど）を本数と同
 |---|---|---|
 | `scenario_resolved.json` | JSON | 既定の値を足した設定。そのまま渡すと同じ計算になる |
 | `ground_truth.json` | JSON | 人ごとの軌跡 `tracks[名前] = [[x, y, yaw], …]`・歩いているか・状態の区間・出来事（ゲート・EV）・属性（人物モデル・背の高さ・種類・グループ）、グループ（仲間・関係・先導の人・分かれていた区間）、カメラ（4×4 の行列と画角）、ゾーン |
-| `frames.csv.gz` | CSV | 1 コマ 1 人 1 行: `frame, t, person, x, y, yaw, moving, state, zone, group, type` |
+| `frames.csv.gz` | CSV | 1 コマ 1 人 1 行: `frame, t, person, x, y, yaw, moving, state, zone, group, type, pose`（部屋の中の人は出ない） |
 | `mot/<カメラ>.txt`・`mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility`（コマは 1 始まり、id はカメラをまたいで同じ。計算だけで作る近似） |
 | `labels/<カメラ>.csv`・`_mot.txt` | CSV・MOTChallenge | 描画から出した人ごとの枠（見えている部分・全身）と `visibility`・`occlusion`・`truncation`・`portal`・`glass`（すりガラスの奥の割合）（`render --labels` のとき。名前を確かめた数は `identity.json`） |
 | `aicity/gt.txt` | AI City の MTMC | `camera_id obj_id frame_id xmin ymin width height xworld yworld` |
@@ -172,6 +172,7 @@ office・カメラ 1 台・300 コマ（映る人 25 人ほど）を本数と同
 | `office_ev_hall` | EV 前の紛らわしい状態。EV 待ち・同行者待ち・案内確認・受付 |
 | `office_signage_ab` | サイネージの比較。同じ到着で、見る人の割合を A・B で変える（効果を測る方法の確かめ。効果そのものは確かめられない） |
 | `hospital_gate_ev` | 病院のロビー → 西の広間の EV（hospital-sim の sim-gate と同じ配置・カメラ。前の評価のデータと比べられる） |
+| `hospital_outpatient` | 病院の外来（1.2 の部品）: 受付で番号札 → 待合 → 診察室の前の席 → 診察室 → 会計 → 薬（30 分。診察の時間は厚労省の受療行動調査、ほかは仮） |
 | `warehouse_picking` | 倉庫のピッキング（工場の図の「作業・待ち・移動」）。荷受け → 棚 → 梱包 → 待ち → 棚 → 梱包 → 帰る |
 | `simple_room_smoke` | 動作確認（小部屋、20 秒） |
 | `verify_corridor_speed`・`verify_fundamental_diagram`・`verify_groups`・`verify_gate_capacity`・`verify_counterflow`・`verify_bottleneck` | エンジンの確かめ（まっすぐ歩けるか・速さと密度・グループ・混んだゲート・すれ違い・幅 1 m の出入口）。結果は docs/validity.md の 5 |

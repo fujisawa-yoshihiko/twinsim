@@ -66,7 +66,7 @@ Without `out_dir`, results go to `<TWINSIM_DATA>/runs/<the configuration's name>
 | `result.files` | The files written |
 | `result.cameras` | Names of cameras with boxes |
 | `result.mot(camera)` | Array of ground-truth labels for detection and tracking. Columns: `frame, id, x, y, w, h, conf, class, visibility` (frames start at 1) |
-| `result.frames()` | Yields one dict per frame per person (`frame, t, person, x, y, yaw, moving, state, zone, group, type`) |
+| `result.frames()` | Yields one dict per frame per person (`frame, t, person, x, y, yaw, moving, state, zone, group, type, pose`; people inside rooms are left out) |
 | `result.videos` | A dict of rendered videos (camera → mp4 path) |
 | `result.video_first_frame` | The simulator frame of the video's first frame. When only part was rendered, the video starts partway through |
 | `result.video_frames(camera, frames=None, step=1)` | Yields video frames in order as `(simulator frame, height × width × 3 RGB array)`. Uses ffmpeg. `frames` is a range of simulator frames (both ends included) |

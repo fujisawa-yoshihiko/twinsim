@@ -12,7 +12,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | 全体 | [キーの一覧](#top-level)・[値の重なり方](#merge) |
 | 人 | [`space`](#space)・[`people`](#people)・[`demand`](#demand) |
 | 流れ | [`streams[]`](#streams)・[`origin`](#origin)・[`rate`](#rate)・[`destinations[]`](#destinations)・[`meet`](#meet) |
-| 設備 | [`elevator`](#elevator)・[`schedule`](#schedule)・[`alight`](#alight)・[`gates`](#gates) |
+| 設備 | [`elevator`](#elevator)・[`schedule`](#schedule)・[`alight`](#alight)・[`gates`](#gates)・[`services`](#services)・[`rooms`](#rooms) |
 | カメラと出力 | [`cameras[]`](#cameras)・[`render`](#render)・[`outputs`](#outputs) |
 | 比較と確かめ | [`variants`](#variants)・[`validity`](#validity) |
 | そのほか | [`graph` など](#others) |
@@ -35,6 +35,8 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | [`streams`](#streams) | 配列 | `[]` | 人の流れ |
 | [`elevator`](#elevator) | オブジェクト | なし | エレベーター |
 | [`gates`](#gates) | オブジェクト | `{}` | ゲートごとの処理時間 |
+| [`services`](#services) | オブジェクト | `{}` | 窓口ごとの応対の時間・呼び出し（1.2 から） |
+| [`rooms`](#rooms) | オブジェクト | `{}` | 部屋ごとのいる時間・定員・呼び出し（1.2 から） |
 | [`cameras`](#cameras) | 配列 | `[]` | カメラ |
 | [`render`](#render) | オブジェクト | 下を参照 | 描画 |
 | [`outputs`](#outputs) | 配列 | 全部 | 書き出すもの |
@@ -166,7 +168,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | `p` | 数 | `1.0` | 選ばれる重み |
 | `types` | 配列 | なし | この行き先を選ぶ人の種類。合う行き先がなければ全部から選ぶ |
 | `via` | 配列 | `[]` | 途中で通るゲートの名前。向きは位置から決まる |
-| `dwell` | [分布](#distributions) | `10.0` | 止まる時間（秒） |
+| `dwell` | [分布](#distributions) | `10.0` | 止まる時間（秒）。窓口なら応対の時間、部屋ならいる時間、座る場所なら座っている時間（既定 `60.0`）を、この行き先だけ置き換える |
 | `state` | 文字列 | 場所で決まる | 止まる間の状態。受付 `reception`、案内板 `sign_check`、ほかは `dwell` |
 | `glance` | 数 | 止まる場所 `0`・EV `20`・待ち合わせ `45` | 止まっている間に見回す幅（度） |
 | [`meet`](#meet) | オブジェクト | なし | 待ち合わせ |
@@ -180,7 +182,10 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | `"elevator"` | EV を待って乗る。[`elevator`](#elevator) の設定が要る |
 | `exit`・`spawn` の場所 | そこまで歩いて出ていく |
 | `spot`・`prop` の場所 | そこまで歩いて止まる |
-| 場所の名前の頭（`"reception"`） | `reception_*` のどれか |
+| `service` の場所（窓口、1.2 から） | 列に並ぶ（呼び出しなら待つ場所で待つ）→ 空いた応対の場所で応対を受ける。グループは先導の人だけが応対を受け、仲間は近く（`aside`）で待つ |
+| `room` の場所（部屋、1.2 から） | 扉の前で待つ（呼び出しなら待つ場所で待つ）→ 中に入る（映らない）→ 同じ番号で出てくる。グループは一緒に入って一緒に出る |
+| `seats` の場所（座る場所、1.2 から） | 空いた席へ歩いて座る（埋まっていれば近くの壁ぎわに立つ）。仲間は隣の席 |
+| 場所の名前の頭（`"reception"`） | `reception_*` のどれか（グループで同じもの）。候補の種類はそろっていること（違えば誤り） |
 
 行き先は場所の名前だけで、座標では書けません。
 
@@ -252,6 +257,47 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 
 ```json
 "gates": {"gate": {"service_s": 2.5}}
+```
+
+<a id="services"></a>
+
+## `services`
+
+1.2 から。窓口（空間の `service` の場所）ごとのふるまい。キーは場所の名前か、名前の頭（`consult` で `consult_1`〜）です。場所の形（応対の場所・向き・列の線・待つ場所）は空間に書きます（[spec.md](spec.md) の 1）。
+
+| キー | 型 | 既定 | 中身 |
+|---|---|---|---|
+| `service_s` | [分布](#distributions) | 対数正規 中央 60 秒（10〜600、仮） | 1 人の応対の時間（秒） |
+| `servers` | 整数 | 応対の場所の数 | 使う応対の場所の数（空間の `points` の先頭から） |
+| `call` | 真偽 | `false` | 呼び出し: 列に並ばず、待つ場所（`wait`）で待ち、空いた順に呼ばれて行く |
+| `wait` | 文字列 | 空間の `wait` | 待つ場所（`seats` の場所かゾーンの名前） |
+| `queue` | 文字列 | 空間に `line` があれば `"line"`、なければ `"area"` | `"line"`（線に並ぶ）・`"area"`（待つ場所で着いた順に待つ） |
+| `note` | 文字列 | なし | メモ |
+
+```yaml
+# hospital_outpatient.yaml より（space: hospital）
+services:
+  front_desk: {service_s: {type: lognormal, median: 45, sigma: 0.5}, call: true}
+```
+
+<a id="rooms"></a>
+
+## `rooms`
+
+1.2 から。部屋（空間の `room` の場所）ごとのふるまい。キーは `services` と同じ。
+
+| キー | 型 | 既定 | 中身 |
+|---|---|---|---|
+| `stay_s` | [分布](#distributions) | 対数正規 中央 300 秒（30〜3600、仮） | 1 組が中にいる時間（秒） |
+| `capacity` | 整数 | 空間の `capacity`（なければ 1） | 同時に入れる組の数 |
+| `call` | 真偽 | `false` | 呼び出し: 扉の前ではなく待つ場所（`wait`）で待ち、空いた順に呼ばれて入る |
+| `wait` | 文字列 | 空間の `wait` | 待つ場所（`seats` の場所かゾーンの名前） |
+| `note` | 文字列 | なし | メモ |
+
+```yaml
+# hospital_outpatient.yaml より（space: hospital）
+rooms:
+  consult: {stay_s: {type: lognormal, median: 421, sigma: 0.714, source: mhlw2023}, call: true}
 ```
 
 <a id="cameras"></a>
@@ -375,14 +421,14 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 
 `origin`・`to`・`via`・`cars`・`props` に書く名前です。図で確かめるには `twinsim show-space <空間>` を実行します（空間のフォルダの `annotate.png`。書けないときは今のフォルダ）。真上の図のない `corridor` 系では使えません。
 
-| 空間 | 現れる・出る | ゲート | EV | 止まる | カメラの候補 |
-|---|---|---|---|---|---|
-| `office` | `entrance`・`south_exit`・`west_corridor`・`east_room` | `gate` | `EV1`・`EV2` | `reception_w1`・`reception_w2`・`reception_e1`・`lounge_1`〜`3`・`sign_view`・`sign` | `CamGate`・`CamEV`・`CamLobby` |
-| `hospital` | `lobby_entrance`・`west`・`hall_side`・`west_room` | | `EV` | `reception_1`・`reception_2` | `CamGate`・`CamHall` |
-| `warehouse` | `dock` | | | `pick_1`〜`12`・`pack_1`〜`4`・`staging_1`・`staging_2`・`break_1` | `CamAisles`・`CamPack` |
-| `simple_room` | `door_w`・`door_e` | | | `table_1`・`table_2` | `CamRoom` |
-| `corridor` | `west`・`start`・`east`・`finish`・`east_narrow` | | | | |
-| `corridor_door` | `west`・`east` | | | | |
+| 空間 | 現れる・出る | ゲート | EV | 止まる | 窓口・部屋・座る（1.2） | カメラの候補 |
+|---|---|---|---|---|---|---|
+| `office` | `entrance`・`south_exit`・`west_corridor`・`east_room` | `gate` | `EV1`・`EV2` | `reception_w1`・`reception_w2`・`reception_e1`・`lounge_1`〜`3`・`sign_view`・`sign` | | `CamGate`・`CamEV`・`CamLobby` |
+| `hospital` | `lobby_entrance`・`west`・`hall_side`・`west_room` | | `EV` | `reception_1`・`reception_2` | 窓口 `front_desk`・`cashier`・`pharmacy`、部屋 `consult_1`〜`5`・`other_clinics`、座る `lobby_seats`・`clinic_seats` | `CamGate`・`CamHall`・`CamClinic`・`CamWaiting` |
+| `warehouse` | `dock` | | | `pick_1`〜`12`・`pack_1`〜`4`・`staging_1`・`staging_2`・`break_1` | | `CamAisles`・`CamPack` |
+| `simple_room` | `door_w`・`door_e` | | | `table_1`・`table_2` | | `CamRoom` |
+| `corridor` | `west`・`start`・`east`・`finish`・`east_narrow` | | | | | |
+| `corridor_door` | `west`・`east` | | | | | |
 
 オフィスの図は[チュートリアル](config-tutorial.md#origin)にあります。
 

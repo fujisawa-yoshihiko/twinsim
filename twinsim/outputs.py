@@ -2,7 +2,7 @@
 
   ground_truth.json   追跡の評価などが読める正解（tracks・moving・people・cameras）に、
                       状態・グループ・EV・ゲートの出来事を足したもの
-  frames.csv.gz       1 コマ 1 人 1 行（frame, t, person, x, y, yaw, moving, state, zone, group, type）
+  frames.csv.gz       1 コマ 1 人 1 行（frame, t, person, x, y, yaw, moving, state, zone, group, type, pose。部屋の中の人は書かない）
   tasks.json          6 つのタスクの正解の集計（ゾーンの人数・ゲートの通過・滞留・グループ・混み具合・行き先）と EV の待ち時間
   graph/              GNN 向け: ゾーンのグラフと 2 m の格子のグラフ、ノードの人数の時系列、辺の流れ、行き先の表、カメラから見えるノード
   mot/<カメラ>.txt     MOTChallenge の形式の枠（frame, id, x, y, w, h, 1, 1, 見えている割合）。見えている割合は近似（camera.py）
@@ -22,9 +22,11 @@ import yaml
 
 from . import config
 from .camera import Camera, boxes_with_visibility, camera_dict
+from .components import SIT_SEAT_M, SIT_TRUNK
 from .engine import state_runs
 
-STOP_STATES = ("gate_queue", "ev_wait", "reception", "dwell", "sign_check", "companion_wait")
+STOP_STATES = ("gate_queue", "ev_wait", "reception", "dwell", "sign_check", "companion_wait", "group_wait",
+               "service_queue", "service", "call_wait", "seated")  # 3_dwell の滞留（3 秒以上止まった区間）。部屋の中 in_room は映らないので入れない
 
 
 def resolve_cameras(spec, space):
@@ -101,6 +103,8 @@ def write_all(sim, builder, spec, out_dir):
         info.update({"start_frame": f0, "arrive_frame": f1, "speed_m_s": round(a.speed, 3), "group": a.group,
                      "flow": f"{a.info.get('origin')}->{a.info.get('destination')}",
                      "events": a.events, "states": state_runs(a.states, f0)})
+        if a.sit_spans:  # 座っていたコマの区間（1.2、components.py）
+            info["sit"] = [[s0, s1 if s1 is not None else f1] for s0, s1 in a.sit_spans]
         people[a.name] = info
         tracks[a.name] = [[round(x, 4), round(y, 4), round(((yaw + 180) % 360) - 180, 2)] for _, x, y, yaw, _ in a.frames]
         moving[a.name] = [1 if m else 0 for *_, m in a.frames]
@@ -131,16 +135,22 @@ def write_all(sim, builder, spec, out_dir):
             zone_cache[k] = sp.zone_of(x, y)
         return zone_cache[k]
 
-    per_frame = defaultdict(list)  # コマ → [(名前, x, y, 状態, 背の高さ)]
+    per_frame = defaultdict(list)  # コマ → [(名前, x, y, 状態, 背の高さ（座っていれば座った高さ）, ゾーン)]
     with gzip.open(out / "frames.csv.gz", "wt", newline="") as fh:
         w = csv.writer(fh)
-        w.writerow(["frame", "t", "person", "x", "y", "yaw", "moving", "state", "zone", "group", "type"])
+        w.writerow(["frame", "t", "person", "x", "y", "yaw", "moving", "state", "zone", "group", "type", "pose"])
         for a in agents:
+            sit = [(s0, s1 if s1 is not None else a.frames[-1][0]) for s0, s1 in a.sit_spans]
             for (f, x, y, yaw, mv), st in zip(a.frames, a.states):
+                if st == "in_room":  # 部屋の中（映らない）は書かない。正解の tracks・states には残る
+                    continue
                 z = zone(x, y)
+                seated = any(s0 <= f <= s1 for s0, s1 in sit)
+                pose = "sit" if seated else "walk" if mv else "stand"
                 w.writerow([f, round(f / fps, 3), a.name, round(x, 3), round(y, 3), round(((yaw + 180) % 360) - 180, 1), int(mv), st, z or "",
-                            a.group or "", a.info.get("type", "")])
-                per_frame[f].append((a.name, x, y, st, a.info["height_m"], z))
+                            a.group or "", a.info.get("type", ""), pose])
+                h = SIT_SEAT_M + SIT_TRUNK * a.info["height_m"] if seated else a.info["height_m"]
+                per_frame[f].append((a.name, x, y, st, h, z))
     files.append("frames.csv.gz")
 
     # ---- タスクの集計 ----

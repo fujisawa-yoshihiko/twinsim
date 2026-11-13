@@ -127,7 +127,7 @@ Coordinates are world meters (Z up); simulator frames start at 0 (seconds = fram
 |---|---|---|
 | `scenario_resolved.json` | JSON | The configuration with defaults filled in. Passing it back gives the same run |
 | `ground_truth.json` | JSON | Per-person trajectories `tracks[name] = [[x, y, yaw], …]`, whether walking, state intervals, events (gate, elevator), attributes (character model, height, type, group), groups (members, relation, leader, intervals apart), cameras (4×4 matrix and field of view), zones |
-| `frames.csv.gz` | CSV | One row per frame per person: `frame, t, person, x, y, yaw, moving, state, zone, group, type` |
+| `frames.csv.gz` | CSV | One row per frame per person: `frame, t, person, x, y, yaw, moving, state, zone, group, type, pose` (people inside rooms are left out) |
 | `mot/<camera>.txt`, `mot/ids.json` | MOTChallenge | `frame, id, x, y, w, h, 1, 1, visibility` (frames start at 1; the id is the same across cameras; an approximation computed without rendering) |
 | `labels/<camera>.csv`, `_mot.txt` | CSV, MOTChallenge | Per-person boxes taken from the rendering (visible part and full body) with `visibility`, `occlusion`, `truncation`, `portal` and `glass` (share behind frosted glass) (with `render --labels`; name checks counted in `identity.json`) |
 | `aicity/gt.txt` | AI City MTMC | `camera_id obj_id frame_id xmin ymin width height xworld yworld` |
@@ -172,6 +172,7 @@ The sources, the check results and the assumed values are in [docs/validity.en.m
 | `office_ev_hall` | Ambiguous states in the elevator hall. Waiting for an elevator, waiting for companions, checking directions, reception |
 | `office_signage_ab` | Signage comparison. With the same arrivals, the share of people who look at the signage differs between A and B (verifies the method of measuring the effect; the effect itself cannot be verified) |
 | `hospital_gate_ev` | Hospital lobby → elevators in the west hall (same layout and cameras as hospital-sim's sim-gate; can be compared with the data of the earlier evaluation) |
+| `hospital_outpatient` | Hospital outpatients (1.2 components): ticket at reception → waiting seats → seats by the consultation rooms → consultation room → payment → pharmacy (30 min; consultation time from the MHLW Patient's Behavior Survey, others provisional) |
 | `warehouse_picking` | Warehouse picking ("work, wait, move" in the factory diagram). Receiving → shelf → packing → wait → shelf → packing → leave |
 | `simple_room_smoke` | Operation check (small room, 20 s) |
 | `verify_corridor_speed`, `verify_fundamental_diagram`, `verify_groups`, `verify_gate_capacity`, `verify_counterflow`, `verify_bottleneck` | Engine verification (walking straight, speed and density, groups, a crowded gate, counterflow, a 1 m wide doorway). The results are in section 5 of docs/validity.en.md |

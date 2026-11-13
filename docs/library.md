@@ -66,7 +66,7 @@ for seed in range(5):
 | `result.files` | 書き出したファイルの一覧 |
 | `result.cameras` | 枠があるカメラの名前 |
 | `result.mot(camera)` | 物体検知・追跡の正解ラベルの配列。列は `frame, id, x, y, w, h, conf, class, visibility`（frame は 1 始まり） |
-| `result.frames()` | 1 コマ 1 人の行を dict で順に返す（`frame, t, person, x, y, yaw, moving, state, zone, group, type`） |
+| `result.frames()` | 1 コマ 1 人の行を dict で順に返す（`frame, t, person, x, y, yaw, moving, state, zone, group, type, pose`。部屋の中の人の行はない） |
 | `result.videos` | 描画した動画の dict（カメラ → mp4 の場所） |
 | `result.video_first_frame` | 動画の 0 コマ目のシミュレータのコマ。一部だけ描いたときは途中から始まる |
 | `result.video_frames(camera, frames=None, step=1)` | 動画のコマを順に返す: `(シミュレータのコマ, 高さ×幅×3 の RGB の配列)`。ffmpeg を使う。`frames` はシミュレータのコマの範囲（端を含む） |

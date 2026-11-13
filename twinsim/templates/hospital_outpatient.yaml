@@ -1,0 +1,40 @@
+# 病院の外来（1.2 の部品）: ロビーの受付で番号札を取って待合で呼ばれるのを待つ → 受付 → 診察室の前の席で呼ばれるのを待つ → 診察室（5 室）→ ロビーの席で会計に呼ばれるのを待つ → 会計 →（3 割は）薬 → 帰る。
+# 7 割はほかの科（西の広間の扉の向こう、映らない）へ行き、戻って会計へ。
+# 診察の時間は厚労省の令和 5 年受療行動調査の外来の診察時間（結果の概要の図 3、病院の総数）に合わせた対数正規。受付・会計・薬の時間、来る人の量、
+# グループの割合と関係は文献の値がないので仮（docs/validity.md の台帳）。待合の席と薬の受け渡しは見立て、診察室の扉は USD では閉じている。
+name: hospital_outpatient
+title: 病院の外来（受付 → 診察室の前で待つ → 診察 → 会計 → 薬）
+title_en: "Hospital outpatients (reception → wait by the consultation rooms → consultation → payment → pharmacy)"
+space: hospital
+seed: 1
+duration_s: 1800
+people:
+  group_size: {type: zero_truncated_poisson, lam: 0.4}                  # 仮（付き添いのある人が 3 割ほど）
+  group_relation: {type: choice, values: {companion: 0.6, family: 0.4}}  # 仮
+streams:
+  - name: outpatients
+    origin: lobby_entrance
+    rate: {type: constant, per_min: 2.0}   # 仮（グループの数/分）。見える診察室（5 室・7 分で 1 分に 0.7 組）へは 3 割
+    destinations:
+      - {to: front_desk, p: 0.09, then: {to: consult, then: {to: cashier, then: {to: pharmacy, then: lobby_entrance}}}}
+      - {to: front_desk, p: 0.21, then: {to: consult, then: {to: cashier, then: lobby_entrance}}}
+      - {to: front_desk, p: 0.21, then: {to: other_clinics, then: {to: cashier, then: {to: pharmacy, then: lobby_entrance}}}}
+      - {to: front_desk, p: 0.49, then: {to: other_clinics, then: {to: cashier, then: lobby_entrance}}}
+  - name: staff
+    origin: lobby_entrance
+    rate: {type: constant, per_min: 1.0}
+    types: staff
+    destinations: [{to: west, p: 1.0}]
+services:
+  front_desk: {service_s: {type: lognormal, median: 45, sigma: 0.5, min: 10, max: 300}, call: true, note: 仮。番号札で呼ばれる}
+  cashier: {service_s: {type: lognormal, median: 40, sigma: 0.5, min: 10, max: 300}, call: true, note: 仮。番号で呼ばれる}
+  pharmacy: {service_s: {type: lognormal, median: 60, sigma: 0.5, min: 15, max: 300}, call: true, note: 仮}
+rooms:
+  consult:   # consult_1〜5
+    stay_s: {type: lognormal, median: 421, sigma: 0.714, min: 60, max: 3600, source: mhlw2023}
+    call: true
+  other_clinics: {stay_s: {type: lognormal, median: 900, sigma: 0.6, min: 120, max: 3600}, note: 仮（ほかの科での待ちと診察を合わせた時間）}
+cameras:
+  - {name: CamGate}
+  - {name: CamClinic}
+  - {name: CamWaiting}

@@ -31,6 +31,18 @@ pois:
   reception_2:    {kind: spot, xy: [2.75, 3.0], face: [3.0, 4.0]}
   hall_side:      {kind: exit, xy: [-21.0, 4.0], note: 広間の南東}
   west_room:      {kind: exit, xy: [-12.5, 9.25], note: ロビーの西の部屋の前}
+  # 1.2 の部品（docs/spec.md の 1、twinsim/components.py）。外来のテンプレート hospital_outpatient で使う。机と扉は USD の位置、席と薬の受け渡しは見立て
+  front_desk:     {kind: service, points: [[2.7, 1.75], [3.8, 1.75]], faces: [[2.7, 2.6], [3.8, 2.6]], wait: lobby_seats, aside: lobby_seats, note: 受付（USD の受付の机 SM_ReceptionDesk_01a の前、ロビー側に立つ）。番号札を取り、待合の席（wait）で呼ばれるのを待つ（机ぞいの列は、机と列のあいだが袋小路になり、応対を終えた人が出られなかった）}
+  cashier:        {kind: service, points: [[0.2, 1.75], [1.3, 1.75]], faces: [[0.2, 2.6], [1.3, 2.6]], wait: lobby_seats, note: 会計（受付の机 SM_ReceptionDesk_01a2 の前、待合の席の側）。呼ばれるまで lobby_seats で待つ}
+  pharmacy:       {kind: service, points: [[9.3, 2.4]], faces: [[10.3, 2.4]], wait: lobby_seats, note: 薬の受け渡し（見立て。ロビーの東の壁ぎわ）}
+  lobby_seats:    {kind: seats, rows: [{from: [-8.4, -0.45], to: [-4.3, -0.45], n: 7, yaw: -90}, {from: [-8.4, 1.75], to: [-4.3, 1.75], n: 7, yaw: 90}], note: 待合（見立て。ロビーの中の島の両側。描画の椅子はまだない。島の北にもう 1 列足すと、列のあいだの通路に人が集まり安全弁が倍になった）}
+  clinic_seats:   {kind: seats, row: {from: [-7.8, 9.6], to: [-3.2, 9.6], n: 8, yaw: 90}, note: 診察室の前の待合（見立て。廊下の南の壁ぎわ）}
+  consult_1:      {kind: room, xy: [-4.28, 11.8], inside: [-4.28, 13.6], wait: clinic_seats, note: 診察室（扉 SM_Door_01b9。USD では扉は閉じている）}
+  consult_2:      {kind: room, xy: [-0.78, 11.8], inside: [-0.78, 13.6], wait: clinic_seats, note: 診察室（扉 SM_Door_01b7）}
+  consult_3:      {kind: room, xy: [2.67, 11.8], inside: [2.67, 13.6], wait: clinic_seats, note: 診察室（扉 SM_Door_01b8）}
+  consult_4:      {kind: room, xy: [-9.12, 9.75], inside: [-9.12, 7.9], wait: clinic_seats, note: 診察室（扉 SM_Door_01b5_8、廊下の南）}
+  consult_5:      {kind: room, xy: [-2.12, 9.75], inside: [-2.12, 7.9], wait: clinic_seats, note: 診察室（扉 SM_Door_01b6、廊下の南）}
+  other_clinics:  {kind: room, xy: [-31.2, 8.9], inside: [-33.0, 8.9], capacity: 100, note: ほかの科（見立て。西の広間の西の両開きの扉の向こう。映らない）}
 
 zones:
   ev_hall:   {polygon: [[-31.6, 10.3], [-25.6, 10.3], [-25.6, 13.0], [-31.6, 13.0]]}
@@ -41,3 +53,5 @@ zones:
 cameras:
   CamGate: {eye: [10.5, -2.0, 2.7], target: [4.8, 2.8, 0.0], note: ロビー（sim-gate と同じ）, note_en: "Lobby (same as sim-gate)"}
   CamHall: {eye: [-26.5, 3.2, 2.7], target: [-28.5, 11.0, 0.0], note: 西の広間の南側から北の待つ場所と扉を見る（sim-gate・sim-hall と同じ）, note_en: "Looks from the south side of the west hall at the waiting area and doors to the north (same as sim-gate and sim-hall)"}
+  CamClinic: {eye: [3.0, 10.8, 2.7], target: [-6.0, 10.6, 0.0], note: 診察室の前の廊下を東から西へ見る（1.2 の外来）, note_en: "Looks west along the corridor in front of the consultation rooms (1.2 outpatients)"}
+  CamWaiting: {eye: [-1.5, -2.3, 2.7], target: [-6.5, 0.7, 0.0], note: ロビーの待合と受付の列を南東から見る（1.2 の外来）, note_en: "Looks at the lobby waiting seats and the reception queue from the south-east (1.2 outpatients)"}

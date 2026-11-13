@@ -14,7 +14,14 @@
   間を横切った回数）、評価 twinsim/group_eval.py（`python -m twinsim group-eval`）。1.1 との比べは ~/dt-data/twinsim/crowd_check/groups1/（summary_full7.md、scripts/）。
   2 人連れが合う回: office_gate_ev 11 → 16/16、office_ev_hall・hospital_gate_ev 13 → 16/16。試して入れていないもの: 線の端へ手前から回り込む（安全弁が増えた）、
   ゲートの先で待つ所を流れの脇へずらす（揺れが増減・安全弁が増えた）
-- 次: 2 部品（窓口 service・呼び出し call・座る seats・部屋 room、正解の状態、テンプレート）→ 3 残りの直し → 4 空間を多角形・dict から → 描画（座る動き SitAndStandChair）
+- 済み（11/13）: 部品（docs/validity.md の 5.9、twinsim/components.py）。窓口 service（列 line・着いた順 area・呼び出し call）、座る場所 seats（家具として歩ける所から外す、
+  席の前 0.6 m から決まった速さで座る、座っている人は人としてよけない）、部屋 room（中は映らない: tracks は続き、frames.csv・MOT に出ない、状態 in_room）。グループは先導の人だけが
+  応対を受け、仲間は aside・待合で待つ、部屋には一緒に入る。正解: 状態 service_queue・service・call_wait・seated・in_room、events の service・room・seat・call、people[].sit、
+  frames.csv の pose。テンプレート hospital_outpatient（病院の外来 30 分、診察の時間は厚労省の受療行動調査、ほかは仮）。病院の空間に front_desk・cashier・pharmacy・
+  lobby_seats・clinic_seats・consult_1〜5・other_clinics・カメラ CamClinic・CamWaiting。
+  詰まりの見分けを直した（全部のテンプレートに効く）: 直線距離か、大回りの経路で実際に動いて残りの長さが縮んだら進んだとみる（DETOUR_M・DETOUR_MOVED_M）。
+  比べは ~/dt-data/twinsim/crowd_check/parts1/（外来の 16 回、scripts/table.py）・groups1/ の parts4（今のテンプレート）
+- 次: オフィスの昼（カフェの列・座る）・倉庫（作業点に定員と列）のテンプレート → 3 残りの直し → 4 空間を多角形・dict から → 描画（座る動き SitAndStandChair・椅子・部屋の扉・部屋の中の人を隠す）
 
 ## 2026-11-12（1.1 の準備、ブランチ crowd-cfsm）
 

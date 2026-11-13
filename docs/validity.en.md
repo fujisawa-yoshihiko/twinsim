@@ -41,6 +41,7 @@ are not called "valid" until they have been fitted to real data (gate passage lo
 | Interpersonal distance | Intimate 0–0.45 m, personal 0.45–1.2 m | Hall 1966 | Proxemics | Check (between waiting people) |
 | Bottleneck capacity | 1.90–2.19 people/(m·s) at a width of 1.0 m | Seyfried et al. 2009 | Laboratory (doorway 2.8 m long, 20–60 people) | Check (`verify_bottleneck`) |
 | Shape of stopping time | Log-normal | Brown et al. 2005 | Telephone call-handling times | Shape (applying it to the reception desk is by analogy) |
+| Outpatient consultation time | under 5 min 28.1%, 5 to under 10 min 40.9%, 10 to under 20 min 15.0%, 20 to under 30 min 6.6%, 30 min or more 4.0% (unknown 5.4%). Approximated by a lognormal with median 421 s, σ 0.714 | MHLW 2023 Patient's Behavior Survey | Outpatients of Japanese hospitals, patients' answers | Consultation rooms of `hospital_outpatient` (from 1.2) |
 
 Full bibliographic references are at the end of `validity.md` and in `literature.REFS`. The values were checked against the text and tables of the papers (Weidmann's formula via arXiv:1512.01426;
 the group proportions in the Osaka underground and Fruin's turnstile table from secondary sources that reproduce them; each is noted in `REFS[...]["check"]`).
@@ -423,6 +424,47 @@ Checks (same templates and seeds as 1.1. The random sequence changes (relations 
   was also tried; shaking rose in some templates and fell in others, and the safety valve rose, so it is not used.
 - The "caution" for the spacing of waiting people (`hospital_gate_ev` seeds 10 and 12 and others) occurs in runs with a crowded elevator hall: 5.8–6.5% below 0.45 m (threshold 5%).
 
+### 5.9 Components that are the purpose of a trip (1.2, 2026-11-13)
+
+Counters (`service`), calling (`call`), seating (`seats`) and rooms (`room`) were added (twinsim/components.py; geometry in section 1 of docs/spec.en.md; settings in `services` and `rooms` of docs/config-reference.en.md).
+They were checked with the template `hospital_outpatient` (hospital outpatients, 30 min). The consultation time follows the outpatient consultation times of the MHLW 2023 Patient's Behavior Survey (lognormal, median 421 s, σ 0.714;
+within 0.04 of the shares without "unknown" at the bin edges); the times at reception, payment and pharmacy, the arrival rate and the group shares are provisional. The waiting seats and the pharmacy counter are stand-ins.
+
+Found during the checks and fixed ("before" is before the fix, totals over 16 runs):
+
+| Finding | Fix | Effect |
+|---|---|---|
+| In a crowd, people "arrived" short of the service point and jumped up to 1.4 m to the point in one frame | Get served where they arrived; keep walking if more than 0.4 m away | Largest step 1.42 → 0.35 m (0.08 m after also fixing seats and rooms) |
+| The space between a queue along the reception desk and the desk became a dead end; people who had been served could not get out | Hospital reception uses number tickets (calling), like the reception machines in Japanese hospitals. Queuing counters are left for another template | — |
+| Companions waiting at one point by reception clustered and blocked the flow from the entrance | Companions wait at the waiting seats (the space's `aside` can name seats) | — |
+| Routes went through rows of seated people, who could not be pushed aside, and people got stuck | Seats are furniture and removed from the walkable area (radius 0.25 m); people walk to 0.6 m in front of the seat and sit at a fixed speed (0.5 m/s) | — |
+| With all seats taken, people standing to wait overlapped at one point (the 2.3 m search for a standing spot returned its centre when full) | Search walkable cells within 6 m, at least 0.6 m from others, wall side first | Overlap 1.13 → 0.44 |
+| At the end of a row of seats, pushing away from seated people cancelled the pull towards the destination and people stopped | Seated people are not avoided as people (the seat walls do that) | Safety valve 308 → 178, stuck 1 → 0 |
+| A companion was released twice and went on to the next step from inside a seat, stuck for 848 s | Release once; if seated or moving into the seat, first go back to the point in front of it | — |
+| A companion who arrived after the leader had entered a room was not in the party and waited up to 25 min at the door | If the leader is heading into or inside the room, follow them in | — |
+| The destination prefix `consult` matched both the consultation rooms and the seats (`consult_seats`), so the consultation was skipped; likewise 1.1's `reception` matched the new counter | Candidates of different kinds under one prefix are now a configuration error; places renamed `clinic_seats`, `front_desk`, `cashier` | — |
+| Stepping back 1 m after service before walking on | Those stepping back overlapped the head of the queue and passers-by; overlap rose 0.50 → 1.72, so it is not used | — |
+
+Detecting being stuck (affects every template): the safety valve was used for people whose straight-line distance to the destination had not shrunk for 15 s, but people taking a detour east from the lobby into the corridor
+triggered it while walking normally (most valves in the outpatient runs). Measuring the remaining path length instead made the progress of people pushing in front of a 1 m exit fluctuate
+(safety valve 107 → 223 in `verify_bottleneck`), and a person shaking in place in front of a door counted as progressing and stayed stuck for 150 s (`office_ev_hall`).
+Current rule: progress if the straight-line distance shrinks, or, on a detour (remaining path at least 2 m longer than the straight-line distance), if the person moved at least 0.3 m in the last second and the remaining path shrank.
+
+Results (16 runs of 30 min; results in `~/dt-data/twinsim/crowd_check/parts1/`):
+
+| Quantity | Value |
+|---|---|
+| Safety valve | 178 (11 per run, 0.37 per minute; `hospital_gate_ev` 0.85 per minute) |
+| Overlap (< 0.3 m per 1,000 person-frames) | 0.33 |
+| Stuck people, largest step | 0, 0.08 m |
+| Dyads within range, free walking speed within range | 15/16, 16/16 |
+| Median waiting time (top 10%) | reception 95 s (298), payment 29 s (82), pharmacy 10 s (41), consultation room 21 s (401) |
+
+Effect on templates without components (from the change in detecting being stuck; same seeds as 5.8, `~/dt-data/twinsim/crowd_check/groups1/`, parts4): the four checks without groups give the same results as 1.1.
+Safety valve `office_ev_hall` 24 → 27, `hospital_gate_ev` 56 → 66, `office_gate_ev` 15 → 13, `verify_gate_capacity` 4 → 3 (results of 5.8 → now); no stuck people.
+
+Remaining: rendering (sitting animation, chairs, room doors that are closed in the USD, hiding people inside rooms) is not done yet. A template with a queuing counter (office lunchtime café) and warehouse work points are still to come.
+
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 
 | Value | Current | How to calibrate |
@@ -433,6 +475,9 @@ Checks (same templates and seeds as 1.1. The random sequence changes (relations 
 | Destination shares, stopping time at reception | Provisional (the shape of the stopping time is log-normal) | Real video; flow estimation |
 | Elevator arrival interval, time until the doors open | Provisional | Elevator operation logs |
 | Variability of gate time per person | Range from the literature, shape provisional | Time intervals in the gate passage logs |
+| Service times at counters (reception, payment, pharmacy), default time in rooms, time in other departments | Provisional (1.2; lognormal shape) | Ticketing and calling logs of the counters, hand labels on video |
+| Outpatient arrival rate, group shares and relations, destination shares | Provisional (1.2) | Reception records, real video |
+| Companion formation (family values reused), formation of four or more, time constant of the front–back fluctuation, longest wait beyond gates | Provisional (1.2) | Trajectories of pairs and triads in real video |
 | Shape of the time-of-day peak (how morning arrivals build up) | No literature figures obtained. Generated at the constant rate of the busiest 5 minutes | Aggregate the gate passage logs per minute |
 
 ## 7. Limitations

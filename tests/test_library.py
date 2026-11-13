@@ -54,7 +54,7 @@ def test_same_result_from_dict_string_and_file(tmp_path):
 def test_result_reads_outputs(tmp_path):
     r = twinsim.simulate(CONFIG, out_dir=tmp_path / "r")
     row = next(r.frames())
-    assert set(row) == {"frame", "t", "person", "x", "y", "yaw", "moving", "state", "zone", "group", "type"}
+    assert set(row) == {"frame", "t", "person", "x", "y", "yaw", "moving", "state", "zone", "group", "type", "pose"}
     assert isinstance(row["x"], float) and isinstance(row["frame"], int)
     labels = r.mot("CamGate")
     assert labels.shape[1] == 9 and labels[:, 0].min() >= 1  # frame, id, x, y, w, h, conf, class, visibility

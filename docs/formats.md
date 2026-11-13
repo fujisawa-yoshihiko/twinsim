@@ -16,7 +16,7 @@ twinsim の計算・描画が書き出すファイルの形。検出・追跡・
 | コマの番号のずれ | MOT・AI City の形は 1 始まり（= シミュレータのコマ ＋ 1）。動画の k コマ目 = シミュレータのコマ `render_log.json` の `frames[0]` ＋ k（全部を描いたときは同じ） |
 | 人の名前 | `P0001`…（計算ごとに付け直す）。MOT・AI City の数の ID は `mot/ids.json` で名前と対応（カメラをまたいで同じ） |
 | グループ | 正解のグループは `G001`…（一緒に歩く人のまとまり） |
-| 人の枠 | 足元を中心に、半径 0.25 m・背の高さ（`height_m`）の箱を映した枠。描かれた人の輪郭にぴったりではなく少し大きい（対応づけは IoU 0.3 が目安） |
+| 人の枠 | 足元を中心に、半径 0.25 m・背の高さ（`height_m`）の箱を映した枠。座っている間（1.2 から）は高さを 0.42 m ＋ 0.53 × 背の高さにする。描かれた人の輪郭にぴったりではなく少し大きい（対応づけは IoU 0.3 が目安） |
 | 見えている割合 | 近似。壁: カメラの真下から足元・頭への床の上の線が歩けない所を 1 m 以上通れば 0。人: 手前の人の枠と重なる割合（枠の中の 8×16 点）。描画の深度は使っていない |
 
 カメラ（`ground_truth.json` の `cameras[名前]`）は USD のカメラと同じ表し方: 行ベクトル `p_cam = [x, y, z, 1] · M`（`M` = `world_to_camera_rowmajor`、4×4）、
@@ -76,7 +76,8 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `group`・`role`・`relation` | グループの名前（`G001`、1 人なら null）・同行者なら `companion`・グループの関係（1.2 から。`groups` と同じ） |
 | `start_frame`・`arrive_frame`・`speed_m_s` | 現れた・消えたコマ、思う歩く速さ |
 | `states` | `[[始まりのコマ, 終わりのコマ, 状態], …]`（状態は下の表） |
-| `events` | 秒。`start`・`end`、`gate_join`・`gate`（列に並んだ・通った）、`hall`・`wait_start`・`car`・`board_start`・`board`（EV）、`stops`（止まった区間）、`meet_start`・`meet_end`、`regroup`（ゲートの先で仲間を待った区間 `[[始まり, 終わり], …]`、1.2 から）、`spawn_wait_s`（入口がふさがって外で待った秒） |
+| `sit` | `[[始まりのコマ, 終わりのコマ], …]`。座っていた区間（1.2 から。座った人だけ） |
+| `events` | 秒。`start`・`end`、`gate_join`・`gate`（列に並んだ・通った）、`hall`・`wait_start`・`car`・`board_start`・`board`（EV）、`stops`（止まった区間）、`meet_start`・`meet_end`、`regroup`（ゲートの先で仲間を待った区間 `[[始まり, 終わり], …]`、1.2 から）、`service`（窓口ごとに `{name, join, called, start, end, point}`: 加わった・呼ばれた・応対の始まり・終わりの時刻と応対の場所の番号、1.2 から）、`room`（`{name, join, called, enter, exit}`、1.2 から）、`seat`（`[[座る段取りの始まり, 終わり, 場所], …]`、1.2 から）、`call`（呼ばれた時刻の一覧、1.2 から）、`spawn_wait_s`（入口がふさがって外で待った秒） |
 
 | 状態 | 意味 |
 |---|---|
@@ -90,12 +91,17 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `sign_check` | 案内板・サイネージを見る |
 | `companion_wait` | 同行者を待つ |
 | `group_wait` | ゲートを先に通った人が、通った先でグループの仲間を待つ（1.2 から） |
+| `service_queue` | 窓口の列に並ぶ・着いた順に待つ・部屋の扉の前で待つ（1.2 から） |
+| `service` | 窓口で応対を受ける（1.2 から） |
+| `call_wait` | 呼ばれるのを待つ（座っているかは `sit`・`pose`、1.2 から） |
+| `seated` | 座る場所に座っている（1.2 から） |
+| `in_room` | 部屋の中（映らない。`tracks` には部屋の中の点で続き、`frames.csv`・MOT・`tasks.json` には出ない。1.2 から） |
 | `work`・`wait` | 倉庫の作業・待ち（倉庫のテンプレート） |
 
 ## 3. `frames.csv.gz`
 
-1 行目が列の名前: `frame, t, person, x, y, yaw, moving, state, zone, group, type`。
-`t` は秒、`moving` は 0/1、`zone` は足元のゾーン（なければ空）、`group` は空か `G…`。
+1 行目が列の名前: `frame, t, person, x, y, yaw, moving, state, zone, group, type, pose`。
+`t` は秒、`moving` は 0/1、`zone` は足元のゾーン（なければ空）、`group` は空か `G…`、`pose` は `walk`・`stand`・`sit`（1.2 から）。部屋の中（状態 `in_room`）の行は書かない（1.2 から）。
 
 ## 4. カメラの枠
 

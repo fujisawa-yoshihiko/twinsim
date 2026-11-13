@@ -39,6 +39,9 @@ USD のシーン 1 つ分。USD に入っていない「意味」（入口・ゲ
 描画の正解の表（docs/formats.md の 4）の `portal` と、評価で外す範囲に使う。
 | `spot` | 止まる場所（受付・待ち合わせ・案内板の前） | `xy`、`face`（向く点）。名前の頭（`reception_`・`lounge_`）でまとめて行き先にできる |
 | `prop` | シミュレータが置く物（USD にない物） | `xy`、`face`、`prop`（`signage`） |
+| `service` | 窓口（1.2 から、twinsim/components.py） | `points`（応対を受ける人の立つ点の一覧）・`faces`（それぞれ向く点）、`line`（任意。列の線 `[[x, y], …]`、先頭から 0.65 m おきに並ぶ）、`wait`（任意。呼び出し・着いた順の待ちで待つ所: `seats` の場所かゾーンの名前）、`aside`（任意。グループの仲間が待つ点か、席・ゾーンの名前。なければ応対の場所の 1.5 m 手前）。ふるまいの値は設定の `services` |
+| `room` | 部屋（1.2 から） | `xy`（扉の前、歩ける所）、`inside`（中の点。歩ける所の外でよい。中の人は映らない）、`capacity`（同時に入れる組の数、既定 1）、`wait`（任意。呼び出しで待つ所）。ふるまいの値は設定の `rooms` |
+| `seats` | 座る場所（1.2 から） | `seats: [[x, y, 向き（度）], …]` か `row: {from, to, n, yaw}`・`rows: [...]`（線の上に n 席）。席は家具として歩ける所から外し（半径 0.25 m）、人は席の前 0.6 m の点まで歩いてから座る |
 
 空間を新しく作るとき: `python -m twinsim export-space <名前> --usd URL --region ...`（Isaac Sim で、歩ける所の格子・真上の図・
 エレベーターや扉らしい prim の一覧を作り、space.yaml のひな形を置く）→ 真上の図と一覧を見て `pois`・`zones`・`cameras` を書く。
@@ -120,7 +123,13 @@ EV の運行（`elevator.schedule`）:
 | `reception` | 受付で止まる |
 | `dwell` | そのほかの場所で止まる |
 | `sign_check` | 案内板・サイネージを見る |
-| `companion_wait` | 同行者を待つ |
+| `companion_wait` | 同行者を待つ。窓口・部屋で先導の人を待つグループの仲間（1.2 から） |
+| `group_wait` | ゲートを先に通った人が、通った先でグループの仲間を待つ（1.2 から） |
+| `service_queue` | 窓口の列に並ぶ・着いた順に待つ・部屋の扉の前で待つ（1.2 から） |
+| `service` | 窓口で応対を受ける（1.2 から） |
+| `call_wait` | 呼ばれるのを待つ（座っているかは `pose`、1.2 から） |
+| `seated` | 座る場所に座っている（1.2 から） |
+| `in_room` | 部屋の中（映らない。`frames.csv`・MOT には出ない、1.2 から） |
 
 ## 5. 出力（結果の場所。既定は <TWINSIM_DATA>/runs/<シナリオの名前>、TWINSIM_DATA の既定は ~/.twinsim、./run.sh では ~/dt-data/twinsim）
 

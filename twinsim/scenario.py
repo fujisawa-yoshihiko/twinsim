@@ -12,6 +12,7 @@ import yaml
 
 from . import dists
 from .characters import MODELS
+from .components import Room, SeatSet, Service
 from .engine import Agent, Car, Gate, Meet, Sim, group_slots
 from .literature import GROUP_RELATION_SHARE, GROUP_RELATIONS, PROFILES, WEIDMANN_FD, lift_demand_per_min
 from .space import ROOT, load_space, point_in_poly
@@ -38,7 +39,30 @@ DEFAULTS = {
 OUTPUTS = ("ground_truth", "frames", "tasks", "graph", "mot", "aicity", "preview", "validity")
 # 設定の一番上のキー（docs/spec.md）。綴りの誤りを既定の値のまま黙って動かさないように、ほかのキーは誤りにする
 CONFIG_KEYS = set(DEFAULTS) | {"name", "title", "title_en", "description", "space", "demand", "elevator", "validity", "variants", "variant", "graph",
-                               "mot_stride", "congestion_levels", "calibration"}
+                               "mot_stride", "congestion_levels", "calibration", "services", "rooms"}
+SERVICE_KEYS = {"service_s", "servers", "call", "wait", "queue", "note"}  # 設定の services.<窓口>（1.2、components.py）
+ROOM_KEYS = {"stay_s", "capacity", "call", "wait", "note"}  # 設定の rooms.<部屋>
+COMPONENT_KINDS = ("service", "room", "seats")
+
+
+def component_cfg(spec, key, name):
+    """設定の services・rooms から、場所 name の値（名前そのものか、名前の頭 <頭>_ で書いたもの）。"""
+    d = spec.get(key) or {}
+    if name in d:
+        return d[name]
+    for k in sorted(d, key=len, reverse=True):
+        if name.startswith(k + "_"):
+            return d[k]
+    return {}
+
+
+def seats_of(poi):
+    """space.yaml の seats の場所 → [((x, y), 向き（度）), ...]。seats: [[x, y, 向き], ...] か row: {from, to, n, yaw}（線の上に n 席）。"""
+    out = [((float(q[0]), float(q[1])), float(q[2])) for q in poi.get("seats", [])]
+    for r in ([poi["row"]] if isinstance(poi.get("row"), dict) else poi.get("rows", [])):
+        (x0, y0), (x1, y1), n = r["from"], r["to"], int(r["n"])
+        out += [((x0 + (x1 - x0) * k / max(n - 1, 1), y0 + (y1 - y0) * k / max(n - 1, 1)), float(r["yaw"])) for k in range(n)]
+    return out
 CAMERA_KEYS = {"name", "eye", "target", "focal_mm", "h_aperture_mm", "width", "height", "clock_offset_s", "drop_rate", "note"}
 ORIGIN_FORMS = '場所の名前か、{"xy": [x, y]}・{"line": [[x0, y0], [x1, y1]]}'
 
@@ -202,6 +226,17 @@ def validate(spec):
     errs += [f"render.props: 場所 {k} がない" for k in spec["render"].get("props", []) if k not in space.pois]
     if spec.get("name") is not None and not is_safe_name(spec["name"]):
         errs.append(f"name に使えるのは文字・数字・_・- だけ（今は {spec['name']!r}）")
+    for key, kind, allowed in (("services", "service", SERVICE_KEYS), ("rooms", "room", ROOM_KEYS)):
+        for k, c in (spec.get(key) or {}).items():
+            if not any(p.get("kind") == kind and (n == k or n.startswith(k + "_")) for n, p in space.pois.items()):
+                errs.append(f"{key}: {k} は空間 {space.name} の {kind} の場所でない（名前か、名前の頭）")
+            if not isinstance(c, dict):
+                errs.append(f"{key}.{k} は {{...}} の形")
+                continue
+            errs += [f"{key}.{k} に知らないキー {x}（使えるのは {', '.join(sorted(allowed))}）" for x in c if x not in allowed]
+            w = c.get("wait")
+            if w is not None and w not in space.zones and space.pois.get(w, {}).get("kind") != "seats":
+                errs.append(f"{key}.{k}.wait {w} は席（seats）の場所かゾーンの名前")
     rel = spec["people"].get("group_relation")
     rel_names = set(rel.get("values", {})) if isinstance(rel, dict) and rel.get("type") == "choice" else {rel} if isinstance(rel, str) else None
     if rel is not None and (rel_names is None or not rel_names <= set(GROUP_RELATIONS)):
@@ -217,6 +252,10 @@ def validate(spec):
                 errs.append(f"{where}: 行き先 elevator には elevator の設定が要る")
         elif to not in space.pois and not any(k.startswith(to + "_") for k in space.pois):
             errs.append(f"{where}: 行き先 {to} が空間 {space.name} にない")
+        elif to not in space.pois:  # 名前の頭で選ぶ: 候補の種類がそろっているか（診察室 consult_1… と席 consult_seats が混ざり、診察を飛ばした、2026-11-13）
+            kinds = {space.pois[k].get("kind") for k in space.pois if k.startswith(to + "_")}
+            if len(kinds) > 1:
+                errs.append(f"{where}: 行き先 {to} の候補（{to}_…）に種類の違う場所が混ざる（{', '.join(sorted(map(str, kinds)))}）")
         if isinstance(d, dict):
             for g in [*d.get("via", []), *(d.get("meet") or {}).get("via", [])]:
                 if space.pois.get(g, {}).get("kind") != "gate":
@@ -486,6 +525,17 @@ class Builder:
             return steps
         poi = sp.poi(name)
         kind = poi.get("kind")
+        if kind in COMPONENT_KINDS:  # 部品（components.py）: 歩き・列・席は部品の中で
+            glance = d.get("glance", 20.0)
+            if kind == "service":
+                steps.append(("service", name, float(dists.sample(d["dwell"], self.rng)) if d.get("dwell") is not None else None, glance))
+            elif kind == "room":
+                steps.append(("room", name, float(dists.sample(d["dwell"], self.rng)) if d.get("dwell") is not None else None))
+            else:
+                steps.append(("seat", name, float(dists.sample(d.get("dwell", 60.0), self.rng)), d.get("state") or "seated", glance))
+            if d.get("then"):
+                steps += self.plan_for(d["then"])
+            return steps
         xy = sp.poi_xy(name)
         if kind in ("exit", "spawn"):
             pt = self.poi_point(name)
@@ -707,10 +757,31 @@ class Builder:
                         sim.add(a)
                         names.append(a.name)
                     return names
+        services, rooms, seatsets = {}, {}, {}
+        for k, p in sp.pois.items():
+            kind = p.get("kind")
+            rng = random.Random(f"{spec['seed']}-{k}")
+            if kind == "seats":
+                seatsets[k] = SeatSet(k, seats_of(p))
+            elif kind == "service":
+                c = component_cfg(spec, "services", k)
+                pts = p.get("points") or [p["xy"]]
+                faces = p.get("faces") or [p["face"]] * len(pts)
+                n = int(c.get("servers", len(pts)))
+                mode = "call" if c.get("call") else c.get("queue") or ("line" if p.get("line") else "area")
+                services[k] = Service(k, pts[:n], faces[:n], c.get("service_s"), mode, p.get("line"), c.get("wait") or p.get("wait"), rng,
+                                      aside=p.get("aside"))
+                self.meta.setdefault("services", {})[k] = {"servers": n, "mode": mode, "service_s": services[k].service_s,
+                                                          "source": (c.get("service_s") or {}).get("source") if isinstance(c.get("service_s"), dict) else None}
+            elif kind == "room":
+                c = component_cfg(spec, "rooms", k)
+                rooms[k] = Room(k, p["xy"], p["inside"], c.get("capacity", p.get("capacity", 1)), c.get("stay_s"),
+                                "call" if c.get("call") else "door", c.get("wait") or p.get("wait"), rng)
+                self.meta.setdefault("rooms", {})[k] = {"capacity": rooms[k].capacity, "mode": rooms[k].mode, "stay_s": rooms[k].stay_s}
         sim = Sim(sp, fps, total, gates, cars, spots, lmax=float(spec["people"].get("lateral_max_m", 0.6)), on_arrival=on_arrival,
                   motion_model=spec["people"].get("motion_model", "cfsm"), cfsm=spec["people"].get("cfsm"),
                   elevator_policy=policy, speed_density=spec["people"].get("speed_density"), ev_timing=timing,
-                  group_lateral_m=spec["people"].get("group_lateral_m"))
+                  group_lateral_m=spec["people"].get("group_lateral_m"), services=services, rooms=rooms, seatsets=seatsets)
         for s in spec["streams"]:
             size_spec = s.get("group_size") or spec["people"].get("group_size")
             rate, note = resolve_rate(spec, s["rate"], size_spec)

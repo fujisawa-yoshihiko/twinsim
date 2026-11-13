@@ -16,7 +16,7 @@ The formats of the files written out by twinsim's computation and rendering. Int
 | Frame number offset | The MOT and AI City formats are 1-based (= simulator frame + 1). Frame k of the video = simulator frame `frames[0]` of `render_log.json` + k (identical when all frames are rendered) |
 | Person names | `P0001`… (reassigned for each run). The numeric IDs in MOT and AI City map to names via `mot/ids.json` (the same across cameras) |
 | Groups | Ground-truth groups are `G001`… (sets of people who walk together) |
-| Person box | The box obtained by projecting a box centered at the feet, with a radius of 0.25 m and the person's height (`height_m`). Not tight to the rendered person's outline but slightly larger (an IoU of 0.3 is a guideline for matching) |
+| Person box | The box obtained by projecting a box centered at the feet, with a radius of 0.25 m and the person's height (`height_m`); while seated (from 1.2) the height is 0.42 m + 0.53 × height. Not tight to the rendered person's outline but slightly larger (an IoU of 0.3 is a guideline for matching) |
 | Visibility | Approximate. Walls: 0 if the line on the floor from directly below the camera to the feet or head passes through non-walkable area for 1 m or more. People: the fraction overlapped by the boxes of people in front (8×16 points within the box). Rendering depth is not used |
 
 Cameras (`cameras[name]` in `ground_truth.json`) use the same representation as USD cameras: row vector `p_cam = [x, y, z, 1] · M` (`M` = `world_to_camera_rowmajor`, 4×4);
@@ -76,7 +76,8 @@ Contents of `people[name]`:
 | `group`, `role`, `relation` | Group name (`G001`; null if alone), `companion` if the person is a companion, the group's relation (from 1.2; same as in `groups`) |
 | `start_frame`, `arrive_frame`, `speed_m_s` | Frames at which the person appeared and disappeared, desired walking speed |
 | `states` | `[[start frame, end frame, state], …]` (states in the table below) |
-| `events` | In seconds. `start` and `end`, `gate_join` and `gate` (joined the queue, passed through), `hall`, `wait_start`, `car`, `board_start`, `board` (elevator), `stops` (intervals while stopped), `meet_start` and `meet_end`, `regroup` (intervals spent waiting for group members beyond a gate, `[[start, end], …]`, from 1.2), `spawn_wait_s` (seconds spent waiting outside because the entrance was blocked) |
+| `sit` | `[[start frame, end frame], …]`. Intervals while seated (from 1.2; only for people who sat) |
+| `events` | In seconds. `start` and `end`, `gate_join` and `gate` (joined the queue, passed through), `hall`, `wait_start`, `car`, `board_start`, `board` (elevator), `stops` (intervals while stopped), `meet_start` and `meet_end`, `regroup` (intervals spent waiting for group members beyond a gate, `[[start, end], …]`, from 1.2), `service` (per counter `{name, join, called, start, end, point}`: times of joining, being called, start and end of service, and the service point index; from 1.2), `room` (`{name, join, called, enter, exit}`, from 1.2), `seat` (`[[start of the seating step, end, place], …]`, from 1.2), `call` (times of being called, from 1.2), `spawn_wait_s` (seconds spent waiting outside because the entrance was blocked) |
 
 | State | Meaning |
 |---|---|
@@ -90,12 +91,17 @@ Contents of `people[name]`:
 | `sign_check` | Looking at a sign / signage |
 | `companion_wait` | Waiting for a companion |
 | `group_wait` | Having passed a gate first, waiting beyond it for the other group members (from 1.2) |
+| `service_queue` | Queuing at a counter, waiting in order of arrival, or waiting in front of a room door (from 1.2) |
+| `service` | Being served at a counter (from 1.2) |
+| `call_wait` | Waiting to be called (whether seated is in `sit` and `pose`; from 1.2) |
+| `seated` | Sitting at seating (from 1.2) |
+| `in_room` | Inside a room (not visible; `tracks` continue at a point inside the room, but the person is not in `frames.csv`, MOT or `tasks.json`; from 1.2) |
 | `work`, `wait` | Working / waiting in the warehouse (warehouse template) |
 
 ## 3. `frames.csv.gz`
 
-The first line holds the column names: `frame, t, person, x, y, yaw, moving, state, zone, group, type`.
-`t` is in seconds, `moving` is 0/1, `zone` is the zone at the person's feet (empty if none), and `group` is empty or `G…`.
+The first line holds the column names: `frame, t, person, x, y, yaw, moving, state, zone, group, type, pose`.
+`t` is in seconds, `moving` is 0/1, `zone` is the zone at the person's feet (empty if none), `group` is empty or `G…`, and `pose` is `walk`, `stand` or `sit` (from 1.2). Rows inside a room (state `in_room`) are not written (from 1.2).
 
 ## 4. Camera boxes
 

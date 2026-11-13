@@ -86,7 +86,7 @@ def test_output_formats_match_docs(tmp_path):
     run = tmp_path / "r"
     api.run("office_gate_ev", run, overrides={"duration_s": 30})
     with gzip.open(run / "frames.csv.gz", "rt") as fh:
-        assert next(csv.reader(fh)) == ["frame", "t", "person", "x", "y", "yaw", "moving", "state", "zone", "group", "type"]
+        assert next(csv.reader(fh)) == ["frame", "t", "person", "x", "y", "yaw", "moving", "state", "zone", "group", "type", "pose"]
     gt = json.loads((run / "ground_truth.json").read_text())
     assert {"fps", "total_frames", "seed", "space", "scenario", "people", "tracks", "moving", "cameras", "gate_events", "elevator_events",
             "gates", "zones"} <= set(gt)
