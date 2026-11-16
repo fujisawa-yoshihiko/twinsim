@@ -153,7 +153,7 @@ The causes were fixed one by one.
 
 - **Two lanes at doors:** walking to and from behind a door (`hidden`) used a single line, so while people kept entering, a person leaving could not get onto the line and was pushed into the corner.
   People entering keep the original line; people leaving use a line 0.6 m beside it (on the left of the outgoing direction, or the right if the left is a wall; `Space.door_lanes`). At the hospital lobby entrance the leaving lane is 0.6 m north;
-  at the office entrance 0.6 m east (west is a wall). Exit-only doors keep a single line. The portal area is centered between the two lanes. The earlier model (`lane`) keeps a single line.
+  at the office entrance 0.6 m east (west is a wall). Exit-only doors keep a single line (from 5.13, an exit that is also a stream origin gets two). The portal area is centered between the two lanes. The earlier model (`lane`) keeps a single line.
 - **Lateral limit for people walking behind a door:** a step beyond 0.35 m from the line used to be put back "0.35 m beside the closest point of the line", and on the inside of a corner of the path (elevator door → back of the car)
   that point coincided with the old position, so the step vanished (7 people stood still for 50 s in front of an office elevator door and got through only with the safety valve). Now only the part of the step that moves away from the line is removed.
 - **No lingering overlap:** with someone closer than a body width (0.36 m), the rule on the distance to the person ahead gives speed 0, so people could not move apart. They now walk away from those people at 0.3 m/s.
@@ -212,7 +212,7 @@ Motion (engine):
   and one member of a pair moved back and forth in front of a door corner for 12 s (this existed in the previous version too).
 - **Yielding at a merge:** if someone who has been unable to make progress longer than you (5 s or more) is close and diagonally ahead (within 1 m, 0.6 m to the side), you treat them as the person ahead, slow down, and let them in first.
   People at the corners in front of an opening could not cut into the central stream and passed through with the safety valve after 15 s (about 20 times per run in `verify_bottleneck`). People yield in order of how long they have been stuck.
-- **People who cannot progress ask standing people to step aside:** a walker who has made no progress for 3 s or more although nobody is directly ahead asks the people standing and waiting within 0.9 m on the goal side to step sideways
+- **People who cannot progress ask standing people to step aside:** a walker who has made no progress for 3 s or more although nobody is directly ahead asks the people standing and waiting within 0.9 m (1.2 m from 5.13) on the goal side to step sideways
   (before, only the person blocking straight ahead was asked; among the people waiting for an elevator, the push from those around changed direction every frame and one person could not progress for 28 s).
   People heading for a gate also use the safety valve when they are more than 2 m from the gate (not while waiting behind the queue).
 - **When re-planning a path, the part outside the walkable area is kept:** when a person boarding an elevator re-planned the path at a corner, the goal (inside the car) is outside the walkable area, so the new path ended in front of the door
@@ -585,6 +585,58 @@ and people waiting for a free table queue northwards from between tables 2 and 3
 boxes of sitting down and of seated people match the rendered bodies. The time clock is a notional place on the south wall: people stand in front of the wall to clock in, and
 one person queued behind. CamDock showed mostly empty floor and wall with small people, so it was moved closer and re-aimed (eye (-7, -14, 4.0), target (-19.5, -19.5, 0);
 a person at the time clock grows from about 75 to 100 pixels). CamAisles (an existing camera) has many people hidden behind shelves (the visible share is in MOT and `labels/`).
+
+### 5.13 Remaining movement fixes from 1.1: the boarding tail at elevators, shaking among waiting people, and the south exit (1.2, 2026-11-16 to 17)
+
+The three items left over from 1.1 (5.3–5.5) were investigated and fixed. The previous version (ad76383) was run 153 times (6 `verify_*` × seeds 0–8, the 3 elevator-lobby templates × seeds 1–16,
+the 27 runs of the corpus set A, and the 3 templates of 1.2 × seeds 1–8), and the positions where the safety valve was used, the time boarding people stood still and the states of people who shook were counted before fixing.
+
+- **Blocking at the south exit:** counting where the safety valve was used in the gate settings of corpus set A, most were beyond the door of the office south exit (y = −17 to −21, out of camera view).
+  The south exit is an exit (`kind: exit`), so the walk to and from beyond its door kept a single line (5.2), but the corpus settings and the templates (`office_gate_ev`, `office_lunch`) also make people appear there.
+  People appearing and people disappearing faced each other on the same line (the one stuck person in `A_office_gate_mid` seed 3 was also here). An exit that is also a stream origin (`origin`) now gets
+  two lines for people entering and leaving (people leaving 0.6 m to the east)
+- **Boarding tail (cause):** of the time of people who took more than 10 s to board, 27–37% was standing still while an alighting person of that car was within 1 m of the door (waiting in front of the door),
+  17–36% standing still otherwise, and 18–24% walking slowly. When they started to walk, two or more waiting people who were not boarding stood between them and the door (within 0.6 m of the line to the door)
+  for 29–43% of the slow people and 9–10% of the others. Waiting people who did not board kept standing on the way to the door, and boarding people went through them. Alighting people also stopped in balance with
+  people standing 1 m ahead (the pull towards the goal and the push away cancelled, and the rule of 5.5 slowed them), and boarding people waited in front of the door meanwhile (one boarding person stood 1.9 m from the door for 68 s).
+  Standing people only gave way when a walker had made no progress for 3 s and asked people within 0.9 m ahead; people at 1.0–1.1 m were not asked (the push is 0.62 at 1.0 m, and two people cancel the pull of 1 towards the goal)
+- **Fixes (boarding tail):**
+  1. People standing and waiting on the way to the door (1.5 m ahead, 0.5 m sideways) of a boarding person, or of an alighting person within 4 m of the door, step aside before being asked (`CLEAR_AHEAD_M`, `CLEAR_W_M`, `CLEAR_DOOR_M`)
+  2. The distance within which people who cannot progress ask standing people to step aside: 0.9 → 1.2 m (`NUDGE_ASK_M`)
+- **Shaking (causes and fixes):** people who shook were walking to their waiting spot (`ev_approach`), standing and waiting or boarding (`ev_wait`), or passing (`pass`). Going through the longest cases frame by frame:
+  - A person boarding the hospital elevator from beside the door (beside the box of the car) headed straight for the door, towards the corner of the box, balanced with the push from the wall and shook for 13 s.
+    People boarding from beside the door (less than 0.5 m out in front of it) now go through a point 0.6 m in front of the door first (`BOARD_FRONT_M`)
+  - A person who had stepped aside went back while the person who asked was still stopped 1.0–1.2 m away (they go back once walkers are more than 0.9 m away), was asked again, and stepped aside and back for 20 s.
+    They do not go back while the person who asked is still walking within the asking distance
+- **Spacing after stepping aside:** with fix 2 more people stepped aside, and in 2 runs in front of the hospital elevator the share of waiting people closer than 0.45 m rose 5 → 18%. Someone else stood where the person who had
+  stepped aside would go back, every step back brought them into body contact (70 s), and the rule to move apart from neighbors (5.4) did not apply to people with a spot to go back to. Now they do not go back if someone stands there,
+  and people who have not gone back also move apart from neighbors (not further than now from where they stood)
+- Tried and not used: an asking distance of 1.0 m (small effect), stepping aside only once for the same person (the one case of shaking went away, but the same pattern appeared elsewhere and total shaking was unchanged,
+  and people taking more than 10 s to board increased a little)
+
+Check ("before" is ad76383; records in `~/dt-data/twinsim/crowd_check/rest1/`, base and c5. Shaking per 1,000 person-seconds, overlap per 1,000 person-frames, safety valve per run):
+
+| Target | People taking more than 10 s to board | Boarding (top 10%, longest) | Safety valve | Overlap | Shaking | Waiting people below 0.45 m (runs that pass) |
+|---|---|---|---:|---:|---:|---|
+| `office_gate_ev` (16 runs) | 49 / 748 → 10 / 740 | 8.6, 34.4 → 6.6, 13.8 s | 0.94 → 0.38 | 0.065 → 0 | 3.8 → 3.5 | 0.3% → 0.5% (16 → 16) |
+| `office_ev_hall` (16 runs) | 154 / 857 → 63 / 854 | 16.2, 75.3 → 9.1, 33.4 | 1.38 → 0.50 | 0.049 → 0.007 | 4.3 → 4.0 | 1.1% → 0.5% (15 → 16) |
+| `hospital_gate_ev` (16 runs) | 67 / 532 → 11 / 565 | 12.7, 41.4 → 5.6, 26.9 | 3.81 → 0.31 | 0.156 → 0 | 5.2 → 3.9 | 1.4% → 0.9% (15 → 15) |
+| Corpus set A, office elevator lobby (9 runs) | 30 / 112 → 25 / 127 | 18.7, 40.1 → 12.3, 20.0 | 2.00 → 0.67 | 0.050 → 0.002 | 6.0 → 5.9 | 3.3% → 1.5% (7 → 9) |
+| Corpus set A, hospital elevator lobby (9 runs) | 4 / 79 → 2 / 79 | 7.4, 25.7 → 5.1, 11.8 | 2.33 → 0.22 | 0.074 → 0 | 7.7 → 5.1 | 1.6% → 1.9% (8 → 8) |
+| Corpus set A, gates (9 runs) | | | 4.22 → 0.78 | 0 → 0 | 7.1 → 6.2 | stuck people 1 → 0, pairs that pass 4 → 5 / 5 |
+| `office_lunch` (8 runs) | | | 8.25 → 1.00 | 0.095 → 0.003 | 3.5 → 2.4 | 0.3% → 0.2% (8 → 8) |
+| `hospital_outpatient`, `warehouse_shift` (8 runs each) | | | 1.25 → 1.12, 3.12 → 2.62 | 0.025 → 0.018, 0.033 → 0.011 | 0.3 → 0.2, 1.9 → 2.7 | |
+
+The 6 `verify_*` are the same except a small shift in the breakdown of shaking in `verify_gate_capacity` (no elevators, no people appearing at exits, no standing people to ask).
+The longest time an alighting person stayed within 1 m of the door went 20.0 → 9.5 s (`office_ev_hall`) and 17.1 → 3.3 s (`hospital_gate_ev`). The boarding interval, pairs, free walking speed and arrivals
+still pass in every template (boarding interval 0.91–0.96 s in the 3 elevator-lobby templates). No stuck people. 5 tests were added (all fail on the previous version), and the test of the two door lines now also covers exits.
+
+Remaining:
+- People taking more than 10 s to board remain at 7% in `office_ev_hall` and 20% in the office runs of corpus set A. 70% of their time is walking slowly through the crowd, and some still stop in balance inside a ring of
+  standing people 1.0–1.4 m away (the safety valve after 15 s)
+- Shaking is 2–6 per 1,000 person-seconds and did not drop much (people walking to their waiting spot and people passing through crowds; the two repeating patterns above were fixed). `warehouse_shift` 1.9 → 2.7
+  (people working at shelves now step aside)
+- The car a late boarding person gets into may already have left (car departure times are not modeled; the elevator doors stay open in the rendering)
 
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 

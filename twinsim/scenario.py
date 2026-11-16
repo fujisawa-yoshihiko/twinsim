@@ -502,8 +502,11 @@ class Builder:
 
     def door_lane(self, name):
         """扉の向こう（hidden）との行き来の線 → (入る人の (ずれ, 向き), 出る人の (ずれ, 向き))。どちらも shift に渡す。
-        2 本の線（space.door_lanes）は motion_model "cfsm" だけ。lane では 1 本のまま（前の結果と同じ）。"""
-        o_in, o_out, n = self.space.door_lanes(name)
+        2 本の線（space.door_lanes）は motion_model "cfsm" だけ。lane では 1 本のまま（前の結果と同じ）。
+        出口（kind exit）も、流れの出発地（origin）にしてあれば 2 本（現れる人と消える人が扉の向こうで正面からつかえた、office の南の出口、2026-11-16）。"""
+        kind = self.space.pois[name].get("kind")
+        two_way = kind != "exit" or any(s.get("origin") == name for s in self.spec["streams"])
+        o_in, o_out, n = self.space.door_lanes(name, two_way)
         if self.spec["people"].get("motion_model", "cfsm") != "cfsm":
             o_in = o_out = 0.0
         return (o_in, n), (o_out, n)

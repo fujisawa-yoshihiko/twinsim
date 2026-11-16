@@ -42,7 +42,11 @@ AISLE_M = (2.5, 1.2)  # EV の扉から外へ、この長さ・幅の通り道�
 ENTRY_CLEAR_M = 0.5  # 扉の向こうから入る人は、扉の点からこの距離の中に人がいれば外で待つ（m。1.0 m では入る人が 192 → 106 人に減った）
 MATE_SPAWN_M = 0.4  # グループの仲間が現れる点からこの距離（m）より近ければ、次の仲間は待つ（同じ点に重なって現れないように）
 LEAVE_LOOK_M = 5.0  # 入る人が出る人の線を使うのは、そこを出ていく人が扉の点からこの距離（m）の中にいないとき
-NUDGE_ASK_S, NUDGE_ASK_M = 3.0, 0.9  # この秒数進めずにいる歩く人は、行き先の向きの前側のこの距離（m）以内に立つ人に道をあけてもらう
+# この秒数進めずにいる歩く人は、行き先の向きの前側のこの距離（m）以内に立つ人に道をあけてもらう。距離は 0.9 → 1.2 m（1.2、2026-11-16。
+# 立つ人と 1.0〜1.1 m で釣り合って止まる人がいた。安全弁が EV の前で 1 回あたり 0.9〜3.8 → 0.2〜0.7、docs/validity.md の 5.13）
+NUDGE_ASK_S, NUDGE_ASK_M = 3.0, 1.2
+# EV に乗る人・降りた人の扉までの道（前 CLEAR_AHEAD_M・横 CLEAR_W_M の中）に立って待つ人は、進めなくなる前に横へよける。降りた人は扉から CLEAR_DOOR_M の中だけ
+CLEAR_AHEAD_M, CLEAR_W_M, CLEAR_DOOR_M = 1.5, 0.5, 4.0
 GROUP_STOP_WAIT_S = 60.0  # 止まる段取りを先に済ませた人が、仲間を待つ最長の秒数
 # グループの組み方（motion_model "cfsm"、1.2）。仲間はそれぞれ、先導の人（最初に現れた人）からの持ち場（横・前後）へ寄る
 # グループの周りの密度: 文献（Zanlungo ら 2015、0.5 m 角のセルの人数を 300 秒ならした値）に合わせ、0.5 m 角のセルの人数を FORM_RHO_TAU 秒の
@@ -71,6 +75,7 @@ DETOUR_MOVED_M = 0.3  # その 1 秒にこれ以上動いた人だけ、大回�
 DETOUR_M = 2.0  # 経路の残りの長さが行き先までの直線距離よりこれ以上長ければ、大回りの経路として残りの長さでも進み具合を見る（m）
 UNSTICK_S, SQUEEZE_S = 15.0, 2.0  # 安全弁: この秒数行き先に近づけなければ、この秒数だけ周りの人を無視して通り抜ける
 BOARD_LANE_M = (0.25, 0.35)  # EV に乗る 2 列の、扉とかごの中での真ん中からの横のずれ（m）
+BOARD_FRONT_M = 0.6  # 扉の横（扉の前へこれより出ていない所）から乗る人は、扉の前のこの距離の点を通ってから入る（m。0 で通らない）
 REROUTE_M = 1.5  # 歩く人が経路からこれより離れたら、今の位置から経路を引き直す（m）
 HOME_CLEAR_M = 0.9  # 道をあけた人は、歩く人がこれより離れたら元の立つ場所へ戻る
 SPACE_M, SPACE_M_S, SPACE_MAX_M = 0.45, 0.2, 0.4  # EV を待つ人は、知らない人と SPACE_M より近ければ、SPACE_M_S で離れる（立った所から SPACE_MAX_M まで）
@@ -195,6 +200,7 @@ class Agent:
         self.wait_glance, self.requeue = 0.0, False
         self.xy, self.no_walls = None, False  # 歩く人の位置（motion_model "cfsm"）、壁を見ない歩き（歩ける所の外との行き来）
         self.blocker, self.walk_state = None, None  # 前でふさいでいる人、列の後ろで止まる前の状態（motion_model "cfsm"）
+        self.nudge_by = None  # 道をあけるように頼んだ人（その人が近くで止まっている間は、元の場所へ戻らない）
         # 部品（components.py）: 今の部品の段取り、着いたら呼ぶ関数、段取りを終えるときに呼ぶ関数、放されるまで待つ、取った席、座っているか、座ったコマの区間
         self.comp, self.on_arrive, self.on_done, self.hold, self.seat, self.sitting, self.sit_spans = None, None, None, False, None, False, []
         # 決まった軌跡どおりに動く間（座る・立つ動作、components.play）、座る動作の途中で放されたときに座り終えてから呼ぶ関数
@@ -1299,7 +1305,7 @@ class Sim(ComponentsMixin):
         if v < 0.05 and b is not None and yields(b):  # 立っている人にふさがれたら、その人に横へよけてもらう
             side = np.array([-e[1], e[0]])
             sgn = 1.0 if float((self.where(b)[0] - p) @ side) >= 0 else -1.0
-            b.nudge = (side * sgn, self.t + 1.5)
+            b.nudge, b.nudge_by = (side * sgn, self.t + 1.5), a
         elif not lane and a.mode in ("walk", "to_spot", "board", "to_gate") and self.t - getattr(a, "best_t", self.t) >= NUDGE_ASK_S:
             # 前の人はいないのに進めない（周りの立って待つ人に押される向きが毎コマ変わる）: 行き先の向きの前側の近くに立つ人に、横へよけてもらう
             # （EV を待つ人たちのあいだで、降りた人が 28 秒進めなかった、2026-11-06）
@@ -1307,7 +1313,20 @@ class Sim(ComponentsMixin):
             for j in np.flatnonzero(near & ~mate & (d < NUDGE_ASK_M) & ((rel @ e0) > -0.1)):
                 b = active[j]
                 if yields(b) and not (getattr(b, "nudge", None) and self.t < b.nudge[1]):
-                    b.nudge = (side * (1.0 if float(rel[j] @ side) >= 0 else -1.0), self.t + 1.5)
+                    b.nudge, b.nudge_by = (side * (1.0 if float(rel[j] @ side) >= 0 else -1.0), self.t + 1.5), a
+        if self.cars and not squeeze and CLEAR_AHEAD_M > 0 and (a.mode == "board" or (a.mode == "walk" and a.info.get("stream") == "alight")):
+            # EV に乗る人・降りた人の扉までの道に立って待つ人は、先に横へよける（前は 3 秒進めずにいてから 0.9 m 以内の人に頼んだので、
+            # 乗らずに待つ人の中を扉まで歩く乗る人が 10 秒より長くかかった（8〜19%）。降りた人も、1 m 先に立つ人と釣り合って止まり、
+            # そのあいだ乗る人は扉の前で待った。docs/validity.md の 5.13、2026-11-16）
+            car = a.board_car if a.mode == "board" else next((c for c in self.cars if c.name == a.info.get("origin")), None)
+            if car is not None and (a.mode == "board" or math.hypot(p[0] - car.door[0], p[1] - car.door[1]) < CLEAR_DOOR_M):
+                side = np.array([-e0[1], e0[0]])
+                lat = rel @ side
+                for j in np.flatnonzero(near & ~mate & (d < CLEAR_AHEAD_M) & ((rel @ e0) > 0.1) & (np.abs(lat) < CLEAR_W_M)):
+                    b = active[j]
+                    if yields(b) and not (getattr(b, "nudge", None) and self.t < b.nudge[1]):
+                        sgn = (1.0 if lat[j] > 0 else -1.0) if abs(lat[j]) > 0.02 else tie_side(b.name)
+                        b.nudge, b.nudge_by = (side * sgn, self.t + 1.5), a
         step = e * v * dt
         p2 = p + step
         if not nw and not self._can_step(p, p2):  # 壁に当たる一歩は、壁に沿う向きだけにする
@@ -1406,7 +1425,15 @@ class Sim(ComponentsMixin):
                     n_in = float(np.hypot(*d_in))
                     side = np.array([-d_in[1], d_in[0]]) / n_in * getattr(a, "board_side", 0.0) if n_in > 1e-9 else np.zeros(2)
                     door, cabin = door + side * BOARD_LANE_M[0], cabin + side * BOARD_LANE_M[1]
-                pts = [tuple(p), tuple(door)] + ([tuple(cabin)] if car.depth_m > 0 else [])
+                pre = []
+                if self.model == "cfsm" and BOARD_FRONT_M > 0 and n_in > 1e-9:
+                    # 扉の横から乗る人は、扉の前の点を通る（かごの箱の横の角へまっすぐ向かい、壁から離れる向きと釣り合って
+                    # その場で揺れた。hospital_gate_ev の EV の扉の脇、2026-11-16）
+                    u_in = d_in / n_in
+                    front = door - u_in * BOARD_FRONT_M
+                    if float((door - p) @ u_in) < BOARD_FRONT_M - 0.1 and float(np.hypot(*(p - front))) > 0.2:
+                        pre = [tuple(front)]
+                pts = [tuple(p)] + pre + [tuple(door)] + ([tuple(cabin)] if car.depth_m > 0 else [])
                 a.path, a.s, a.l, a.mode, a.state, a.taper = Path(pts), 0.0, 0.0, "board", "ev_wait", True
                 a.no_walls = True  # 扉の向こう（かごの中）は歩ける所の外
                 a.events["board_start"] = round(t, 2)
@@ -1447,11 +1474,23 @@ class Sim(ComponentsMixin):
                     h = a.nudge_home
                     dh = h - p
                     n = float(np.hypot(*dh))
-                    if n < 0.03:
+                    me = idx[id(a)]
+                    # 戻る所に、ほかの立つ人（仲間でない）が SPACE_M より近く立っていれば、戻らずにここで待つ（戻る一歩のたびに体が触れ、
+                    # 混んだ待つ場所の端で 2 人が触れたまま 70 秒立った。hospital_gate_ev の種 10、2026-11-16）
+                    taken = any(j != me and active[j].mode in ("wait", "board_wait", "stop", "meet")
+                                and not (a.group is not None and active[j].group == a.group)
+                                and float(np.hypot(*(XY[j] - h))) < SPACE_M for j in range(len(XY)))
+                    if n < 0.03 or taken:
                         a.nudge_home = None
                     else:
                         movers = [b for b in active if b is not a and b.mode in ("walk", "to_spot", "board", "to_gate")]
                         busy = movers and min(float(np.hypot(*(P[id(b)][0] - h))) for b in movers) < HOME_CLEAR_M
+                        # 頼んだ人がまだ近く（道をあけてもらう距離の中）で歩く途中なら戻らない（戻るとまた頼まれ、よける・戻るを 20 秒くり返した。
+                        # 戻るのは歩く人が HOME_CLEAR_M より離れたとき、頼むのは NUDGE_ASK_M の中、office_ev_hall の種 13、2026-11-17）
+                        asker = getattr(a, "nudge_by", None)
+                        if (not busy and asker is not None and id(asker) in P and asker.mode in ("walk", "to_spot", "board", "to_gate")
+                                and float(np.hypot(*(P[id(asker)][0] - h))) < max(NUDGE_ASK_M, CLEAR_AHEAD_M) + 0.2):
+                            busy = True
                         if not busy:
                             q = p + dh / n * min(n, NUDGE_M_S * dt)
                             others = XY[np.arange(len(XY)) != idx[id(a)]]
@@ -1459,9 +1498,12 @@ class Sim(ComponentsMixin):
                             if self._can_step(p, q) and not ((dq < 2 * self.C["radius"]) & (dq < dp)).any():
                                 self.here[a.name] = q
                                 a.xy, p, nudged = q.copy(), q, True
-                if self.model == "cfsm" and not nudged and a.mode == "wait" and getattr(a, "nudge_home", None) is None and len(XY) > 1:
+                if (self.model == "cfsm" and not nudged and a.mode == "wait" and not (getattr(a, "nudge", None) and t < a.nudge[1])
+                        and len(XY) > 1):
                     # EV を待つ人は、隣の知らない立つ人と SPACE_M より近ければ、空いていれば少し離れる（前へ詰めたあと・自分の場所まで行けず途中で
-                    # 立ったあとに、隣の人と体が触れたまま立っていた。hospital の EV 前 mid の v4 で、待つ人の 17% が 0.45 m 未満、2026-11-07）
+                    # 立ったあとに、隣の人と体が触れたまま立っていた。hospital の EV 前 mid の v4 で、待つ人の 17% が 0.45 m 未満、2026-11-07）。
+                    # 道をあけたあと元の場所へ戻れずにいる人も（前は戻る所がある人は離れず、混んだ待つ場所の端で道をあけた 2 人が触れたまま
+                    # 50〜70 秒立った。hospital_gate_ev の種 10、2026-11-16）。立った所（戻る所）からは、今より遠くへは離れない
                     me = idx[id(a)]
                     rel_s = XY - p
                     d_s = np.hypot(*rel_s.T)
@@ -1470,12 +1512,12 @@ class Sim(ComponentsMixin):
                     if k:
                         away = -(rel_s[k] / d_s[k, None] * (SPACE_M - d_s[k])[:, None]).sum(0)
                         na = float(np.hypot(*away))
-                        home = getattr(a, "stand_xy", p)
+                        home = a.nudge_home if getattr(a, "nudge_home", None) is not None else getattr(a, "stand_xy", p)
                         if na > 1e-9:
                             q = p + away / na * SPACE_M_S * dt
                             others = np.delete(XY, me, axis=0)
                             dq, dp = np.hypot(*(others - q).T), np.hypot(*(others - p).T)
-                            if (self._can_step(p, q) and float(np.hypot(*(q - home))) <= SPACE_MAX_M
+                            if (self._can_step(p, q) and float(np.hypot(*(q - home))) <= max(SPACE_MAX_M, float(np.hypot(*(p - home))) + 1e-9)
                                     and not ((dq < SPACE_M) & (dq < dp - 1e-9)).any()):
                                 self.here[a.name] = q
                                 a.xy, p, nudged = q.copy(), q, True

@@ -32,7 +32,12 @@
   移動 50%）に合わせた。直し: 列へ歩く間の状態を pass に（前は service_queue。動きは変わらない）、tasks.json の 3_dwell に行き先の state の名前（work・wait）が入っていなかった。
   docs/validity.md の 5.12。16 回の比べは ~/dt-data/twinsim/crowd_check/warehouse1/（w2、scripts/wh_stats.py・table.py）。
   描画も確かめた（GPU 3、warehouse1/review/。梱包の台は素材のままの大きさ、CamDock は近づけて向けなおした）
-- 次: 3 残りの直し → 4 空間を多角形・dict から → 1.1 との比べとリリースノート。
+- 済み（11/17）: 1.1 から残っていた動きの直し（docs/validity.md の 5.13）。南の出口: 出口も流れの出発地なら 2 本の線（Space.door_lanes の two_way）。
+  乗るまでの裾: 乗る人・降りた人の扉までの道に立つ人が先によける（CLEAR_*）、道をあけてもらう距離 0.9 → 1.2 m（NUDGE_ASK_M）。揺れ: 扉の横から乗る人は扉の前の点を通る
+  （BOARD_FRONT_M）、頼んだ人が近くにいる間は戻らない（nudge_by）。道をあけたあとの近さ: 戻る所がふさがれたら戻らない・戻る前も隣と離れる。
+  比べは ~/dt-data/twinsim/crowd_check/rest1/（base と c5、README.md・scripts/）。乗るまで 10 秒より長い人は office_ev_hall 18 → 7%、hospital_gate_ev 13 → 2%、
+  安全弁は EV の前・昼で 1 回 1〜8 → 0.3〜1.0。残り: 素材の A 組の office の EV の前で 20%、揺れ 2〜6 / 1,000 人・秒、warehouse_shift の揺れ 1.9 → 2.7
+- 次: 4 空間を多角形・dict から → 1.1 との比べとリリースノート。
   描画の残り: ロビーの南の窓ぎわの長椅子のまわりの重なり、カフェのカウンターに店員・機械がない、描画の注釈（labels）で座る人の枠を確かめる（注釈は描画の約 3 倍の時間）
 
 ## 2026-11-12（1.1 の準備、ブランチ crowd-cfsm）

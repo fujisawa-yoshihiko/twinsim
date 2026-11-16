@@ -13,7 +13,7 @@ Decided (2026-11-12):
 - Non-human movers (wheelchairs, AGVs and others) go into 1.3 or later
 - Groups are checked over the density range measured in the literature, 0–0.3 people/m² (table below). Denser places are not judged; their values are only reported
 
-Progress: 1 groups is done (2026-11-12, [validity.en.md, section 5.8](validity.en.md#58-group-formation-12-2026-11-12)). 2 components: counters, calling, seating, rooms and the hospital outpatient template are done (2026-11-13, [5.9](validity.en.md#59-components-that-are-the-purpose-of-a-trip-12-2026-11-13)). Rendering (sitting, benches, consultation-room doors, people inside rooms) is done (2026-11-16, [5.10](validity.en.md#510-checking-the-rendering-sitting-benches-consultation-room-doors-and-people-inside-rooms-12-2026-11-16); people being served drifting from the reception desk was fixed in [5.11](validity.en.md#511-routes-avoiding-the-front-of-counters-office-lunchtime-coffee-counter-and-folds-when-members-join-the-leaders-route-12-2026-11-16)). Office lunchtime (coffee counter queue, sofas) is done (2026-11-16, 5.11). Warehouse shift start (time clock queue, packing tables as work points with a queue, going round shelves in number order, break benches) is done (2026-11-16, [5.12](validity.en.md#512-warehouse-shift-start-work-points-with-a-capacity-and-a-queue-and-the-state-while-walking-to-a-queue-12-2026-11-16); also checked by rendering).
+Progress: 1 groups is done (2026-11-12, [validity.en.md, section 5.8](validity.en.md#58-group-formation-12-2026-11-12)). 2 components: counters, calling, seating, rooms and the hospital outpatient template are done (2026-11-13, [5.9](validity.en.md#59-components-that-are-the-purpose-of-a-trip-12-2026-11-13)). Rendering (sitting, benches, consultation-room doors, people inside rooms) is done (2026-11-16, [5.10](validity.en.md#510-checking-the-rendering-sitting-benches-consultation-room-doors-and-people-inside-rooms-12-2026-11-16); people being served drifting from the reception desk was fixed in [5.11](validity.en.md#511-routes-avoiding-the-front-of-counters-office-lunchtime-coffee-counter-and-folds-when-members-join-the-leaders-route-12-2026-11-16)). Office lunchtime (coffee counter queue, sofas) is done (2026-11-16, 5.11). Warehouse shift start (time clock queue, packing tables as work points with a queue, going round shelves in number order, break benches) is done (2026-11-16, [5.12](validity.en.md#512-warehouse-shift-start-work-points-with-a-capacity-and-a-queue-and-the-state-while-walking-to-a-queue-12-2026-11-16); also checked by rendering). 3 the remaining movement fixes are done (2026-11-17, [5.13](validity.en.md#513-remaining-movement-fixes-from-11-the-boarding-tail-at-elevators-shaking-among-waiting-people-and-the-south-exit-12-2026-11-16-to-17); the boarding tail and shaking went down but remain).
 
 Order of work: 1 groups → 2 components → 3 remaining movement fixes → 4 making spaces → rendering (seated people, chairs, counters) → comparison with 1.1 and release notes.
 The work is on branch `crowd-1.2`.
@@ -88,9 +88,9 @@ What to build (1.2):
 ### 3. Remaining movement fixes from 1.1
 
 - Done (branch `crowd-1.2`): the step that puts people back near the line in front of a door jumped up to about 1 m
-- In front of a crowded elevator, people taking more than 10 s to board (8–16%)
-- A little shaking in place inside a crowd of waiting people
-- In front of the office gates with many people, people appearing at and leaving through the south exit block each other head-on
+- Done (2026-11-17, docs/validity.en.md 5.13): in front of a crowded elevator, people taking more than 10 s to board (`office_ev_hall` 18 → 7%, `hospital_gate_ev` 13 → 2%; 20% remain in the office runs of corpus set A)
+- Done (same): a little shaking in place inside a crowd of waiting people (two repeating patterns fixed; 2–6 per 1,000 person-seconds remain)
+- Done (same): in front of the office gates with many people, people appearing at and leaving through the south exit block each other head-on (an exit that is also an origin gets two lines; safety valve 4.2 → 0.8 per run)
 
 ### 4. Making spaces
 

@@ -83,6 +83,7 @@ def test_door_has_separate_lane_for_people_leaving():
     office = load_space("office")
     assert office.door_lanes("entrance")[:2] == (0.0, -0.6)  # 出る向き（北）の左（西）は壁なので右
     assert office.door_lanes("south_exit")[:2] == (0.0, 0.0)  # 出口だけの扉は 1 本
+    assert office.door_lanes("south_exit", True)[:2] == (0.0, 0.6)  # 両向きに通るなら 2 本（出る向き（南）の左 = 東）
     steps = Builder(load_scenario({"space": "hospital"})).plan_for("lobby_entrance")
     assert steps[0][0] == "walk" and abs(steps[0][1][1] - (-0.4)) < 1e-9 and steps[1] == ("straight", (11.8, -0.4), "pass")
     lane = Builder(load_scenario({"space": "hospital", "people": {"motion_model": "lane"}})).plan_for("lobby_entrance")
@@ -377,3 +378,110 @@ def test_boarding_people_do_not_jump_back_to_the_door_line(tmp_path):
     gt = r.ground_truth()
     worst = max(float(np.hypot(*np.diff(np.array(tr, float)[:, :2], axis=0).T).max()) for tr in gt["tracks"].values() if len(tr) > 1)
     assert worst <= 0.15, worst
+
+
+def test_exit_used_as_origin_has_two_lanes():
+    """出口（kind exit）も、流れの出発地にしてあれば入る人と出る人の 2 本の線（1 本のままだと、office の南の出口の扉の向こうで、
+    現れる人と消える人が正面でつかえ、安全弁で抜けた。素材の A 組のゲート前の混む設定で安全弁の多く、2026-11-16）。"""
+    from twinsim.scenario import Builder, load_scenario
+    out_only = Builder(load_scenario({"space": "office"}))
+    assert out_only.door_lane("south_exit")[0][0] == out_only.door_lane("south_exit")[1][0] == 0.0
+    both = Builder(load_scenario({"space": "office", "streams": [
+        {"origin": "south_exit", "rate": {"type": "constant", "per_min": 5}, "destinations": [{"to": "entrance"}]}]}))
+    (o_in, n), (o_out, _) = both.door_lane("south_exit")
+    assert o_in == 0.0 and abs(o_out - 0.6) < 1e-9 and n[0] > 0.99
+    steps = both.plan_for("south_exit")  # 出ていく人は東の線を歩いて消える
+    assert steps[-2] == ("straight", (-9.9, -20.0), "pass")
+
+
+def _office_ev():
+    from twinsim.scenario import build, load_scenario
+    sim, _ = build(load_scenario({**twinsim.template("office_gate_ev"), "streams": []}))
+    return sim, next(c for c in sim.cars if c.name == "EV2")
+
+
+def test_waiting_people_on_boarders_way_step_aside_early():
+    """EV に乗る人の扉までの道（前 1.5 m・横 0.5 m）に立って待つ人は、乗る人が進めなくなる前に横へよける。道から外れた人はよけない
+    （前は 3 秒進めずにいてから 0.9 m 以内の人に頼んだので、乗らずに待つ人の中を扉まで歩く人の 8〜19% が乗るまで 10 秒より長くかかった、2026-11-16）。"""
+    from twinsim.engine import Path as EPath
+    sim, car = _office_ev()
+    board = Agent("P0001", [("exit",)], 0.0, 1.3, 0.0, info={"origin_xy": (-11.5, -1.5)})
+    on_way = Agent("P0002", [("stop", 60.0, None, "dwell", 0.0)], 0.0, 1.3, 0.0, info={"origin_xy": (-12.5, -1.4)})
+    aside = Agent("P0003", [("stop", 60.0, None, "dwell", 0.0)], 0.0, 1.3, 0.0, info={"origin_xy": (-12.5, -0.4)})
+    for a in (board, on_way, aside):
+        sim.add(a)
+        sim.next_step(a, 0.0, a.info["origin_xy"])
+        a.events["start"] = 0.0
+    for a in (on_way, aside):
+        a.mode = "wait"
+        sim.stand(a, 0.0, sim.here[a.name], "ev_wait")
+    board.path = EPath([(-11.5, -1.5), car.door, car.cabin])
+    board.s, board.l, board.mode, board.state, board.taper, board.no_walls, board.board_car, board.k = 0.0, 0.0, "board", "ev_wait", True, True, car, 0
+    board.xy = np.array([-11.5, -1.5])
+    sim.here[board.name] = board.xy.copy()
+    sim.t = 0.0
+    sim.step_agents(0, 0.0)
+    assert getattr(on_way, "nudge", None) is not None and on_way.nudge[0][1] > 0.9  # 道の左（北）にずれているので北へ
+    assert getattr(aside, "nudge", None) is None
+    _run_frames(sim, sim.dt, 1, 4.0)
+    assert board.mode == "done"  # 4 秒のうちに乗る（3.2 m）
+
+
+def test_boarder_beside_door_goes_via_front_of_door():
+    """扉の横（かごの箱の横）から乗る人は、扉の前 0.6 m の点を通ってから入る（扉へまっすぐ向かうと、箱の角へ向かって壁から離れる向きと釣り合い、
+    その場で揺れた。hospital_gate_ev の EV の扉の脇、2026-11-16）。扉の前から乗る人は通らない。"""
+    from twinsim.scenario import build, load_scenario
+    sim, _ = build(load_scenario({**twinsim.template("hospital_gate_ev"), "streams": []}))
+    car = sim.cars[0]
+    side = Agent("P0001", [("exit",)], 0.0, 1.3, 0.0, info={"origin_xy": (-27.05, 13.45)})
+    front = Agent("P0002", [("exit",)], 0.0, 1.3, 0.0, info={"origin_xy": (-28.5, 11.0)})
+    for a, k in ((side, 0), (front, 1)):
+        sim.add(a)
+        a.events["start"] = 0.0
+        sim.here[a.name] = np.array(a.info["origin_xy"], float)
+        a.xy = sim.here[a.name].copy()
+        a.mode, a.until, a.board_car, a.board_side, a.spot, a.state = "board_wait", 0.0, car, (1.0, -1.0)[k], None, "ev_wait"
+        a.plan, a.k = [("exit",)], 0
+    sim.t = 0.0
+    sim.step_agents(0, 0.0)
+    ys = side.path.p[:, 1]
+    assert side.mode == "board" and ys.min() < 12.7  # 扉（y = 13.2）の前 0.6 m まで出てから入る
+    assert front.mode == "board" and np.all(np.diff(front.path.p[:, 1]) >= -1e-9)  # 扉の前からはまっすぐ（北へ進むだけ）
+    _run_frames(sim, sim.dt, 1, 6.0)
+    assert side.mode == "done"
+
+
+def test_waiter_who_stepped_aside_moves_apart_when_home_is_taken():
+    """道をあけた EV を待つ人は、戻る所にほかの人が立っていれば戻らず、隣の人と 0.45 m まで離れる（前は戻る所がある人は離れず、戻る一歩のたびに
+    体が触れ、混んだ待つ場所の端で 2 人が触れたまま 70 秒立った。hospital_gate_ev の種 10、2026-11-16）。"""
+    sim = Sim(load_space("corridor"), 30, 30 * 20)
+    people = [Agent(f"P000{k + 1}", [("stop", 60.0, None, "dwell", 0.0)], 0.0, 1.3, 0.0, info={"origin_xy": (20.0, 0.36 * k)}) for k in range(2)]
+    for a in people:
+        sim.add(a)
+        sim.next_step(a, 0.0, a.info["origin_xy"])
+        a.events["start"] = 0.0
+    people[0].mode = "wait"  # 2 人目は止まる所に立つ人（自分からは離れない）
+    sim.stand(people[0], 0.0, sim.here["P0001"], "ev_wait")
+    people[0].nudge_home = np.array([20.0, 0.3])  # 道をあける前に立っていた所（今は 2 人目が立っている）
+    _run_frames(sim, 0.0, 0, 2.0)
+    d = float(np.hypot(*(sim.here["P0001"] - sim.here["P0002"])))
+    assert people[0].nudge_home is None and d >= 0.449
+
+
+def test_person_who_stepped_aside_waits_while_asker_is_near():
+    """道をあけた人は、頼んだ歩く人がまだ道をあけてもらう距離の中にいる間は、元の場所へ戻らない（戻るのは歩く人が 0.9 m より離れたとき、
+    頼むのは 1.2 m の中なので、1.0〜1.2 m で止まった人に頼まれるたびに、よける・戻るを 20 秒くり返した。office_ev_hall の種 13、2026-11-17）。"""
+    sim = Sim(load_space("corridor"), 30, 30 * 20)
+    stand = Agent("P0001", [("stop", 60.0, None, "dwell", 0.0)], 0.0, 1.3, 0.0, info={"origin_xy": (20.5, 0.85)})
+    walk = Agent("P0002", [("walk", (40.0, 0.0), "pass")], 0.0, 1.3, 0.0, info={"origin_xy": (19.4, 0.0)})
+    for a in (stand, walk):
+        sim.add(a)
+        sim.next_step(a, 0.0, a.info["origin_xy"])
+        a.events["start"] = 0.0
+    walk.xy = np.array([19.4, 0.0])
+    sim.here[walk.name] = walk.xy.copy()
+    stand.nudge_home, stand.nudge_by = np.array([20.5, 0.55]), walk  # 北へ 0.3 m よけたところ。頼んだ人は戻る所から 1.2 m
+    p0 = sim.here[stand.name].copy()
+    sim.t = 0.0
+    sim.step_agents(0, 0.0)
+    assert float(np.hypot(*(sim.here[stand.name] - p0))) < 1e-9
