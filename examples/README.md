@@ -26,6 +26,7 @@ uv run python examples/06_detection_dataset.py
 | [05_frames_with_boxes.py](05_frames_with_boxes.py) | 動画のコマを取り出し、正解の枠を重ねて画像にする | なし | 数秒 |
 | [06_detection_dataset.py](06_detection_dataset.py) | 動画と正解ラベルから、物体検出の学習データ（YOLO の形）を作る | なし | 数秒 |
 | [07_move_origin_and_camera.py](07_move_origin_and_camera.py) | 人の現れる場所を座標で変える、カメラを動かす・足す | なし | 数秒 |
+| [08_space_from_polygons.py](08_space_from_polygons.py) | 自分の空間を多角形（外形と穴）で書き、Python で組み立てて渡す。平面図で確かめる（1.2 から） | なし | 10 秒ほど |
 
 ## コマの番号
 

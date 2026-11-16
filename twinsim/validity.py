@@ -470,7 +470,7 @@ def group_formation(run, members):
     知らない人が、仲間（歩く、LINK_M より近い）を結ぶ線の内側を横切った回数も数える（参考）。"""
     dens = cell_density(run)
     try:
-        space = load_space(run.gt["space"])
+        space = load_space(run.spec.get("space", run.gt["space"]))  # 設定に書いた空間（dict・ファイルの場所でも読める）
     except (FileNotFoundError, KeyError, ValueError):
         space = None
     fps, h = run.fps, run.fps // 2
@@ -879,7 +879,7 @@ def _md_input(ir):
         tail = f"、うち終わりまで外で待った {a['outside_at_end']} 人）" if a.get("outside_at_end") else "）"
         calc = f"{a['observed_per_min']} 人/分（{a['persons']} 人" + tail
         if "expected_per_min" in a:
-            rows.append(_row(f"到着 {s}", calc, f"{a['expected_per_min']} 人/分（{a['source']}、z = {a['z']}）", a["verdict"]))
+            rows.append(_row(f"到着 {s}", calc, f"{a['expected_per_min']} 人/分（{a['source'] or '設定の値'}、z = {a['z']}）", a["verdict"]))
         else:
             rows.append(_row(f"到着 {s}", calc, "シナリオの値（仮）", "-"))
     lm = ir["lift_mix"]

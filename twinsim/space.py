@@ -1,11 +1,13 @@
 """空間（space pack）: USD のシーン 1 つ分の、歩ける所の地図・意味の地図（ゾーン・入口・ゲート・EV の扉など）・経路。Isaac Sim なしで動く。
 
-空間は spaces/<名前>/space.yaml で定義する（形式は docs/spec.md）。歩ける所の地図は Isaac Sim のナビメッシュから作った格子
-（isaac/export_space.py。0.5 m か 0.25 m 刻み）。経路は格子の上の A*（壁から離れるほど安い）を、見通しで間引いた折れ線。
+空間は spaces/<名前>/space.yaml で定義する（形式は docs/spec.md）。設定の space に空間そのもの（dict）や、空間を書いた YAML・JSON の
+ファイルを渡してもよい（load_space）。歩ける所の地図は、Isaac Sim のナビメッシュから作った格子（isaac/export_space.py。0.5 m か
+0.25 m 刻み）か、多角形（外形と穴）から作る格子（rasterize、1.2）。経路は格子の上の A*（壁から離れるほど安い）を、見通しで間引いた折れ線。
 """
 
 import heapq
 import math
+import re
 from pathlib import Path
 
 import numpy as np
@@ -46,12 +48,132 @@ def load_ascii_grid(path):
     return grid, meta["x0"], meta["y0"], meta["res"]
 
 
+# ---- 多角形から格子を作る（1.2） ----
+RES_RANGE = (0.05, 1.0)  # 多角形から作る格子の刻み（m）の範囲。既定は 0.25（付属の空間と同じ。人の半径ほど）
+MAX_CELLS = 4_000_000    # 格子のマスの数の上限（500 m 四方を 0.25 m 刻みで。壁からの距離と経路の計算が重くなりすぎないように）
+WALK_KEYS = ("res", "outline", "holes", "note")
+
+
+def _num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def _is_xy_list(v):
+    return isinstance(v, (list, tuple)) and len(v) > 0 and all(
+        isinstance(q, (list, tuple)) and len(q) == 2 and all(_num(c) for c in q) for q in v)
+
+
+def _shape(s, where):
+    """形 1 つ（点の一覧、{polygon}・{rect}・{circle}。note を足してよい）→ (種類, 値)。誤りは ValueError。"""
+    if isinstance(s, dict):
+        keys = [k for k in ("polygon", "rect", "circle") if k in s]
+        if len(keys) != 1 or set(s) - {"polygon", "rect", "circle", "note"}:
+            raise ValueError(f"{where}: 形は点の一覧か、{{polygon: 点の一覧}}・{{rect: [x0, y0, x1, y1]}}・{{circle: [x, y, 半径]}} のどれか 1 つ"
+                             f"（今のキーは {sorted(s)}）")
+        kind, v = keys[0], s[keys[0]]
+    else:
+        kind, v = "polygon", s
+    if kind == "polygon":
+        if not _is_xy_list(v) or len(v) < 3:
+            raise ValueError(f"{where}: 多角形は 3 点以上の [x, y] の一覧（今は {v!r:.80}）")
+        return kind, [(float(q[0]), float(q[1])) for q in v]
+    if kind == "rect":
+        if not (isinstance(v, (list, tuple)) and len(v) == 4 and all(_num(c) for c in v) and v[0] < v[2] and v[1] < v[3]):
+            raise ValueError(f"{where}: rect は [x0, y0, x1, y1]（x0 < x1、y0 < y1。今は {v!r:.80}）")
+        return kind, tuple(map(float, v))
+    if not (isinstance(v, (list, tuple)) and len(v) == 3 and all(_num(c) for c in v) and v[2] > 0):
+        raise ValueError(f"{where}: circle は [x, y, 半径]（半径は正。今は {v!r:.80}）")
+    return kind, tuple(map(float, v))
+
+
+def _bbox(kind, v):
+    if kind == "polygon":
+        xs, ys = [q[0] for q in v], [q[1] for q in v]
+        return min(xs), min(ys), max(xs), max(ys)
+    if kind == "rect":
+        return v
+    x, y, r = v
+    return x - r, y - r, x + r, y + r
+
+
+def _shape_mask(kind, v, X, Y):
+    """格子の点（X: [nx]、Y: [ny]）のうち形の中にあるもの [ny, nx]。多角形は point_in_poly と同じ数え方（辺の上の点の扱いも同じ）。"""
+    XX, YY = np.meshgrid(X, Y)
+    if kind == "rect":
+        x0, y0, x1, y1 = v
+        return (XX >= x0) & (XX <= x1) & (YY >= y0) & (YY <= y1)
+    if kind == "circle":
+        x, y, r = v
+        return (XX - x) ** 2 + (YY - y) ** 2 <= r * r
+    inside = np.zeros(XX.shape, bool)
+    for i in range(len(v)):
+        (x1, y1), (x2, y2) = v[i], v[(i + 1) % len(v)]
+        if y1 == y2:
+            continue
+        cross = (y1 > YY) != (y2 > YY)
+        inside ^= cross & (XX < (x2 - x1) * (YY - y1) / (y2 - y1) + x1)
+    return inside
+
+
+def rasterize(walk, where="walkable"):
+    """歩ける所の多角形 {res, outline, holes} → (歩けるか [ny, nx]（行 0 = y0）, x0, y0, res)。
+    outline は外形（形 1 つか形の一覧。重なってよく、合わせた所が歩ける）、holes は穴（柱・壁・机など、歩けない所）。形は点の一覧
+    （多角形）か {polygon}・{rect: [x0, y0, x1, y1]}・{circle: [x, y, 半径]}。
+    マスの中心を res の半分ずらした所（(k + 0.5) res）に置き、中心が外形のどれかの中にあって、穴のどれの中にもないマスを歩けるとする
+    （res の倍数の座標で書いた長方形は、マスの数 × res² がそのまま面積になる）。外形のまわりに歩けないマスを 1 列ずつ足す。
+    格子の点を 1 つも含まない形（res より細い壁など）は、黙って消えないように誤りにする。"""
+    if not isinstance(walk, dict):
+        raise ValueError(f"{where}: 多角形の歩ける所は {{res, outline, holes}} の形（今は {walk!r:.80}）")
+    extra = sorted(set(walk) - set(WALK_KEYS))
+    if extra:
+        raise ValueError(f"{where}: 知らないキー {', '.join(extra)}（使えるのは {', '.join(WALK_KEYS)}）")
+    res = walk.get("res", 0.25)
+    if not _num(res) or not RES_RANGE[0] <= res <= RES_RANGE[1]:
+        raise ValueError(f"{where}.res は {RES_RANGE[0]}〜{RES_RANGE[1]} m（今は {res!r}。付属の空間は 0.25 か 0.5）")
+    res = float(res)
+    outline = walk.get("outline")
+    if isinstance(outline, dict) or _is_xy_list(outline):
+        outline = [outline]  # 形 1 つ
+    if not isinstance(outline, (list, tuple)) or not outline:
+        raise ValueError(f"{where}.outline（外形の多角形）がない")
+    holes = walk.get("holes") or []
+    if not isinstance(holes, (list, tuple)):
+        raise ValueError(f"{where}.holes は形の一覧（今は {holes!r:.80}）")
+    outs = [(f"{where}.outline[{i}]", *_shape(s, f"{where}.outline[{i}]")) for i, s in enumerate(outline)]
+    hols = [(f"{where}.holes[{i}]", *_shape(s, f"{where}.holes[{i}]")) for i, s in enumerate(holes)]
+    bb = np.array([_bbox(k, v) for _w, k, v in outs])
+    x0 = (math.floor(bb[:, 0].min() / res + 1e-9) - 0.5) * res
+    y0 = (math.floor(bb[:, 1].min() / res + 1e-9) - 0.5) * res
+    nx = int(math.floor((bb[:, 2].max() - x0) / res)) + 2
+    ny = int(math.floor((bb[:, 3].max() - y0) / res)) + 2
+    if nx * ny > MAX_CELLS:
+        raise ValueError(f"{where}: 格子が大きすぎる（{nx} × {ny} マス、上限 {MAX_CELLS:,}）。res を大きくするか、外形を小さくする")
+    grid = np.zeros((ny, nx), bool)
+    for wh, kind, v, is_hole in [(*o, False) for o in outs] + [(*h, True) for h in hols]:
+        bx0, by0, bx1, by1 = _bbox(kind, v)
+        j0, j1 = max(0, int(math.floor((bx0 - x0) / res))), min(nx, int(math.ceil((bx1 - x0) / res)) + 1)
+        i0, i1 = max(0, int(math.floor((by0 - y0) / res))), min(ny, int(math.ceil((by1 - y0) / res)) + 1)
+        m = _shape_mask(kind, v, x0 + np.arange(j0, j1) * res, y0 + np.arange(i0, i1) * res) if j0 < j1 and i0 < i1 else np.zeros((0, 0), bool)
+        if not m.any():
+            raise ValueError(f"{wh} が格子の点（{res} m おき）を 1 つも含まない。細すぎる形は消えてしまうので、"
+                             f"太くするか res を小さくする")
+        if is_hole:
+            grid[i0:i1, j0:j1] &= ~m
+        else:
+            grid[i0:i1, j0:j1] |= m
+    if not grid.any():
+        raise ValueError(f"{where}: 歩けるマスがない（穴が外形を覆っている）")
+    return grid, x0, y0, res
+
+
 class Space:
     def __init__(self, name, spec, folder):
         self.name, self.spec, self.folder = name, spec, Path(folder)
         lv = spec["levels"][0]
         w = lv["walkable"]
-        if w.endswith(".npz"):
+        if isinstance(w, dict):  # 多角形（外形と穴）から作る格子（1.2）
+            self.grid, self.x0, self.y0, self.res = rasterize(w, f"空間 {name} の levels[0].walkable")
+        elif w.endswith(".npz"):
             z = np.load(self.folder / w)
             self.grid, self.x0, self.y0, self.res = z["walkable"].astype(bool), float(z["x0"]), float(z["y0"]), float(z["res"])
         else:
@@ -372,7 +494,8 @@ def find_space(name):
     for folder in ([p] if p.is_absolute() or "/" in str(name) else []) + [d / str(name) for d in _space_dirs()]:
         if (folder / "space.yaml").exists() or (folder / "space.json").exists():
             return folder
-    raise FileNotFoundError(f"空間 {name} がない（付属の空間: {', '.join(list_spaces())}。自分の空間はフォルダの場所を書くか、環境変数 TWINSIM_SPACES に置く）")
+    raise FileNotFoundError(f"空間 {name} がない（付属の空間: {', '.join(list_spaces())}。自分の空間は、フォルダか YAML・JSON のファイルの場所、"
+                            f"空間そのもの（dict）を書くか、環境変数 TWINSIM_SPACES に置く）")
 
 
 SEAT_BLOCK_M = 0.25  # 席の点からこの距離（m）の中の格子を歩けなくする
@@ -416,12 +539,38 @@ def furniture_place(fur):
     return corners, [(w(x, y), yaw) for x, y in F["seats"]]
 
 
-def load_space(name):
-    folder = find_space(name)
+def space_from_dict(spec, folder=None, default_name="custom"):
+    """空間そのもの（dict。space.yaml と同じ形）→ Space。中のファイルの場所（格子のファイルなど）は folder（既定は今のフォルダ）から見た場所。"""
+    if not isinstance(spec, dict):
+        raise ValueError(f"空間は {{name, levels, pois, ...}} の形（今は {spec!r:.80}）")
+    lv = spec.get("levels")
+    if not isinstance(lv, list) or not lv or not isinstance(lv[0], dict) or "walkable" not in lv[0]:
+        raise ValueError("空間に levels（階の一覧。1 つ目に walkable: 格子のファイルか {res, outline, holes}）がない")
+    name = spec.get("name", default_name)
+    if not isinstance(name, str) or not re.fullmatch(r"[\w-]+", name):
+        raise ValueError(f"空間の name は英数字・_・- だけの名前（今は {name!r}）")
+    for k in ("pois", "zones", "cameras"):
+        if not isinstance(spec.get(k, {}), dict):
+            raise ValueError(f"空間の {k} は {{名前: 中身}} の形（今は {spec[k]!r:.80}）")
+    return Space(name, spec, Path(folder) if folder is not None else Path.cwd())
+
+
+def load_space(src):
+    """空間を読む。src は次のどれか:
+    名前（TWINSIM_SPACES の場所 → 付属の空間の順に探す）、space.yaml・space.json のあるフォルダの場所、空間を書いた YAML・JSON の
+    ファイルの場所（名前は中の name か、ファイルの名前）、空間そのもの（dict。中のファイルの場所は今のフォルダから）、Space。"""
+    if isinstance(src, Space):
+        return src
+    if isinstance(src, dict):
+        return space_from_dict(src)
+    p = Path(str(src)).expanduser()
+    if p.suffix in (".yaml", ".yml", ".json") and p.is_file():
+        return space_from_dict(yaml.safe_load(p.read_text(encoding="utf-8")), p.parent, default_name=p.stem)  # JSON は YAML として読める
+    folder = find_space(src)
     f = folder / "space.yaml"
     if not f.exists():
         f = folder / "space.json"
-    return Space(folder.name, yaml.safe_load(f.read_text(encoding="utf-8")), folder)  # JSON は YAML として読める
+    return Space(folder.name, yaml.safe_load(f.read_text(encoding="utf-8")), folder)
 
 
 # ---- 道のり ----

@@ -26,7 +26,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 
 | キー | 型 | 既定 | 中身 |
 |---|---|---|---|
-| [`space`](#space) | 文字列 | 必須 | 空間の名前か、空間のフォルダの場所 |
+| [`space`](#space) | 文字列か {...} | 必須 | 空間の名前、空間のフォルダかファイルの場所、空間そのもの |
 | `seed` | 整数 | `0` | 乱数の種 |
 | `fps` | 正の整数 | `30` | 1 秒のコマ数 |
 | `duration_s` | 数 | `120` | 計算する長さ（秒） |
@@ -62,7 +62,17 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 
 ## `space`
 
-`twinsim spaces`（Python では `twinsim.list_spaces()`）で一覧が出ます。自分の空間はフォルダの場所を書きます（[自分の空間](library.md)）。付属の空間の場所の名前は[場所の名前](#places)にあります。
+`twinsim spaces`（Python では `twinsim.list_spaces()`）で一覧が出ます。付属の空間の場所の名前は[場所の名前](#places)にあります。
+
+自分の空間は、次のどれかで書きます（[自分の空間](library.md#own-space)、形は [spec.md の 1](spec.md)、多角形は[「多角形で書く」](spec.md#polygons)）。
+
+| 書き方 | 例 |
+|---|---|
+| フォルダの場所（`space.yaml` か `space.json` のあるフォルダ） | `"space": "my_spaces/hall"` |
+| 空間を書いた YAML・JSON のファイルの場所（1.2 から） | `"space": "hall.yaml"` |
+| 空間そのもの（1.2 から） | `"space": {"name": "hall", "levels": [{"walkable": {"res": 0.25, "outline": [...], "holes": [...]}}], "pois": {...}}` |
+
+歩ける所は、格子のファイルの代わりに多角形（外形と穴）で書けます（1.2 から）。空間の場所（`spawn`・`exit`・`spot`・`elevator`）の点が歩ける所の外なら、計算の前にエラーになります。
 
 <a id="people"></a>
 
@@ -428,7 +438,7 @@ rooms:
 
 ## 場所の名前
 
-`origin`・`to`・`via`・`cars`・`props` に書く名前です。図で確かめるには `twinsim show-space <空間>` を実行します（空間のフォルダの `annotate.png`。書けないときは今のフォルダ）。真上の図のない `corridor` 系では使えません。
+`origin`・`to`・`via`・`cars`・`props` に書く名前です。図で確かめるには `twinsim show-space <空間>` を実行します（空間のフォルダの `annotate.png`。書けないときは今のフォルダ）。真上の図のない空間（`corridor` 系・多角形で書いた空間）は、歩ける所の格子から描いた平面図になります。
 
 | 空間 | 現れる・出る | ゲート | EV | 止まる | 窓口・部屋・座る（1.2） | カメラの候補 |
 |---|---|---|---|---|---|---|

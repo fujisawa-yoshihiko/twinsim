@@ -8,6 +8,7 @@
 
 API（JSON。詳しくは docs/spec.md の「API」）:
   GET  /api/spaces、/api/spaces/<名前>、/api/spaces/<名前>/top     空間の一覧・中身・真上の図
+  POST /api/space {space: 空間そのもの}                             多角形で書いた空間（1.2）の中身（真上の図はない）
   GET  /api/templates、/api/templates/<名前>                        テンプレートの一覧・中身（既定を足したもの）
   GET  /api/profiles                                                 文献に基づく人の分布の組（people.profile）と文献の一覧
   POST /api/runs {scenario: 名前か dict, overrides, name}            計算を始める（CPU）→ {id}
@@ -57,6 +58,20 @@ class ApiError(Exception):
         self.status = status
 
 
+def check_gui_space(space):
+    """画面から渡せる空間: 一覧の名前か、歩ける所を多角形で書いた空間そのもの（1.2）。サーバーの上のファイル（フォルダ・YAML の場所、
+    dict の中の格子のファイル・真上の図・glass.json）は読ませない。"""
+    if isinstance(space, str):
+        if space not in list_spaces():
+            raise ApiError(f"空間 {space} がない（画面から使えるのは一覧の名前か、多角形で書いた空間そのもの）", HTTPStatus.NOT_FOUND)
+        return
+    lv = space.get("levels") if isinstance(space, dict) else None
+    if not (isinstance(lv, list) and lv and isinstance(lv[0], dict) and isinstance(lv[0].get("walkable"), dict)) \
+            or "top_image" in lv[0] or "glass" in space:
+        raise ApiError("画面から渡す空間は、一覧の名前か、歩ける所を多角形（walkable: {res, outline, holes}）で書いた空間そのもの"
+                       "（ファイルは読めないので top_image・glass は書けない）")
+
+
 class App:
     def __init__(self):
         self.jobs = {}  # id → {kind, status, started, finished, error, ...}
@@ -64,7 +79,9 @@ class App:
 
     # ---- 空間・テンプレート ----
     def space(self, name):
+        """空間の中身（画面の地図用）。name は一覧の名前か、check_gui_space を通った空間そのもの。"""
         sp = load_space(name)
+        name = sp.name
         lv = sp.spec["levels"][0]
         tv = lv.get("top_view")
         top = None
@@ -92,6 +109,9 @@ class App:
         # 画面から渡せるのは設定そのものかテンプレートの名前だけ（サーバーの上のファイルを読ませない）
         if isinstance(scenario, str) and scenario not in list_templates():
             raise ApiError(f"テンプレート {scenario} がない", HTTPStatus.NOT_FOUND)
+        space = (overrides or {}).get("space", scenario.get("space") if isinstance(scenario, dict) else None)
+        if space is not None:
+            check_gui_space(space)
         spec = load_scenario(scenario, overrides)  # ここで誤りを返す
         base = name or spec.get("name") or "run"
         safe = "".join(c for c in base if c.isalnum() or c in "-_")[:40] or "run"
@@ -418,7 +438,14 @@ def make_handler(app, token):
                 if parts == ["validate"]:  # 既定の値を足した設定を返す（画面の「この JSON を反映」）
                     if not isinstance(body.get("scenario"), dict):
                         raise ApiError("scenario は設定のオブジェクト")
+                    if "space" in body["scenario"]:
+                        check_gui_space(body["scenario"]["space"])
                     return self._json({"scenario": load_scenario(body["scenario"])})
+                if parts == ["space"]:  # 多角形で書いた空間の中身（画面の「この JSON を反映」）
+                    check_gui_space(body.get("space"))
+                    if not isinstance(body["space"], dict):
+                        raise ApiError("space は空間そのもの（名前は GET /api/spaces/<名前>）")
+                    return self._json(app.space(body["space"]))  # 誤り（ValueError）は 400 で返る
                 if len(parts) == 3 and parts[0] == "runs" and parts[2] == "render":
                     return self._json(app.render(parts[1], body))
             raise ApiError("ない API", HTTPStatus.NOT_FOUND)

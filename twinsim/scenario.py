@@ -211,6 +211,27 @@ def _segments_cross(a, b, c, d):
     return o1 * o2 <= 0 and o3 * o4 <= 0 and not (o1 == o2 == 0)
 
 
+PLACE_KINDS = ("spawn", "exit", "spot", "elevator")  # 人が現れる・消える・立つ点（歩ける所の中にあること）
+
+
+def place_errors(space):
+    """空間の場所（PLACE_KINDS）の点（xy、spawn・exit の line の両端）が歩ける所の外なら誤り。自分で書いた空間（多角形・dict、1.2）で、
+    入口を壁や穴の中に置くと、人が歩ける所の外に現れていた（付属の空間はみな中にある）。hidden（扉の向こう）は外でよい。"""
+    errs = []
+    for k, p in space.pois.items():
+        if p.get("kind") not in PLACE_KINDS:
+            continue
+        pts = [p["xy"]] if is_xy(p.get("xy")) else []
+        if p["kind"] in ("spawn", "exit") and isinstance(p.get("line"), (list, tuple)):
+            pts += [q for q in p["line"] if is_xy(q)]
+        for x, y in pts:
+            if not space.walkable(x, y):
+                nx, ny = space.snap(x, y, 0.3)
+                errs.append(f"空間 {space.name} の場所 {k}（{p['kind']}）の点 ({x:.2f}, {y:.2f}) は歩ける所の外（近くの歩ける所は ({nx:.2f}, {ny:.2f})）")
+                break
+    return errs
+
+
 def validate(spec):
     space = load_space(spec["space"])
     errs = [f"知らないキー {k}（使えるのは {', '.join(sorted(CONFIG_KEYS))}）" for k in spec if k not in CONFIG_KEYS]
@@ -233,6 +254,7 @@ def validate(spec):
     if spec.get("variant") is not None and spec["variant"] not in (spec.get("variants") or {}):
         errs.append(f"variant {spec['variant']} が variants にない")
     errs += [f"gates: {k} はゲートの場所ではない" for k in spec["gates"] if space.pois.get(k, {}).get("kind") != "gate"]
+    errs += place_errors(space)
     errs += [f"render.props: 場所 {k} がない" for k in spec["render"].get("props", []) if k not in space.pois]
     if spec.get("name") is not None and not is_safe_name(spec["name"]):
         errs.append(f"name に使えるのは文字・数字・_・- だけ（今は {spec['name']!r}）")

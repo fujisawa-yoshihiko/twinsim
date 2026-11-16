@@ -13,7 +13,8 @@
                                                 Isaac Sim で描画して video/<カメラ>.mp4 を作る（GPU）。--chunk-s で分けて、動いている受け付け全部で並べて描く
   python -m twinsim export-space <名前> --usd URL --region x0 x1 y0 y1 z0 z1 [--res 0.25]   USD から空間の材料を作る（GPU）
   python -m twinsim serve [--port 8770] [--url]       GUI と REST API（127.0.0.1 だけ、トークンつき）
-  python -m twinsim show-space <名前>                 真上の図に歩ける所・目盛り・候補・場所・ゾーンを重ねた図（spaces/<名前>/annotate.png）
+  python -m twinsim show-space <空間> [--out 図.png]   真上の図に歩ける所・目盛り・候補・場所・ゾーンを重ねた図（spaces/<名前>/annotate.png）。
+                                                   空間は名前・フォルダ・YAML か JSON のファイル。真上の図のない空間は、歩ける所の格子から平面図を描く
 --set の例: --set duration_s=60 --set seed=3 --set streams.0.rate.per_min=20
 """
 
@@ -86,6 +87,7 @@ def cli(argv):
     rd.add_argument("--cull", action="store_true", help="カメラごとの区間で、そのカメラの近くの人だけを置く（--chunk-s のとき）")
     ss = sub.add_parser("show-space")
     ss.add_argument("name")
+    ss.add_argument("--out", help="図の場所（省くと空間のフォルダの annotate.png）")
     el = sub.add_parser("export-logs")
     el.add_argument("run_dir")
     el.add_argument("--out")
@@ -119,7 +121,8 @@ def cli(argv):
             print(text)
     elif a.cmd == "validate":
         spec = load_scenario(a.scenario)
-        print("ok:", spec.get("name"), "space", spec["space"], "streams", len(spec["streams"]), "cameras", [c["name"] for c in spec["cameras"]])
+        sp_name = (spec["space"].get("name", "custom") + "（dict）") if isinstance(spec["space"], dict) else spec["space"]
+        print("ok:", spec.get("name"), "space", sp_name, "streams", len(spec["streams"]), "cameras", [c["name"] for c in spec["cameras"]])
     elif a.cmd in ("render", "export-space"):
         from . import isaac_bridge as ib
         ib.sync()
@@ -135,7 +138,7 @@ def cli(argv):
         print(json.dumps({k: v for k, v in r.items() if k != "log"}, ensure_ascii=False))
     elif a.cmd == "show-space":
         from .spaceview import draw
-        print(draw(a.name))
+        print(draw(a.name, out=a.out))
     elif a.cmd == "export-logs":
         from .calibrate import export_logs
         print("logs:", export_logs(a.run_dir, a.out))

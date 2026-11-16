@@ -220,6 +220,8 @@ def plan_render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=Non
     gt = json.loads((run / "ground_truth.json").read_text())
     spec = yaml.safe_load((run / "scenario_resolved.yaml").read_text(encoding="utf-8"))
     sp = load_space(spec.get("space", gt["space"]))
+    if not sp.spec.get("usd"):
+        raise ValueError(f"空間 {sp.name} には USD がないので描画できない（多角形で書いた空間・合成の廊下は、計算と正解ラベルだけ）")
     check_render_args(gt, frames, cameras)
     if chunk_s is not None and not chunk_s > 0:
         raise ValueError(f"chunk_s は正の秒数（今は {chunk_s}）")

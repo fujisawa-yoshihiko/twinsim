@@ -55,7 +55,7 @@ No lens distortion (pinhole). Other values: `eye` and `target` (world coordinate
 
 | Key | Contents |
 |---|---|
-| `fps`, `total_frames`, `seed`, `space`, `scenario` | Number of frames (per 1 s), total number of frames, random seed, space name, scenario name |
+| `fps`, `total_frames`, `seed`, `space`, `scenario` | Number of frames (per 1 s), total number of frames, random seed, space name, scenario name (when the scenario holds the space itself as a dict, its `name`; the contents are in `space` of `scenario_resolved.json`) |
 | `people[name]` | Person attributes and itinerary (table below) |
 | `tracks[name]` | `[[x, y, yaw], …]`. The k-th entry is frame `people[name].start_frame + k` (from appearance until disappearance) |
 | `moving[name]` | `[0/1, …]`. Whether the person is walking in that frame (same length as `tracks`). 1 when the speed smoothed over 0.3 s exceeds 0.2 m/s, 0 when it falls below 0.1 m/s or after 2 frames with almost no movement (since 2026-11-08; before, whether the single frame's step exceeded 0.2 m/s). While walking, `yaw` turns toward the direction of the smoothed velocity |

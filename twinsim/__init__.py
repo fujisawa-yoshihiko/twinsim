@@ -4,14 +4,14 @@
     result = twinsim.simulate("config.json", out_dir="runs/test")
     labels = result.mot("CamGate")
 
-使える名前: simulate・open_result・Result・load_config・validate・template・list_templates・list_spaces・render。説明は docs/library.md。
+使える名前: simulate・open_result・Result・load_config・validate・template・list_templates・list_spaces・load_space・render。説明は docs/library.md。
 """
 
 __version__ = "1.1.0"
-__all__ = ["Result", "list_spaces", "list_templates", "load_config", "open_result", "render", "run", "simulate", "template", "validate"]
+__all__ = ["Result", "list_spaces", "list_templates", "load_config", "load_space", "open_result", "render", "run", "simulate", "template", "validate"]
 
 _WHERE = {"Result": "api", "run": "api", "simulate": "api", "template": "api", "render": "api", "open_result": "api",
-          "load_config": "scenario", "list_templates": "scenario", "list_spaces": "space"}
+          "load_config": "scenario", "list_templates": "scenario", "list_spaces": "space", "load_space": "space"}
 
 
 def validate(config_src, overrides=None):

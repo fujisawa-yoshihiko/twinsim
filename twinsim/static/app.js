@@ -448,8 +448,11 @@ $("download").addEventListener("click", () => {
 });
 
 async function useSpec(spec) {  // 設定に合わせて空間も読み直す（読めなければ今の設定のまま）
-  if (!S.space || S.space.name !== spec.space) {
-    S.space = await api(`/api/spaces/${encodeURIComponent(spec.space)}`);
+  const key = typeof spec.space === "object" ? JSON.stringify(spec.space) : spec.space;  // 空間そのもの（1.2、多角形）も書ける
+  if (!S.space || S.spaceKey !== key) {
+    S.space = typeof spec.space === "object" ? await post("/api/space", { space: spec.space })
+      : await api(`/api/spaces/${encodeURIComponent(spec.space)}`);
+    S.spaceKey = key;
     topCam = S.space.top_view ? camModel(S.space.top_view) : null;
     S.img = null;
     if (S.space.has_top) {

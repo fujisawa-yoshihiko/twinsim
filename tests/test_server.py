@@ -113,3 +113,26 @@ def test_render_arguments_are_checked():
     for frames, cameras in (((10, 2), None), ((0, 100), None), (None, ["../evil"]), (None, "CamGate")):
         with pytest.raises(ValueError):
             isaac_bridge.check_render_args(gt, frames, cameras)
+
+
+POLY_SPACE = {"name": "poly", "levels": [{"name": "1F", "z": 0.0, "walkable": {"res": 0.25, "outline": [[0, 0], [10, 0], [10, 4], [0, 4]]}}],
+              "pois": {"west": {"kind": "spawn", "xy": [0.5, 2.0]}, "east": {"kind": "exit", "xy": [9.5, 2.0]}}}
+
+
+def test_gui_takes_a_polygon_space_but_reads_no_server_files(base, tmp_path):
+    # 画面から多角形で書いた空間（1.2）を使える。サーバーの上のファイル（YAML・フォルダの場所、dict の中の格子のファイル）は読ませない
+    status, _, body = call(f"{base}/api/space", {"space": POLY_SPACE})
+    info = json.loads(body)
+    assert status == 200 and info["name"] == "poly" and not info["has_top"] and len(info["grid"]["rows"]) == 18
+    poly_cfg = {"space": POLY_SPACE, "duration_s": 10, "streams": [{"origin": "west", "rate": 10, "destinations": ["east"]}]}
+    assert call(f"{base}/api/validate", {"scenario": poly_cfg})[0] == 200
+    (tmp_path / "s.yaml").write_text(json.dumps(POLY_SPACE), encoding="utf-8")
+    for space in (str(tmp_path / "s.yaml"), str(tmp_path), {**POLY_SPACE, "levels": [{"name": "1F", "walkable": "/etc/hostname"}]},
+                  {**POLY_SPACE, "glass": {"occluding": []}}):
+        assert call(f"{base}/api/space", {"space": space})[0] in (400, 404)
+        assert call(f"{base}/api/validate", {"scenario": {**poly_cfg, "space": space}})[0] in (400, 404)
+        assert call(f"{base}/api/runs", {"scenario": {**poly_cfg, "space": space}})[0] in (400, 404)
+        assert call(f"{base}/api/runs", {"scenario": "office_gate_ev", "overrides": {"space": space}})[0] in (400, 404)
+    bad = {**POLY_SPACE, "levels": [{"name": "1F", "walkable": {"outline": [[0, 0], [1, 0]]}}]}
+    status, _, body = call(f"{base}/api/space", {"space": bad})
+    assert status == 400 and "3 点以上" in json.loads(body)["error"]

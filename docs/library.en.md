@@ -35,6 +35,7 @@ result = twinsim.simulate(config, out_dir="runs/short")
 | `twinsim.load_config(config, overrides=None)` | Same as `validate` (a name for reading) |
 | `twinsim.template(name)` | Returns a template as a dict (defaults are not filled in) |
 | `twinsim.list_templates()`, `twinsim.list_spaces()` | Names of the templates and spaces |
+| `twinsim.load_space(space)` | Loads a space and returns a `Space` (from 1.2). `space` is anything the scenario's `space` accepts (name, folder or file path, dict). Use it to check the walkable area (`walkable(x, y)`, `grid`, `res`), places (`pois`) and routes (`route(a, b)`). Errors raise `ValueError` |
 | `twinsim.open_result(out_dir)` | Open a finished result folder and return a `Result`, without simulating again |
 | `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, keep_frames=True, labels=False, preroll=0, cull=False)` | Renders a result with Isaac Sim and writes `video/<camera>.mp4`. Uses a GPU. Raises `RuntimeError` if Isaac Sim is not running. `frames` is a range of simulator frames (both ends included); `tint=False` keeps the original clothing colors (`None` follows `render.tint` in the configuration). With `chunk_s` (seconds), the work is split per camera and per that length, and every running receiver renders in parallel ([README, "Rendering in parallel"](../README.en.md#parallel)). `keep_frames=False` deletes the working images after encoding the mp4. `labels=True` takes per-person boxes and occlusion from the rendering and writes `labels/<camera>.csv` ([docs/formats.en.md, section 4](formats.en.md); about 1.5 to 3 times as long). `preroll` (frames) renders that many extra frames before each part and discards them (removes the slight difference in the first 1 or 2 frames of a part; 3 is a good value), and `cull=True` places only the people near the camera in each per-camera part (with `chunk_s`; the more people, the faster) |
 
@@ -102,7 +103,7 @@ The smallest example ([examples/minimal.json](../examples/minimal.json)):
 
 | Key | Contents |
 |---|---|
-| `space` | A space name (`twinsim.list_spaces()`) or the folder of your own space. Required |
+| `space` | A space name (`twinsim.list_spaces()`), the folder or file of your own space, or the space itself (a dict, from 1.2). Required |
 | `name`, `title` | Names |
 | `seed` | Random seed |
 | `duration_s`, `fps` | Length (s, default 120) and frames per second (default 30) |
@@ -132,7 +133,7 @@ Where people appear (`streams[].origin`) can be a place name or coordinates. Coo
 
 | Form | Where people appear |
 |---|---|
-| `"entrance"` | A place in the space (see the image from `twinsim show-space <space>` or the map in the GUI; not available for the `corridor` spaces, which have no top-down image) |
+| `"entrance"` | A place in the space (see the image from `twinsim show-space <space>` or the map in the GUI; spaces without a top-down image get a plan drawn from the walkable grid) |
 | `{"xy": [x, y]}` | That point |
 | `{"line": [[x0, y0], [x1, y1]]}` | Somewhere on the line (an entrance with a width) |
 
@@ -197,9 +198,33 @@ The same configuration and `seed` give the same result on every run. Keep `resul
 again = twinsim.simulate(result.out_dir / "scenario_resolved.json", out_dir="runs/again")
 ```
 
+<a id="own-space"></a>
+
 ## Your own space
 
 Put the folder path in `space`, or place the folder under the location in the `TWINSIM_SPACES` environment variable and use its name. The folder holds `space.yaml` or `space.json` and the walkable map. The format is in section 1 of [spec.en.md](spec.en.md); `twinsim export-space` builds one from USD.
+
+From 1.2, the walkable area can be written as polygons (outline and holes), and `space` can hold the space itself (a dict) ([“Writing polygons” in spec.en.md](spec.en.md#polygons)). In Python you can build it first, for example placing pillars in a loop.
+
+```python
+pillars = [{"circle": [x, y, 0.4]} for x in (6.0, 12.0) for y in (4.0, 10.0)]
+space = {
+    "name": "hall",
+    "levels": [{"name": "1F", "z": 0.0,
+                "walkable": {"res": 0.25, "outline": [{"rect": [0, 0, 30, 14]}],
+                             "holes": pillars + [{"rect": [19.75, 0, 20.25, 6]}, {"rect": [19.75, 8, 20.25, 14]}]}}],
+    "pois": {"west_door": {"kind": "spawn", "xy": [0.5, 7.0], "line": [[0.5, 6.0], [0.5, 8.0]]},
+             "east_exit": {"kind": "exit", "xy": [29.5, 7.0]}},
+    "cameras": {"CamHall": {"eye": [1.0, 1.0, 2.7], "target": [12.0, 8.0, 0.8]}},
+}
+sp = twinsim.load_space(space)              # check it (walkable area sp.grid, sp.walkable(x, y))
+from twinsim.spaceview import draw
+draw(space, out="hall.png")                 # plan with the walkable area, places and zones
+result = twinsim.simulate({"space": space, "streams": [...], "cameras": [{"name": "CamHall"}]}, out_dir="runs/hall")
+```
+
+`space` in the result's `ground_truth.json` is the space name (the dict's `name`); the space itself stays in `space` of `scenario_resolved.json` (which is also used when reading the result again).
+Without a USD it cannot be rendered (`render`), but ground-truth labels (`mot`) and aggregates are produced. A complete example is `examples/08_space_from_polygons.py`.
 
 ## Replacing the elevator operation
 

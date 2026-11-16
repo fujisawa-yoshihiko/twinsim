@@ -162,7 +162,7 @@ office・カメラ 1 台・300 コマ（映る人 25 人ほど）を本数と同
 | `twinsim/spaces/` | 空間（office・hospital・warehouse・simple_room・warehouse_small・corridor・corridor_door） |
 | `twinsim/templates/` | テンプレート（下の表） |
 | `twinsim/config.py` | 置き場所（`TWINSIM_DATA`・`TWINSIM_SPACES`・`TWINSIM_ISAAC_WORK` などの環境変数で変えられる） |
-| `examples/` | チュートリアルの例（計算、設定の変え方、正解ラベル、動画の取得、学習データ） |
+| `examples/` | チュートリアルの例（計算、設定の変え方、正解ラベル、動画の取得、学習データ、自分の空間を多角形で書く） |
 | `tests/` | 動作確認（`uv run --group dev pytest -q`、書き方の確かめは `uv run --group dev ruff check`） |
 
 | テンプレート | 確かめること |

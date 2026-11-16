@@ -37,7 +37,13 @@
   （BOARD_FRONT_M）、頼んだ人が近くにいる間は戻らない（nudge_by）。道をあけたあとの近さ: 戻る所がふさがれたら戻らない・戻る前も隣と離れる。
   比べは ~/dt-data/twinsim/crowd_check/rest1/（base と c5、README.md・scripts/）。乗るまで 10 秒より長い人は office_ev_hall 18 → 7%、hospital_gate_ev 13 → 2%、
   安全弁は EV の前・昼で 1 回 1〜8 → 0.3〜1.0。残り: 素材の A 組の office の EV の前で 20%、揺れ 2〜6 / 1,000 人・秒、warehouse_shift の揺れ 1.9 → 2.7
-- 次: 4 空間を多角形・dict から → 1.1 との比べとリリースノート。
+- 済み（11/17 午後）: 4 空間を作る（docs/spec.md の「多角形で書く」）。歩ける所を多角形 {res, outline, holes}（点の一覧・rect・circle）で書くと格子を作る
+  （space.py の rasterize。マスの中心は (k + 0.5) res、res より細い形は誤り、400 万マスまで）。設定の space に空間そのもの（dict）か YAML・JSON のファイルの場所
+  （load_space、twinsim.load_space で公開）。空間の場所（spawn・exit・spot・elevator）の点が歩ける所の外なら validate で誤り（scenario.place_errors。付属の空間はみな中）。
+  show-space は真上の図のない空間で格子の平面図（--out）。GUI: POST /api/space で多角形の空間の中身、画面から渡せる空間は一覧の名前か多角形の dict だけ（server.check_gui_space。
+  サーバーの上のファイルを読ませない）。地図は真上の図のある空間だけ（corridor と同じ）。例 examples/08_space_from_polygons.py。validity の Run は設定に書いた空間を読む。USD のない空間の描画は分かる誤りに（前は KeyError: usd）。
+  validity.md の到着の行の出典が None と出ていたのを「設定の値」に。テストは tests/test_space_poly.py と test_server.py に足した
+- 次: 1.1 との比べとリリースノート。
   描画の残り: ロビーの南の窓ぎわの長椅子のまわりの重なり、カフェのカウンターに店員・機械がない、描画の注釈（labels）で座る人の枠を確かめる（注釈は描画の約 3 倍の時間）
 
 ## 2026-11-12（1.1 の準備、ブランチ crowd-cfsm）

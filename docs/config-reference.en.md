@@ -26,7 +26,7 @@ Only `space` is required. Any key not listed here is an error.
 
 | Key | Type | Default | Contents |
 |---|---|---|---|
-| [`space`](#space) | string | required | Name of a space, or the path of a space folder |
+| [`space`](#space) | string or {...} | required | Name of a space, path of a space folder or file, or the space itself |
 | `seed` | integer | `0` | Random seed |
 | `fps` | positive integer | `30` | Frames per second |
 | `duration_s` | number | `120` | Length to simulate (seconds) |
@@ -62,7 +62,17 @@ Objects are combined key by key. Arrays and distributions (objects with `type`) 
 
 ## `space`
 
-`twinsim spaces` (`twinsim.list_spaces()` in Python) lists the spaces. For your own space, give the folder path ([your own space](library.en.md)). Place names of the included spaces are in [place names](#places).
+`twinsim spaces` (`twinsim.list_spaces()` in Python) lists the spaces. Place names of the included spaces are in [place names](#places).
+
+Give your own space in one of these ways ([your own space](library.en.md#own-space); format in [section 1 of spec.en.md](spec.en.md), polygons in ["Writing polygons"](spec.en.md#polygons)).
+
+| Form | Example |
+|---|---|
+| Folder path (a folder with `space.yaml` or `space.json`) | `"space": "my_spaces/hall"` |
+| Path of a YAML or JSON file describing the space (from 1.2) | `"space": "hall.yaml"` |
+| The space itself (from 1.2) | `"space": {"name": "hall", "levels": [{"walkable": {"res": 0.25, "outline": [...], "holes": [...]}}], "pois": {...}}` |
+
+The walkable area can be written as polygons (outline and holes) instead of a grid file (from 1.2). If a point of a place (`spawn`, `exit`, `spot`, `elevator`) lies outside the walkable area, it is an error before the run.
 
 <a id="people"></a>
 
@@ -428,7 +438,7 @@ Except in `uniform`, `min` and `max` clip the value. A literature name in `sourc
 
 ## Place names
 
-Names for `origin`, `to`, `via`, `cars` and `props`. To see them on a map, run `twinsim show-space <space>` (`annotate.png` in the space folder, or in the current folder if that is not writable). The `corridor` spaces have no top-down image, so it does not work for them.
+Names for `origin`, `to`, `via`, `cars` and `props`. To see them on a map, run `twinsim show-space <space>` (`annotate.png` in the space folder, or in the current folder if that is not writable). Spaces without a top-down image (the `corridor` spaces and spaces written as polygons) get a plan drawn from the walkable grid.
 
 | Space | Appear and leave | Gates | Elevators | Stops | Counters, rooms, seating (1.2) | Candidate cameras |
 |---|---|---|---|---|---|---|

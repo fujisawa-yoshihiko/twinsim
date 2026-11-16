@@ -20,7 +20,7 @@ One USD scene. The "meaning" that is not in the USD (entrances, gates, elevator 
 | `license` | Terms of use of the asset (check them when producing data for distribution) |
 | `navmesh_region` | Region in which the navmesh is baked `[x0, x1, y0, y1, z0, z1]` (one floor) |
 | `glass` | Occlusion by glass (optional). `occluding` lists the glass materials (MDL names) through which people are not visible in the rendered video. The glass panes are in `glass.json` in the same folder (oriented boxes extracted inside Isaac Sim by `twinsim/isaac/probe_materials.py`). Used for the `glass` column and visibility of the rendered label table (`labels/`) |
-| `levels[]` | Floors: `z`, `walkable` (grid of the walkable area; `.txt` or `.npz`), `blocked` (optional; list of polygons `{polygon, note}` made not walkable, where rendered objects are placed), `top_image`, `top_view` (top-down image and its viewpoint) |
+| `levels[]` | Floors: `z`, `walkable` (grid of the walkable area: a `.txt` or `.npz` file, or polygons `{res, outline, holes}` (from 1.2; see "Writing polygons" below)), `blocked` (optional; list of polygons `{polygon, note}` made not walkable, where rendered objects are placed), `top_image`, `top_view` (top-down image and its viewpoint) |
 | `pois` | Places (table below) |
 | `zones` | Zones (polygons). Used for ground-truth aggregation and as graph nodes. Matched in order from the top |
 | `cameras` | Candidate cameras (`eye`, `target`; a scenario uses them by name) |
@@ -43,7 +43,41 @@ It is used for the `portal` column of the rendered label table (docs/formats.en.
 | `room` | Room (from 1.2) | `xy` (in front of the door, walkable), `inside` (point inside; may be outside the walkable area; people inside are not visible), `capacity` (parties inside at the same time, default 1), `wait` (optional; where people wait to be called), `door_prim` (optional; name of the door leaf in the USD; the renderer opens it towards the inside of the room only while people pass). Behaviour values are in `rooms` of the configuration |
 | `seats` | Seating (from 1.2) | `furniture: [{asset, xy, rot, in_usd}, …]` (seats of furniture. `asset` is the furniture type (`bench3`: a three-seat bench, `sofa3`: a three-seat sofa, `counter2`: a 2 m counter without seats, `pack_table`: a 2.47 m packing table without seats; `FURNITURE` in twinsim/space.py), `xy` is the origin of the furniture (as placed in the USD), `rot` is the rotation about the USD z axis (deg; the front depends on the furniture: -y before rotation for the bench, +x for the sofa), and if `in_usd` is true the furniture is already in the space's USD (not placed by the renderer). Other furniture is placed by the renderer and its footprint is removed from the walkable area), or `seats: [[x, y, direction (deg)], …]` / `row: {from, to, n, yaw}` / `rows: [...]` (n seats along a line; no furniture is rendered; a radius of 0.25 m around each seat is removed from the walkable area). People walk to a point 0.6 m in front of the seat and then sit with the sit-down motion (turning and lowering along the body trajectory of the sitting animation used by the renderer) |
 
-To create a new space: `python -m twinsim export-space <name> --usd URL --region ...` (in Isaac Sim, this produces the walkable-area grid, the top-down image and
+Besides a folder `spaces/<name>/`, the scenario's `space` can hold the space itself (a dict) or the path of a YAML or JSON file describing the space (from 1.2; `twinsim.load_space`).
+A dict is named by its `name` (letters, digits, `_` and `-`; `custom` if omitted), and a file by its `name` or the file name. File paths written inside (such as a grid file) are relative to the current folder for a dict, and to the file's folder for a file.
+If a point of a place (`spawn`, `exit`, `spot`, `elevator`) — its `xy`, or either end of the `line` of a `spawn` or `exit` — lies outside the walkable area, it is an error before the run (`hidden` may lie outside).
+
+<a id="polygons"></a>
+
+### Writing polygons (from 1.2)
+
+Write the walkable area as polygons instead of a grid file. Use this to make a space by hand without a USD (simulation and ground-truth labels only; it cannot be rendered).
+
+```yaml
+levels:
+  - name: 1F
+    z: 0.0
+    walkable:
+      res: 0.25                                       # grid spacing (m, 0.05 to 1.0; default 0.25)
+      outline: [{rect: [0, 0, 30, 14]}, {rect: [12, 14, 15, 20]}]   # outline (may overlap; the union is walkable)
+      holes:                                          # holes (pillars, walls, desks: not walkable)
+        - {circle: [6, 4, 0.4]}
+        - {rect: [19.75, 0, 20.25, 6], note: partition wall (0.5 m thick)}
+        - [[15, 10.5], [18, 10.5], [18, 11.5], [15, 11.5]]
+```
+
+| Key | Contents |
+|---|---|
+| `res` | Grid spacing (m). 0.05 to 1.0, default 0.25 (the bundled spaces use 0.25 or 0.5) |
+| `outline` | Outline. One shape or a list of shapes (may overlap; the union is walkable) |
+| `holes` | Holes (optional). A list of shapes |
+
+A shape is a list of points `[[x, y], …]` (a polygon with 3 or more points), `{polygon: [[x, y], …]}`, `{rect: [x0, y0, x1, y1]}` or `{circle: [x, y, radius]}` (a `note` may be added).
+Cell centres sit at (k + 0.5) × `res`; a cell is walkable if its centre is inside one of the outline shapes and inside none of the holes (a rectangle written in multiples of `res` covers exactly its area: cells × `res`²). A ring of non-walkable cells is added around the outline.
+A shape that contains no grid point (such as a wall thinner than `res`) is an error, so that it does not silently disappear. The grid is limited to 4 million cells (500 m square at 0.25 m).
+See `examples/08_space_from_polygons.py` (building one in Python).
+
+To create a space from a USD: `python -m twinsim export-space <name> --usd URL --region ...` (in Isaac Sim, this produces the walkable-area grid, the top-down image and
 a list of prims that look like elevators or doors, and puts a space.yaml skeleton in place) → look at the top-down image and the list, and write `pois`, `zones` and `cameras`.
 
 Existing spaces (the `corridor` ones are made for twinsim; the others are bundled with Isaac Sim 6.1, CC BY 4.0):
@@ -58,7 +92,7 @@ Existing spaces (the `corridor` ones are made for twinsim; the others are bundle
 | `corridor` | Corridor 5 m wide and 50 m long (for checking speed and density) | Done | None (no top-down image) |
 | `corridor_door` | Corridor with a 1 m opening partway (for checking bottlenecks) | Done | None (no top-down image) |
 
-Checking a space: `python -m twinsim show-space <name>` produces an image (annotate.png in the space folder) that overlays the walkable area, scale ticks, candidates, places and zones on the top-down image.
+Checking a space: `python -m twinsim show-space <name> [--out image.png]` produces an image (annotate.png in the space folder) that overlays the walkable area, scale ticks, candidates, places and zones on the top-down image. The space can be a name, a folder or a file path; for spaces without a top-down image (the `corridor` spaces and spaces written as polygons), they are overlaid on a plan drawn from the walkable grid. In Python: `twinsim.spaceview.draw(space, out=...)` (the space may be a dict).
 
 ## 2. Scenario (JSON or YAML; templates are twinsim/templates/<name>.yaml)
 

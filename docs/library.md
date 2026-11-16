@@ -35,6 +35,7 @@ result = twinsim.simulate(config, out_dir="runs/short")
 | `twinsim.load_config(config, overrides=None)` | `validate` と同じ（読むための名前） |
 | `twinsim.template(name)` | テンプレートを dict で返す（既定の値は足さない） |
 | `twinsim.list_templates()`・`twinsim.list_spaces()` | テンプレート・空間の名前の一覧 |
+| `twinsim.load_space(space)` | 空間を読んで `Space` を返す（1.2 から）。`space` は設定の `space` に書けるもの（名前・フォルダ・ファイルの場所・dict）。歩ける所（`walkable(x, y)`・`grid`・`res`）、場所（`pois`）、経路（`route(a, b)`）を確かめるのに使う。誤りは `ValueError` |
 | `twinsim.open_result(out_dir)` | 計算済みの結果のフォルダを開いて `Result` を返す。計算し直さない |
 | `twinsim.render(out_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, keep_frames=True, labels=False, preroll=0, cull=False)` | 計算の結果を Isaac Sim で描画して `video/<カメラ>.mp4` を作る。GPU を使う。Isaac Sim が動いていなければ `RuntimeError`。`frames` はシミュレータのコマの範囲（端を含む）、`tint=False` で服の色を変えない（`None` なら設定の `render.tint` に従う）。`chunk_s`（秒）を渡すと、カメラごと・その長さごとに分けて投入し、動いている受け付け全部で並べて描く（[README の「並べて描く」](../README.md#parallel)）。`keep_frames=False` で、mp4 にしたあと作業場所の画像を消す。`labels=True` で、描画から人ごとの枠と隠れの割合を出して `labels/<カメラ>.csv` を作る（[docs/formats.md の 4](formats.md)。時間は約 1.5〜3 倍）。`preroll`（コマ）は区間ごとに前を余分に描いて捨てる数（区間の最初の 1〜2 コマの見え方の差をなくす。3 が目安）、`cull=True` はカメラごとの区間でそのカメラの近くの人だけを置く（`chunk_s` のとき。人が多いほど速くなる） |
 
@@ -102,7 +103,7 @@ for seed in range(5):
 
 | キー | 中身 |
 |---|---|
-| `space` | 空間の名前（`twinsim.list_spaces()`）か、自分の空間のフォルダの場所。必須 |
+| `space` | 空間の名前（`twinsim.list_spaces()`）、自分の空間のフォルダかファイルの場所、空間そのもの（dict、1.2 から）。必須 |
 | `name`・`title` | 名前 |
 | `seed` | 乱数の種 |
 | `duration_s`・`fps` | 長さ（秒、既定 120）・1 秒のコマ数（既定 30） |
@@ -132,7 +133,7 @@ for seed in range(5):
 
 | 書き方 | 人の現れる所 |
 |---|---|
-| `"entrance"` | 空間の場所（`twinsim show-space <空間>` の図や、GUI の図で確かめる。真上の図のない `corridor` 系では使えない） |
+| `"entrance"` | 空間の場所（`twinsim show-space <空間>` の図や、GUI の図で確かめる。真上の図のない空間は、歩ける所の格子から描いた平面図になる） |
 | `{"xy": [x, y]}` | その点 |
 | `{"line": [[x0, y0], [x1, y1]]}` | 線の上のどこか（幅のある入口） |
 
@@ -197,9 +198,33 @@ ValueError: シナリオの誤り:
 again = twinsim.simulate(result.out_dir / "scenario_resolved.json", out_dir="runs/again")
 ```
 
+<a id="own-space"></a>
+
 ## 自分の空間
 
 `space` にフォルダの場所を書くか、環境変数 `TWINSIM_SPACES` の場所に置いて名前で呼ぶ。フォルダには `space.yaml` か `space.json` と、歩ける所の地図を置く。形は [spec.md](spec.md) の 1 節、USD から作る手順は `twinsim export-space`。
+
+1.2 から、歩ける所を多角形（外形と穴）で書き、空間そのもの（dict）を `space` に書ける（[spec.md の「多角形で書く」](spec.md#polygons)）。Python なら、柱を繰り返しで並べるなど、組み立ててから渡せる。
+
+```python
+pillars = [{"circle": [x, y, 0.4]} for x in (6.0, 12.0) for y in (4.0, 10.0)]
+space = {
+    "name": "hall",
+    "levels": [{"name": "1F", "z": 0.0,
+                "walkable": {"res": 0.25, "outline": [{"rect": [0, 0, 30, 14]}],
+                             "holes": pillars + [{"rect": [19.75, 0, 20.25, 6]}, {"rect": [19.75, 8, 20.25, 14]}]}}],
+    "pois": {"west_door": {"kind": "spawn", "xy": [0.5, 7.0], "line": [[0.5, 6.0], [0.5, 8.0]]},
+             "east_exit": {"kind": "exit", "xy": [29.5, 7.0]}},
+    "cameras": {"CamHall": {"eye": [1.0, 1.0, 2.7], "target": [12.0, 8.0, 0.8]}},
+}
+sp = twinsim.load_space(space)              # 確かめる（歩ける所 sp.grid、sp.walkable(x, y)）
+from twinsim.spaceview import draw
+draw(space, out="hall.png")                 # 歩ける所・場所・ゾーンの平面図
+result = twinsim.simulate({"space": space, "streams": [...], "cameras": [{"name": "CamHall"}]}, out_dir="runs/hall")
+```
+
+結果の `ground_truth.json` の `space` は空間の名前（dict の `name`）、空間の中身は `scenario_resolved.json` の `space` に残る（読み直すときもそれを使う）。
+USD がないので描画（`render`）はできない。正解ラベル（`mot`）と集計は作れる。全部を動かす例は `examples/08_space_from_polygons.py`。
 
 ## EV の運行を差し替える
 

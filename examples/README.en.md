@@ -26,6 +26,7 @@ uv run python examples/06_detection_dataset.py
 | [05_frames_with_boxes.py](05_frames_with_boxes.py) | Take frames from a video and draw the ground-truth boxes on them | None | A few seconds |
 | [06_detection_dataset.py](06_detection_dataset.py) | Make an object detection training set (YOLO format) from the videos and labels | None | A few seconds |
 | [07_move_origin_and_camera.py](07_move_origin_and_camera.py) | Change where people appear with coordinates, and move or add cameras | None | A few seconds |
+| [08_space_from_polygons.py](08_space_from_polygons.py) | Write your own space as polygons (outline and holes), build it in Python and pass it in; check it on a plan (from 1.2) | None | About 10 s |
 
 ## Frame numbers
 

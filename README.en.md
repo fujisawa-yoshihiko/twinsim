@@ -162,7 +162,7 @@ The sources, the check results and the assumed values are in [docs/validity.en.m
 | `twinsim/spaces/` | Spaces (office, hospital, warehouse, simple_room, warehouse_small, corridor, corridor_door) |
 | `twinsim/templates/` | Templates (table below) |
 | `twinsim/config.py` | Locations (environment variables such as `TWINSIM_DATA`, `TWINSIM_SPACES`, `TWINSIM_ISAAC_WORK`) |
-| `examples/` | Tutorial examples (simulating, changing settings, ground-truth labels, getting videos, training data) |
+| `examples/` | Tutorial examples (simulating, changing settings, ground-truth labels, getting videos, training data, writing your own space as polygons) |
 | `tests/` | Checks (`uv run --group dev pytest -q`; lint with `uv run --group dev ruff check`) |
 
 | Template | What it checks |
