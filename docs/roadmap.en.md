@@ -83,7 +83,7 @@ What to build (1.2):
 - Geometry (positions, directions, queue lines, seats) goes in the space (space.yaml); behaviour values (number of servers, times, capacity) go in the configuration (the same split as gates). Configurations written with today's `spot`, `dwell` and `wait_zone` keep loading
 - Add states to the ground truth (`service_queue` in a counter queue, `service` while served, `call_wait` while waiting to be called, `seated` while sitting) and the times of entering and leaving rooms
 - Templates: hospital outpatients (reception → waiting area → consultation room → payment → pharmacy), office lunchtime (café queue, seating), warehouse (work points with capacity and queues)
-- Rendering: sitting uses the same NVIDIA assets as today's people (such as `SitAndStandChair` in Isaac's People). Chairs and counters are first placed to match the furniture already in the space's USD; if more are needed, they come from the same NVIDIA assets (after checking the licence terms)
+- Rendering: sitting uses the same NVIDIA assets as today's people (such as `SitAndStandChair` in Isaac's People). Chairs and counters are first placed to match the furniture already in the space's USD; if more are needed, they come from the same NVIDIA assets (after checking the licence terms). Done (2026-11-16, section 5.10 of docs/validity.en.md): sitting animation, hospital benches (those in the USD plus more of the same asset), consultation-room doors opened only while people pass, and people inside rooms placed below the floor
 
 ### 3. Remaining movement fixes from 1.1
 

@@ -65,6 +65,7 @@ No lens distortion (pinhole). Other values: `eye` and `target` (world coordinate
 | `elevator_times`, `cars`, `spots`, `door` | Elevator arrival times, door position and capacity of each car, the spots where people stand while waiting for the elevator |
 | `gates[name]` | Lane centers `lanes`, entry direction `in_dir`, time per person `service_s` |
 | `zones[name]` | Zone polygon `[[x, y], …]` |
+| `sit_clip` | Ranges of the sitting animation `{down, loop, up, fps, source}` (from 1.2; only when someone sat). The renderer maps the `sit` intervals proportionally onto these animation frames (while seated, it plays `loop` back and forth). The animation is `SitAndStandChair` from NVIDIA Isaac Sim People. The positions and headings in `tracks` during the sit-down and stand-up motions are made from the body trajectory of this animation |
 | `groups[group]` | `{members, relation, leader, apart}` (from 1.2). Member names (in order of appearance), relation (`colleagues`, `friends`, `family`, `companion`), leader (the first member to appear; companions excluded), intervals while the members were apart `[[start s, end s], …]` (someone more than 3 m from the nearest member for at least 1 s; the end is null if they were still apart at the end; meeting groups are counted only after they meet) |
 
 Contents of `people[name]`:
@@ -76,7 +77,7 @@ Contents of `people[name]`:
 | `group`, `role`, `relation` | Group name (`G001`; null if alone), `companion` if the person is a companion, the group's relation (from 1.2; same as in `groups`) |
 | `start_frame`, `arrive_frame`, `speed_m_s` | Frames at which the person appeared and disappeared, desired walking speed |
 | `states` | `[[start frame, end frame, state], …]` (states in the table below) |
-| `sit` | `[[start frame, end frame], …]`. Intervals while seated (from 1.2; only for people who sat) |
+| `sit` | `[[sit-down start, seated, stand-up start, stand-up end], …]` (frames). Sitting intervals (from 1.2; only for people who sat). Sit-down start to seated is the sit-down motion (turning in front of the seat and lowering, about 3.1 s), seated to stand-up start is the time seated, and stand-up start to stand-up end is the stand-up motion (about 2.2 s). Parts not reached by the end of the computation are the last frame |
 | `events` | In seconds. `start` and `end`, `gate_join` and `gate` (joined the queue, passed through), `hall`, `wait_start`, `car`, `board_start`, `board` (elevator), `stops` (intervals while stopped), `meet_start` and `meet_end`, `regroup` (intervals spent waiting for group members beyond a gate, `[[start, end], …]`, from 1.2), `service` (per counter `{name, join, called, start, end, point}`: times of joining, being called, start and end of service, and the service point index; from 1.2), `room` (`{name, join, called, enter, exit}`, from 1.2), `seat` (`[[start of the seating step, end, place], …]`, from 1.2), `call` (times of being called, from 1.2), `spawn_wait_s` (seconds spent waiting outside because the entrance was blocked) |
 
 | State | Meaning |
@@ -101,20 +102,21 @@ Contents of `people[name]`:
 ## 3. `frames.csv.gz`
 
 The first line holds the column names: `frame, t, person, x, y, yaw, moving, state, zone, group, type, pose`.
-`t` is in seconds, `moving` is 0/1, `zone` is the zone at the person's feet (empty if none), `group` is empty or `G…`, and `pose` is `walk`, `stand` or `sit` (from 1.2). Rows inside a room (state `in_room`) are not written (from 1.2).
+`t` is in seconds, `moving` is 0/1, `zone` is the zone at the person's feet (empty if none), `group` is empty or `G…`, and `pose` is `walk`, `stand`, `sit`, `sit_down` (sit-down motion) or `stand_up` (stand-up motion) (from 1.2). Rows inside a room (state `in_room`) are not written (from 1.2).
 
 ## 4. Camera boxes
 
 `mot/<camera>.txt` (same as MOTChallenge gt.txt, comma-separated): `frame, id, x, y, w, h, conf, class, visibility`.
 `frame` is 1-based, `id` is the number in `mot/ids.json`, `x, y, w, h` are in pixels (top-left corner, width, and height), `conf` and `class` are 1, and `visibility` is the visibility (0 to 1, approximate).
 Every person with at least 20% of their box inside the image is written, even if occluded (as a guideline, exclude visibility below 0.4 from training and evaluation). Can be thinned out with the scenario's `mot_stride`.
+The box is the projection of a cylinder of radius 0.25 m and the person's height standing at the person's position. For a seated person (`pose` `sit`), the height is the seated height (0.42 m + 0.53 × height), and the knees (0.55 m high) and feet 0.5 m in front are included. During the sit-down and stand-up motions, the box is between the standing and seated boxes (from 1.2). People inside a room are not written (from 1.2).
 
 `mot/ids.json`: `{"P0001": 1, …}`. The same person gets the same number across cameras.
 
 **Ground truth from the rendering (`labels/`)**: with `twinsim.render(..., labels=True)` (`twinsim render --labels`), Isaac Sim's Replicator
 takes each person's boxes and pixels for the same frames that were rendered, and writes `labels/<camera>.csv` for the rendered frames only. Unlike `mot/`,
 it is made from the rendered pixels of each person, so the boxes fit the outline and occlusion counts walls, furniture and other people
-(in the check of 2026-11-03, the `mot/` boxes were about 1.4 times wider than detector boxes).
+(in the check of 2026-11-03, the `mot/` boxes were about 1.4 times wider than detector boxes). People inside a room (placed below the floor by the renderer) are not written (from 1.2).
 
 | Column | Contents |
 |---|---|

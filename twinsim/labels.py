@@ -21,6 +21,7 @@ from scipy.optimize import linear_sum_assignment
 
 from . import glass as glass_mod
 from .camera import Camera
+from .components import box_shape
 from .space import load_space
 
 COLUMNS = ["frame", "id", "name", "tight_x0", "tight_y0", "tight_x1", "tight_y1", "amodal_x0", "amodal_y0", "amodal_x1", "amodal_y1",
@@ -116,8 +117,8 @@ def fix_names(raw, gt, cam):
             cpu = {}
             for name, p in gt["people"].items():
                 s0, tr = p["start_frame"], gt["tracks"][name]
-                if s0 <= f < s0 + len(tr):
-                    b = cam.person_box(tr[f - s0][0], tr[f - s0][1], float(p.get("height_m", 1.75)))
+                if s0 <= f < s0 + len(tr) and _state_at(p.get("states", []), f) != "in_room":  # 部屋の中の人は描画では床の下（1.2）
+                    b = cam.person_box(tr[f - s0][0], tr[f - s0][1], *box_shape(p, f, gt["fps"], float(p.get("height_m", 1.75)), tr[f - s0][2]))
                     if b and b[4] > 0:
                         cpu[name] = _clip(b[:4], w, h)
             got = fr["people"]
@@ -189,10 +190,10 @@ def build(run_dir, camera, raw, ids=None, occ_includes_truncation=False, stats=N
             got = fr["people"]
             for name, p in gt["people"].items():
                 s0, tr = p["start_frame"], gt["tracks"][name]
-                if not (s0 <= f < s0 + len(tr)):
+                if not (s0 <= f < s0 + len(tr)) or _state_at(p.get("states", []), f) == "in_room":  # 部屋の中は映らない（frames.csv・MOT と同じ）
                     continue
                 x, y = tr[f - s0][0], tr[f - s0][1]
-                b = cam.person_box(x, y, float(p.get("height_m", 1.75)))
+                b = cam.person_box(x, y, *box_shape(p, f, gt["fps"], float(p.get("height_m", 1.75)), tr[f - s0][2]))  # 座っている人は低く、膝と足が前に（1.2）
                 cpu = (b[0], b[1], b[2], b[3]) if b else None
                 r = got.get(name, {})
                 tight, loose = r.get("tight"), r.get("loose")

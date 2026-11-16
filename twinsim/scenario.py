@@ -56,9 +56,13 @@ def component_cfg(spec, key, name):
     return {}
 
 
-def seats_of(poi):
-    """space.yaml の seats の場所 → [((x, y), 向き（度）), ...]。seats: [[x, y, 向き], ...] か row: {from, to, n, yaw}（線の上に n 席）。"""
+def seats_of(poi, furniture=True):
+    """space.yaml の seats の場所 → [((x, y), 向き（度）), ...]。seats: [[x, y, 向き], ...]、row: {from, to, n, yaw}（線の上に n 席）、
+    furniture: [{asset, xy, rot, in_usd}]（家具の席。space.FURNITURE）。furniture=False なら家具の席を除く。"""
+    from .space import furniture_place
     out = [((float(q[0]), float(q[1])), float(q[2])) for q in poi.get("seats", [])]
+    if furniture:
+        out += [s for fur in poi.get("furniture", []) for s in furniture_place(fur)[1]]
     for r in ([poi["row"]] if isinstance(poi.get("row"), dict) else poi.get("rows", [])):
         (x0, y0), (x1, y1), n = r["from"], r["to"], int(r["n"])
         out += [((x0 + (x1 - x0) * k / max(n - 1, 1), y0 + (y1 - y0) * k / max(n - 1, 1)), float(r["yaw"])) for k in range(n)]

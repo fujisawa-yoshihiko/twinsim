@@ -11,6 +11,7 @@ import math
 import numpy as np
 
 RADIUS_M = 0.25
+FOOT_M, KNEE_M = 0.12, 0.55  # 座った人の膝・足の先の広がり（m）と膝の高さ（座面の高さ＋腿の厚み）
 
 
 def look_at_rowmajor(eye, target, up=(0.0, 0.0, 1.0)):
@@ -71,9 +72,13 @@ class Camera:
             return None
         return float(o[0] + t * d[0]), float(o[1] + t * d[1])
 
-    def person_box(self, x, y, height):
+    def person_box(self, x, y, height, reach=None):
+        """人の枠（立てた円柱の角を写した範囲）。reach = (dx, dy) なら、座った人の前に出る膝（座面の高さ）と足の先（床）も入れる。"""
         floor = self.floor_z
         corners = [(x + dx, y + dy, z) for dx in (-RADIUS_M, RADIUS_M) for dy in (-RADIUS_M, RADIUS_M) for z in (floor, floor + height)]
+        if reach is not None:
+            fx, fy = x + reach[0], y + reach[1]
+            corners += [(fx + dx, fy + dy, z) for dx in (-FOOT_M, FOOT_M) for dy in (-FOOT_M, FOOT_M) for z in (floor, floor + KNEE_M)]
         uv, depth = self.project(corners)
         if np.any(depth <= 0.1):
             return None
@@ -121,10 +126,10 @@ class Camera:
 
 
 def boxes_with_visibility(cam, space, people):
-    """people: [(名前, x, y, 背の高さ)] → {名前: (x0, y0, x1, y1, 画面の中の割合, 見えている割合)}（近似）。"""
+    """people: [(名前, x, y, 枠の高さ[, 前へ出る膝・足の先 (dx, dy)])] → {名前: (x0, y0, x1, y1, 画面の中の割合, 見えている割合)}（近似）。"""
     boxes = {}
-    for name, x, y, h in people:
-        b = cam.person_box(x, y, h)
+    for name, x, y, h, *rest in people:
+        b = cam.person_box(x, y, h, rest[0] if rest else None)
         if b is None:
             continue
         if cam.wall_blocked(space, x, y):

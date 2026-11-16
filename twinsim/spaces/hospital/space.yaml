@@ -35,13 +35,18 @@ pois:
   front_desk:     {kind: service, points: [[2.7, 1.75], [3.8, 1.75]], faces: [[2.7, 2.6], [3.8, 2.6]], wait: lobby_seats, aside: lobby_seats, note: 受付（USD の受付の机 SM_ReceptionDesk_01a の前、ロビー側に立つ）。番号札を取り、待合の席（wait）で呼ばれるのを待つ（机ぞいの列は、机と列のあいだが袋小路になり、応対を終えた人が出られなかった）}
   cashier:        {kind: service, points: [[0.2, 1.75], [1.3, 1.75]], faces: [[0.2, 2.6], [1.3, 2.6]], wait: lobby_seats, note: 会計（受付の机 SM_ReceptionDesk_01a2 の前、待合の席の側）。呼ばれるまで lobby_seats で待つ}
   pharmacy:       {kind: service, points: [[9.3, 2.4]], faces: [[10.3, 2.4]], wait: lobby_seats, note: 薬の受け渡し（見立て。ロビーの東の壁ぎわ）}
-  lobby_seats:    {kind: seats, rows: [{from: [-8.4, -0.45], to: [-4.3, -0.45], n: 7, yaw: -90}, {from: [-8.4, 1.75], to: [-4.3, 1.75], n: 7, yaw: 90}], note: 待合（見立て。ロビーの中の島の両側。描画の椅子はまだない。島の北にもう 1 列足すと、列のあいだの通路に人が集まり安全弁が倍になった）}
-  clinic_seats:   {kind: seats, row: {from: [-7.8, 9.6], to: [-3.2, 9.6], n: 8, yaw: 90}, note: 診察室の前の待合（見立て。廊下の南の壁ぎわ）}
-  consult_1:      {kind: room, xy: [-4.28, 11.8], inside: [-4.28, 13.6], wait: clinic_seats, note: 診察室（扉 SM_Door_01b9。USD では扉は閉じている）}
-  consult_2:      {kind: room, xy: [-0.78, 11.8], inside: [-0.78, 13.6], wait: clinic_seats, note: 診察室（扉 SM_Door_01b7）}
-  consult_3:      {kind: room, xy: [2.67, 11.8], inside: [2.67, 13.6], wait: clinic_seats, note: 診察室（扉 SM_Door_01b8）}
-  consult_4:      {kind: room, xy: [-9.12, 9.75], inside: [-9.12, 7.9], wait: clinic_seats, note: 診察室（扉 SM_Door_01b5_8、廊下の南）}
-  consult_5:      {kind: room, xy: [-2.12, 9.75], inside: [-2.12, 7.9], wait: clinic_seats, note: 診察室（扉 SM_Door_01b6、廊下の南）}
+  lobby_seats:    {kind: seats, furniture: [{asset: bench3, xy: [-7.56, 0.29], rot: 0, in_usd: true}, {asset: bench3, xy: [-7.56, 1.04], rot: 180, in_usd: true},
+                                        {asset: bench3, xy: [-5.12, 0.29], rot: 0, in_usd: true}, {asset: bench3, xy: [-5.12, 1.04], rot: 180, in_usd: true},
+                                        {asset: bench3, xy: [-11.08, 0.18], rot: 90}, {asset: bench3, xy: [-8.3, -2.28], rot: 180}],
+                   note: 待合（ロビーの中の島の、USD の長椅子 SM_Chair_02a4〜7 の 12 席と、描画で足す西の壁ぎわ・南の窓ぎわの長椅子の 6 席。前は島の両側に見立ての席 14 を置いていて、
+                     描くと長椅子の 0.7 m 前の空中に座っていた。USD の 12 席だけでは立って待つ人が 1.7 倍になり、島のまわりの通路で重なり・安全弁が増えたので足した、2026-11-16）}
+  clinic_seats:   {kind: seats, furniture: [{asset: bench3, xy: [-7.12, 9.5], rot: 180}, {asset: bench3, xy: [-4.18, 9.5], rot: 180}, {asset: bench3, xy: [0.2, 9.5], rot: 180}],
+                   note: 診察室の前の待合（USD に椅子がないので、描画でロビーと同じ長椅子を廊下の南の壁ぎわに 3 つ置く。9 席。診察室 4・5 の扉の前はあける）}
+  consult_1:      {kind: room, xy: [-4.28, 11.8], inside: [-4.28, 13.6], door_prim: SM_Door_01b9, wait: clinic_seats, note: 診察室（扉 SM_Door_01b9。USD では閉じている扉を、描画で人が通るときだけ部屋の中へ開ける、door_prim）}
+  consult_2:      {kind: room, xy: [-0.78, 11.8], inside: [-0.78, 13.6], door_prim: SM_Door_01b7, wait: clinic_seats, note: 診察室（扉 SM_Door_01b7）}
+  consult_3:      {kind: room, xy: [2.67, 11.8], inside: [2.67, 13.6], door_prim: SM_Door_01b8, wait: clinic_seats, note: 診察室（扉 SM_Door_01b8）}
+  consult_4:      {kind: room, xy: [-9.12, 9.75], inside: [-9.12, 7.9], door_prim: SM_Door_01b5_8, wait: clinic_seats, note: 診察室（扉 SM_Door_01b5_8、廊下の南）}
+  consult_5:      {kind: room, xy: [-2.12, 9.75], inside: [-2.12, 7.9], door_prim: SM_Door_01b6, wait: clinic_seats, note: 診察室（扉 SM_Door_01b6、廊下の南）}
   other_clinics:  {kind: room, xy: [-31.2, 8.9], inside: [-33.0, 8.9], capacity: 100, note: ほかの科（見立て。西の広間の西の両開きの扉の向こう。映らない）}
 
 zones:

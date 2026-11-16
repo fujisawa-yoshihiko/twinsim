@@ -463,7 +463,50 @@ Results (16 runs of 30 min; results in `~/dt-data/twinsim/crowd_check/parts1/`):
 Effect on templates without components (from the change in detecting being stuck; same seeds as 5.8, `~/dt-data/twinsim/crowd_check/groups1/`, parts4): the four checks without groups give the same results as 1.1.
 Safety valve `office_ev_hall` 24 → 27, `hospital_gate_ev` 56 → 66, `office_gate_ev` 15 → 13, `verify_gate_capacity` 4 → 3 (results of 5.8 → now); no stuck people.
 
-Remaining: rendering (sitting animation, chairs, room doors that are closed in the USD, hiding people inside rooms) is not done yet. A template with a queuing counter (office lunchtime café) and warehouse work points are still to come.
+Remaining: rendering (sitting animation, chairs, room doors that are closed in the USD, hiding people inside rooms) is in 5.10. A template with a queuing counter (office lunchtime café) and warehouse work points are still to come.
+
+### 5.10 Checking the rendering: sitting, benches, consultation-room doors and people inside rooms (1.2, 2026-11-16)
+
+The components of 5.9 were added to the renderer, and the outpatient template (seed 1) was rendered on GPU 3 and looked at (records in `~/dt-data/twinsim/crowd_check/render12/`, README.md).
+
+- Sitting animation: `SitAndStandChair` from NVIDIA Isaac Sim People (30 fps; approaching and turning, sitting down 109–156, seated 156–266, standing up 266–334) is retargeted to each character's skeleton, like the walking animation.
+  Retargeted with `set_root_identity=False`, the whole-body forward motion and heading go to the root joint of the skeleton, so the renderer removes them there and moves the body by the person's position and heading.
+  The simulator sits down and stands up along the body trajectory of the animation (forward distance and heading in the seat's frame; `components.SIT_DOWN_TRACK`, `STAND_UP_TRACK`), so the ground-truth position and the rendered body agree.
+  Sitting down: animation frames 62–156 (3.1 s; the walk-in before the turn ends is shortened to start from the point 0.6 m in front of the seat, and the heading turns from the current heading to the seat's heading following the progress of the turn in the animation).
+  Standing up: frames 266–332 (2.2 s, 0.42 m forward). Seated people do not look around (turning the whole body swept the legs through the neighbouring seat and armrest)
+- Benches: the waiting-room bench of the hospital USD (`SM_Chair_02a`, three seats, seat height 0.43–0.48 m). The pelvis position was decided by seating characters at different depths on an empty stage (the middle of the depth;
+  0.05 m further back the legs go into the seat, 0.10 m further back the body goes into the backrest). The earlier stand-in seats were in the air 0.7 m in front of the benches. A way to write furniture, `furniture`, was added to `seats` in the space, and benches not in the USD are placed by the renderer
+- Doors: the door leaf of a consultation room (`door_prim`; its origin is the hinge) is turned 90 degrees towards the inside of the room only while people pass. It starts opening when a person entering reaches the point in front of the door
+  (2 s before reaching the inside point) and starts closing 0.3 s after they reach the inside point. People become invisible only after the door closes (for a group, after the last member arrives). People leaving appear at the inside point and start walking after the door has opened
+- People inside a room (`in_room`): the renderer places them 200 m below the floor (switching visibility is not followed by Replicator's annotations; same as park in section 5). They are left out of the rendered labels (`labels/`) and MOT as well
+- Ground-truth boxes (`mot/`): for seated people, the height is the seated height and the knees and feet in front are included (previously only a cylinder at the pelvis, and the feet were outside the box). The name matching of the rendered labels (`labels.fix_names`) uses the same boxes
+
+Found by rendering and fixed:
+
+| Finding | Fix |
+|---|---|
+| The sitting animation is in cm; after retargeting, only the position of the pelvis joint stayed in cm, so the pelvis jumped to 47.9 m and no one was visible | If the seated pelvis height is over 5, divide by 100 (the positions of the other joints match the walking animation) |
+| Seat points were 0.7 m in front of the benches, and people sat in the air | Seats are made on furniture (benches) with `furniture` |
+| The feet of seated people were outside the ground-truth box | Use the seated height and include the knees (0.55 m) and feet 0.5 m in front |
+| The door opened 3 s before, while the person was still near the bench, like an automatic door | From when they reach the point in front of the door (2 s before) |
+| People vanished the moment they reached the inside point, which a camera facing the door saw happen behind the open door | They stand at the inside point until the door closes. When leaving, they appear at the inside point before the door opens |
+| In a pair, the first to enter vanished behind the door held open for the second (members were looked up in the party called to the room, which did not include a member following the leader in later) | People of the same group entering the same room are members, and everyone stands until the door closes after the last member arrives |
+| Because the first person stands at the inside point, the second could not reach the same point and waited inside the doorway for up to 30 s | Members go to points 0.6 m to the side of the inside point. People standing inside and waiting for the door are, like seated people, not avoided by others (members now enter within 1.6 s of each other) |
+| A person being served at the reception kept giving way to passers-by, drifted 1.25 m from the desk and was served there (CamGate; in 16 runs, 4.1% of services drifted more than 0.9 m, at most 1.91 m) | Not fixed (remaining). If people being served do not give way, the safety valve rose 168 → 368 and overlaps 0.28 → 1.03; limiting it to 0.4 m gave a safety valve of 330 and 1 stuck person. The service points are near a walking route, and people being served keep the flow going by giving way. The next step is to make passers-by route away from the front of the reception |
+| With seats reduced to the 12 of the USD benches (14 stand-in seats before), standing waiters increased 1.7 times, and the safety valve and overlaps around the island increased (178 → 222, 0.23 → 0.49) | The same benches were added by the renderer along the west wall and south window of the lobby and in front of the consultation rooms (18 seats in the lobby, 9 in front of the consultation rooms) |
+
+Results (16 runs of 30 minutes; before = the result of 5.9; final7 → render5 in `~/dt-data/twinsim/crowd_check/parts1/`):
+
+| Measure | Before | Now |
+|---|---|---|
+| Safety valve | 178 | 168 |
+| Overlaps (under 0.3 m, per 1,000 person-frames, on walkable cells) | 0.23 | 0.28 |
+| Stuck people, largest step | 0, 0.08 m | 0, 0.07 m |
+| Pairs that agree, free walking speed that agrees | 15/16, 16/16 | 15/16, 16/16 |
+
+Counting positions outside the walkable area too (seats, inside rooms), overlaps fell from 0.31 to 0.28, but on walkable cells they rose from 0.23 to 0.28. People being served drifting from the reception desk also remains (table above). Most are between companions standing and waiting around the bench added at the south window of the lobby and people passing (remaining).
+The benches added to the hospital space are also rendered, and removed from the walkable area, in templates that do not use components (such as `hospital_gate_ev`).
+In the check with `hospital_gate_ev` made 2.5 times busier (tests/test_benchmark_gt.py), a pair of people standing and waiting for the elevator closer than 0.3 m appeared in one of seeds 1–8 both in the components version and now (seed 1 then, seed 4 now).
 
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 

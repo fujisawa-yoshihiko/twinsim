@@ -197,6 +197,8 @@ class Agent:
         self.blocker, self.walk_state = None, None  # 前でふさいでいる人、列の後ろで止まる前の状態（motion_model "cfsm"）
         # 部品（components.py）: 今の部品の段取り、着いたら呼ぶ関数、段取りを終えるときに呼ぶ関数、放されるまで待つ、取った席、座っているか、座ったコマの区間
         self.comp, self.on_arrive, self.on_done, self.hold, self.seat, self.sitting, self.sit_spans = None, None, None, False, None, False, []
+        # 決まった軌跡どおりに動く間（座る・立つ動作、components.play）、座る動作の途中で放されたときに座り終えてから呼ぶ関数
+        self.script, self.leave_after, self.room_wait = None, None, False  # room_wait: 部屋の中の点で扉が閉じる・開くのを待つ間
 
 
 class Lane:
@@ -1075,9 +1077,10 @@ class Sim(ComponentsMixin):
         d = np.hypot(rel[:, 0], rel[:, 1])
         near = d < C["cutoff"]
         near[i] = False
-        if self.seatsets:  # 座っている人は席（歩ける所の外、家具）の中: 人としてはよけない（席の列の端で、座っている人から離れる向きと行き先の向きが
-            # 打ち消し合って止まり、動けなくなった、hospital_outpatient の種 13、2026-11-13）
-            near &= ~np.array([b.sitting for b in active], bool)
+        if self.seatsets or self.rooms:  # 座っている人は席（歩ける所の外、家具）の中: 人としてはよけない（席の列の端で、座っている人から離れる向きと
+            # 行き先の向きが打ち消し合って止まり、動けなくなった、hospital_outpatient の種 13、2026-11-13）。部屋の中の点で扉を待つ人も（後から入る仲間が
+            # よけて着けなかった、2026-11-16）
+            near &= ~np.array([b.sitting or b.room_wait for b in active], bool)
         mate = np.array([a.group is not None and b.group == a.group for b in active], bool)
         # 自分の速さ: グループのまとまり（前のモデルと同じ）。密度で遅くなるのは、前の人までの距離の規則から出るので、
         # Weidmann の式（speed_density）は掛けない（掛けると 2 重に遅くなり、ボトルネックで 1.43 人/(m·s)、2026-11-05）
@@ -1272,8 +1275,8 @@ class Sim(ComponentsMixin):
                     e, v = away / na, SEPARATE_M_S
         b = a.blocker
         yielders = ("stop", "meet", "wait", "board_wait")  # 道をあけてもらえる立つ人
-        def yields(o):  # 立つ人と、扉の前で降りる人を待つ乗る人（座っている人は除く）
-            return (o.mode in yielders and not o.sitting) or (o.mode == "board" and getattr(o, "waiting_alight", False))
+        def yields(o):  # 立つ人と、扉の前で降りる人を待つ乗る人（座っている人・座る立つ動作の人は除く）
+            return (o.mode in yielders and not o.sitting and o.script is None) or (o.mode == "board" and getattr(o, "waiting_alight", False))
         if v < 0.05 and b is not None and yields(b):  # 立っている人にふさがれたら、その人に横へよけてもらう
             side = np.array([-e[1], e[0]])
             sgn = 1.0 if float((self.where(b)[0] - p) @ side) >= 0 else -1.0
@@ -1388,6 +1391,19 @@ class Sim(ComponentsMixin):
                 a.path, a.s, a.l, a.mode, a.state, a.taper = Path(pts), 0.0, 0.0, "board", "ev_wait", True
                 a.no_walls = True  # 扉の向こう（かごの中）は歩ける所の外
                 a.events["board_start"] = round(t, 2)
+            if a.mode == "stop" and a.script is not None:  # 座る・立つ動作（components.play）: 決まった軌跡どおりに 1 コマずつ
+                sc = a.script
+                k = min(max(0, f - sc["f0"]), len(sc["pts"]) - 1)
+                x, y, yaw = sc["pts"][k]
+                q = np.array([x, y], float)
+                self.here[a.name], a.xy, a.yaw, a.dir = q, q.copy(), yaw, None
+                a.vel_s, a.moving_out, a.still_n = np.zeros(2), False, 2  # 動作のあと歩き出すときは、止まった人として始める
+                a.frames.append((f, x, y, yaw, False))
+                a.states.append(a.state)
+                if k >= len(sc["pts"]) - 1:
+                    a.script = None
+                    sc["then"](a, t, q)
+                continue
             if a.mode in ("stop", "meet", "wait", "gate_wait", "board_wait"):
                 a.dir = None
                 nudged = False
@@ -1398,6 +1414,9 @@ class Sim(ComponentsMixin):
                     dq, dp = (np.hypot(*(others - q).T), np.hypot(*(others - p).T)) if len(others) else (np.zeros(0), np.zeros(0))
                     if getattr(a, "nudge_home", None) is None:
                         a.nudge_home = p.copy()  # 道をあけ終わったら戻る所
+                    # 窓口で応対を受けている人も道をあける。道をあけるのを止める・0.4 m までにすると、受付の前を通る人が押し合い、
+                    # 安全弁 168 → 368・330 回に増えた（応対中の人が机から離れるのは残り。通る人の経路が受付の前を避けるようにするのが次の手、
+                    # docs/validity.md の 5.10、2026-11-16）
                     if self._can_step(p, q) and not ((dq < 2 * self.C["radius"]) & (dq < dp)).any():
                         self.here[a.name] = q
                         a.xy, p, nudged = q.copy(), q, True

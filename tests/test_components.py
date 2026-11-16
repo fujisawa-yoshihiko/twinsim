@@ -25,6 +25,7 @@ pois:
   desk:    {kind: service, points: [[20.0, 1.45], [22.0, 1.45]], faces: [[20.0, 2.5], [22.0, 2.5]], wait: benches}
   benches: {kind: seats, row: {from: [26.0, -1.7], to: [32.0, -1.7], n: 10, yaw: 90}}
   room_1:  {kind: room, xy: [35.0, 1.5], inside: [35.0, 2.8]}
+  sofa:    {kind: seats, furniture: [{asset: bench3, xy: [40.0, -1.6], rot: 180}]}
 zones:
   all: {polygon: [[0.0, -2.0], [50.0, -2.0], [50.0, 2.0], [0.0, 2.0]]}
 """
@@ -150,3 +151,63 @@ def test_hospital_outpatient_runs(tmp_path):
         if len(xy) > 1:
             assert float(np.hypot(*np.diff(xy, axis=0).T).max()) <= 0.2, n
     assert math.isfinite(gt["total_frames"])
+
+
+def test_sit_motion_follows_the_clip(space_dir, tmp_path):
+    """座る・立つ動作: 素材（SitAndStandChair）のコマ数どおりに動き、座ったコマで席の点・席の向きに着く。跳びがない。
+    正解の sit は [座り始め, 座った, 立ち始め, 立ち終わり]、frames.csv の pose に sit_down・sit・stand_up
+    （描画は素材の体の前後の動きを外し、この軌跡で動かす）。"""
+    from twinsim.components import SIT_CLIP
+    from twinsim.scenario import seats_of
+    dest = {"to": "desk", "then": "east"}
+    r = twinsim.simulate(cfg(space_dir, dest, rate=4.0, duration=240,
+                             services={"desk": {"service_s": {"type": "uniform", "min": 8, "max": 10}, "call": True}}), out_dir=tmp_path / "r")
+    gt = r.ground_truth()
+    fps = gt["fps"]
+    seats = seats_of(load_space(str(space_dir)).pois["benches"])
+    n_down = round((SIT_CLIP["down"][1] - SIT_CLIP["down"][0]) / SIT_CLIP["fps"] * fps)
+    n_up = round((SIT_CLIP["up"][1] - SIT_CLIP["up"][0]) / SIT_CLIP["fps"] * fps)
+    assert gt["sit_clip"]["down"] == SIT_CLIP["down"]
+    stood = 0
+    for n, p in gt["people"].items():
+        tr = np.array(gt["tracks"][n])
+        if len(tr) > 1:
+            assert float(np.hypot(*np.diff(tr[:, :2], axis=0).T).max()) < 0.1, n
+        for d0, s0, s1, u1 in p.get("sit", []):
+            assert s0 - d0 == n_down
+            x, y, yaw = tr[s0 - p["start_frame"]]
+            (sx, sy), syaw = min(seats, key=lambda q: math.hypot(q[0][0] - x, q[0][1] - y))
+            assert math.hypot(sx - x, sy - y) < 0.02 and abs((yaw - syaw + 180) % 360 - 180) < 5.0
+            if u1 < p["arrive_frame"]:
+                assert u1 - s1 == n_up
+                stood += 1
+    assert stood >= 2
+    with gzip.open(r.out_dir / "frames.csv.gz", "rt") as f:
+        poses = {x["pose"] for x in csv.DictReader(f)}
+    assert {"sit_down", "sit", "stand_up", "walk"} <= poses
+
+
+def test_furniture_seats(space_dir):
+    """家具の席（space.FURNITURE の bench3）: 家具の真ん中と回転から 3 席（正面の向き）。USD にない家具は床の上の大きさの分を歩ける所から外す。"""
+    from twinsim.scenario import seats_of
+    sp = load_space(str(space_dir))
+    seats = seats_of(sp.pois["sofa"])
+    assert len(seats) == 3
+    for (_x, y), yaw in seats:
+        assert y == pytest.approx(-1.6) and yaw == pytest.approx(90.0)  # rot 180: 正面（回す前の -y）が +y
+    assert sorted(round(x, 3) for (x, _), _ in seats) == [39.215, 40.0, 40.785]
+    assert not sp.walkable(40.0, -1.6) and not sp.walkable(38.9, -1.3) and sp.walkable(40.0, -0.9)
+
+
+def test_door_open_spans():
+    """扉を開ける区間: 中の点に着く 2.0 秒前〜0.3 秒後、中の点に現れてから 3.0 秒後まで。閉じ切る前にまた開けるなら、つなぐ。"""
+    from twinsim.isaac_bridge import component_props, door_keys
+    gt = {"fps": 30, "total_frames": 3000, "people": {
+        "P1": {"events": {"room": [{"name": "r", "enter": 10.0, "exit": 20.0}]}},
+        "P2": {"events": {"room": [{"name": "r", "enter": 21.5, "exit": 200.0}, {"name": "other", "enter": 50.0}]}}}}
+    assert door_keys(gt, "r", gt["total_frames"]) == [[240, 309], [585, 690]]  # P2 が入る区間と P1 が出る区間がつながる
+    hosp = load_space("hospital")
+    props = component_props(hosp, {**gt, "people": {}})
+    assert sum(p["kind"] == "furniture" for p in props) == 5  # ロビーの壁ぎわ 2 つ・診察室の前 3 つ（ロビーの島の長椅子は USD にある）
+    assert {p["prim"] for p in props if p["kind"] == "door"} == {"/Root/SM_Door_01b9", "/Root/SM_Door_01b7", "/Root/SM_Door_01b8",
+                                                                  "/Root/SM_Door_01b5_8", "/Root/SM_Door_01b6"}

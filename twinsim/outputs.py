@@ -22,7 +22,7 @@ import yaml
 
 from . import config
 from .camera import Camera, boxes_with_visibility, camera_dict
-from .components import SIT_SEAT_M, SIT_TRUNK
+from .components import SIT_CLIP, box_shape, sit_pose
 from .engine import state_runs
 
 STOP_STATES = ("gate_queue", "ev_wait", "reception", "dwell", "sign_check", "companion_wait", "group_wait",
@@ -42,6 +42,12 @@ def resolve_cameras(spec, space):
 
 
 APART_M, APART_MIN_S = 3.0, 1.0  # グループの仲間が「分かれた」: いちばん近い仲間からこの距離（m）より離れた人がいる状態が、この秒数以上続いた
+
+
+def sit_spans(a):
+    """座る動作の区間 [[座り始め, 座った, 立ち始め, 立ち終わり], ...]（コマ）。計算の終わりまでに来なかった所は最後のコマ。"""
+    last = a.frames[-1][0]
+    return [[v if v is not None else last for v in s] for s in a.sit_spans]
 
 
 def group_summary(sim, agents):
@@ -103,8 +109,8 @@ def write_all(sim, builder, spec, out_dir):
         info.update({"start_frame": f0, "arrive_frame": f1, "speed_m_s": round(a.speed, 3), "group": a.group,
                      "flow": f"{a.info.get('origin')}->{a.info.get('destination')}",
                      "events": a.events, "states": state_runs(a.states, f0)})
-        if a.sit_spans:  # 座っていたコマの区間（1.2、components.py）
-            info["sit"] = [[s0, s1 if s1 is not None else f1] for s0, s1 in a.sit_spans]
+        if a.sit_spans:  # 座る動作の区間（1.2、components.py）: [座り始め, 座った, 立ち始め, 立ち終わり]。終わりまでに来なかった所は最後のコマ
+            info["sit"] = sit_spans(a)
         people[a.name] = info
         tracks[a.name] = [[round(x, 4), round(y, 4), round(((yaw + 180) % 360) - 180, 2)] for _, x, y, yaw, _ in a.frames]
         moving[a.name] = [1 if m else 0 for *_, m in a.frames]
@@ -121,6 +127,7 @@ def write_all(sim, builder, spec, out_dir):
                     for k, g in sim.gates.items()},
           "zones": {k: [list(p) for p in v] for k, v in sp.zones.items()},
           "groups": group_summary(sim, agents),
+          **({"sit_clip": SIT_CLIP} if any(a.sit_spans for a in agents) else {}),
           "note": "tracks[name][k] = [x, y, yaw_deg] は people[name]['start_frame'] + k のコマ（現れてから消えるまで）。moving は歩いているか。"
                   "people[name]['states'] は [始まりのコマ, 終わりのコマ, 状態]。events・*_events は秒。座標は世界の m（Z が上）"}
     (out / "ground_truth.json").write_text(json.dumps(gt, ensure_ascii=False))
@@ -135,22 +142,23 @@ def write_all(sim, builder, spec, out_dir):
             zone_cache[k] = sp.zone_of(x, y)
         return zone_cache[k]
 
-    per_frame = defaultdict(list)  # コマ → [(名前, x, y, 状態, 背の高さ（座っていれば座った高さ）, ゾーン)]
+    per_frame = defaultdict(list)  # コマ → [(名前, x, y, 状態, 枠の高さ（座っていれば座った高さ）, ゾーン, 前へ出る膝・足の先 (dx, dy) か None)]
     with gzip.open(out / "frames.csv.gz", "wt", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(["frame", "t", "person", "x", "y", "yaw", "moving", "state", "zone", "group", "type", "pose"])
         for a in agents:
-            sit = [(s0, s1 if s1 is not None else a.frames[-1][0]) for s0, s1 in a.sit_spans]
+            sit = sit_spans(a)
             for (f, x, y, yaw, mv), st in zip(a.frames, a.states):
                 if st == "in_room":  # 部屋の中（映らない）は書かない。正解の tracks・states には残る
                     continue
                 z = zone(x, y)
-                seated = any(s0 <= f <= s1 for s0, s1 in sit)
-                pose = "sit" if seated else "walk" if mv else "stand"
+                pose, rise = sit_pose(f, sit, fps) if sit else (None, 1.0)
+                pose = pose or ("walk" if mv else "stand")
                 w.writerow([f, round(f / fps, 3), a.name, round(x, 3), round(y, 3), round(((yaw + 180) % 360) - 180, 1), int(mv), st, z or "",
                             a.group or "", a.info.get("type", ""), pose])
-                h = SIT_SEAT_M + SIT_TRUNK * a.info["height_m"] if seated else a.info["height_m"]
-                per_frame[f].append((a.name, x, y, st, h, z))
+                # 枠の形: 座っている・座る途中は低く、膝と足の先が前に出る（components.box_shape）
+                h, reach = box_shape(sit, f, fps, a.info["height_m"], yaw) if rise < 1.0 else (a.info["height_m"], None)
+                per_frame[f].append((a.name, x, y, st, h, z, reach))
     files.append("frames.csv.gz")
 
     # ---- タスクの集計 ----
@@ -377,7 +385,7 @@ def write_mot(sp, cams, per_frame, total, folder, spec):
         with open(folder / f"{name}.txt", "w") as fh:
             for f in range(0, total, stride):
                 rows = per_frame.get(f, [])
-                people = [(r[0], r[1], r[2], r[4]) for r in rows]
+                people = [(r[0], r[1], r[2], r[4], r[6]) for r in rows]
                 boxes = boxes_with_visibility(cam, sp, people)
                 for pname, (x0, y0, x1, y1, inside, vis) in boxes.items():
                     if inside < 0.2:

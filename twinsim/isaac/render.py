@@ -26,7 +26,7 @@ import types
 
 import numpy as np
 import omni.usd
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade, UsdSkel, Vt
 
 VENDOR = "/workspace/twinsim/isaac/vendor"
 CLOTH = ("opaque__fabric", "opaque__leather", "retro__reflective", "opaque__plastic")
@@ -165,6 +165,167 @@ def add_elevator(stage, k, door, face, z, height=2.9):
         cx.AddTranslateOp().Set(Gf.Vec3d(*c))
         cx.AddScaleOp().Set(Gf.Vec3f(*size))
         UsdShade.MaterialBindingAPI.Apply(cube.GetPrim()).Bind(m)
+
+
+# 座る動き（NVIDIA Isaac Sim の People の素材、CC BY 4.0）。1 本の中に、歩いて来て振り向く・座る（SitDown 109〜156 コマ）・座ったまま（SitLoop 156〜266）・
+# 立つ（StandUp 266〜334）・歩き去る、が入っている。使う区間は正解の sit_clip（twinsim/components.py の SIT_CLIP）
+SIT_URL = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/People/MotionLibrary/BuiltinActions/Sit/SitAndStandChair.usd"
+SIT_CLIP = {"down": [62, 156], "loop": [156, 266], "up": [266, 332]}  # 正解に sit_clip がないときの既定（components.SIT_CLIP と同じ）
+
+
+def sit_anim(walker, model, skel_path):
+    """座る動きを人物モデルの骨格へ付け替える（モデルごとに 1 回）。set_root_identity=False で付け替えると、体全体の前後の動きと向きが
+    骨格の元の関節（RL_BoneRoot）に乗り、ほかの関節はそこからの相対になる（2026-11-16 の調べ。True では腰の関節 Hip に混ざる）。"""
+    import omni.kit.commands
+    cache = walker.__dict__.setdefault("sit", {})
+    if model not in cache:
+        stage = walker.stage
+        walker._walk_anim(model, skel_path)  # 人形（付け替えの元の骨格）を先に読み込む
+        rig = "/Root/AgentRig2"
+        if not stage.GetPrimAtPath(f"{rig}/SitSrc"):
+            stage.DefinePrim(f"{rig}/SitSrc").GetReferences().AddReference(SIT_URL)
+        out = f"/Root/AgentRig/RetargetedSit_{model}"
+        stage.DefinePrim(out, "Scope")
+        omni.kit.commands.execute("CreateRetargetAnimationsCommand", source_skeleton_path=f"{rig}/BipedSetup/biped_demo_meters/Root",
+                                  target_skeleton_path=skel_path, source_animation_paths=[f"{rig}/SitSrc"], target_animation_parent_path=out,
+                                  set_root_identity=False)
+        cache[model] = next(p.GetPath().pathString for p in stage.GetPrimAtPath(out).GetChildren() if p.IsA(UsdSkel.Animation))
+    return cache[model]
+
+
+def sit_clip_time(f, spans, clip):
+    """コマ f が座る動作の中なら、素材のコマ（小数）。spans は正解の people[].sit（[座り始め, 座った, 立ち始め, 立ち終わり] のコマ）。
+    座り始め〜座った: clip down を比例で、座っている間: clip loop を行って戻る（つなぎ目で姿勢が飛ばない）、立ち始め〜立ち終わり: clip up を比例で。"""
+    for d0, s0, s1, u1 in spans:
+        if d0 <= f <= u1:
+            if f < s0:
+                a, b = clip["down"]
+                return a + (f - d0) * (b - a) / max(1, s0 - d0)
+            if f <= s1:
+                a, b = clip["loop"]
+                k = (f - s0) % (2 * (b - a))
+                return a + (k if k <= b - a else 2 * (b - a) - k)
+            a, b = clip["up"]
+            return a + (f - s1) * (b - a) / max(1, u1 - s1)
+    return None
+
+
+def add_person(walker, cl, name, model, frames, z=0.0, sit=(), clip=None, under=()):
+    """1 コマずつの位置で人を置く（crowd_lib.add_track を広げたもの）。frames: [(コマ, x, y, 向き, 歩いているか)]。
+    歩いている間は進んだ距離に合わせて歩く動きを進め、止まっている間は立った姿勢。sit の区間は座る動き（素材の体の前後の動きと向きは外し、
+    人の位置と向き＝正解の軌跡で動かす。正解の軌跡は素材の体の軌跡から作ってある、twinsim/components.py）。
+    under のコマ（部屋の中など、映らない間）は床の PARK_M 下に置く（表示の切り替えは Replicator の注釈が付いてこないため、render の park と同じ）。"""
+    stage = walker.stage
+    clip = clip or SIT_CLIP
+    root = UsdGeom.Xform.Define(stage, f"/Root/{name}")
+    xf = UsdGeom.Xformable(root)
+    xf.ClearXformOpOrder()
+    t_op, r_op = xf.AddTranslateOp(), xf.AddRotateZOp()
+    vis = root.CreateVisibilityAttr()
+    body = stage.DefinePrim(f"/Root/{name}/Body")
+    body.GetReferences().AddReference(cl.model_url(model))
+    skel = cl.find_under(stage, body.GetPath(), UsdSkel.Skeleton)
+    skel_root = cl.find_under(stage, body.GetPath(), UsdSkel.Root)
+    if model not in walker.height:
+        bc = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render"])
+        walker.height[model] = round(float(bc.ComputeWorldBound(body).ComputeAlignedRange().GetMax()[2]), 3)
+    walk = UsdSkel.Animation(stage.GetPrimAtPath(walker._walk_anim(model, skel.GetPath().pathString)))
+    sit_a = UsdSkel.Animation(stage.GetPrimAtPath(sit_anim(walker, model, skel.GetPath().pathString))) if sit else None
+    if sit_a is not None and list(sit_a.GetJointsAttr().Get()) != list(walk.GetJointsAttr().Get()):
+        raise RuntimeError(f"{model}: 座る動きと歩く動きの関節の並びが違う")
+    wt = walk.GetRotationsAttr().GetTimeSamples()
+    wp = wt[-1] - wt[0]
+    loop = UsdSkel.Animation.Define(stage, skel_root.GetPath().AppendChild("WalkLoop"))
+    loop.CreateJointsAttr(walk.GetJointsAttr().Get())
+    tr, rot, sc = loop.CreateTranslationsAttr(), loop.CreateRotationsAttr(), loop.CreateScalesAttr()
+    root_t, root_r = walk.GetTranslationsAttr().Get(cl.STAND_T)[0], walk.GetRotationsAttr().Get(cl.STAND_T)[0]
+    # 座る動きの素材は cm（metersPerUnit 0.01）、歩く動きの素材は m。付け替えたあとも腰の関節（Hip、2 番目）の位置だけが素材の単位のまま残る
+    # （腰が 47.9 m の高さになり、人が写らなかった、2026-11-16）。座った腰の高さが 5 より大きければ cm とみて 1/100 にする
+    unit = 0.01 if sit_a is not None and abs(sit_a.GetTranslationsAttr().Get(SIT_CLIP["loop"][0])[1][2]) > 5.0 else 1.0
+    cache, phase, prev, unwrap = {}, (cl.STAND_T - wt[0]) / wp, None, None
+    spans = [tuple(s) for s in sit]
+    under = set(under)
+
+    def sample(key):
+        if key not in cache:
+            src, t = key
+            anim = sit_a if src == "sit" else walk
+            a, b, c = anim.GetTranslationsAttr().Get(t), anim.GetRotationsAttr().Get(t), anim.GetScalesAttr().Get(t)
+            if src == "sit":  # 元の関節は歩く動きと同じ値に（体の前後の動きと向きは人の位置と向きで出す）
+                a, b = Vt.Vec3fArray(a), Vt.QuatfArray(b)
+                a[0], b[0] = root_t, root_r
+                a[1] = a[1] * unit
+            cache[key] = (a, b, c)
+        return cache[key]
+
+    with Sdf.ChangeBlock():
+        for f, x, y, yaw, mv in frames:
+            if unwrap is not None:  # 向きが ±180 度をまたいで回り込まないよう、連続にする
+                while yaw - unwrap > 180:
+                    yaw -= 360
+                while yaw - unwrap < -180:
+                    yaw += 360
+            unwrap = yaw
+            t_op.Set(Gf.Vec3d(x, y, z - (PARK_M if f in under else 0.0)), f)
+            r_op.Set(yaw + 90.0, f)  # 人物の正面は -Y
+            c = sit_clip_time(f, spans, clip) if spans else None
+            if c is not None:
+                key = ("sit", round(c * 4) / 4)
+                prev = None  # 立ち上がったあとは立った姿勢から歩き出す
+                phase = (cl.STAND_T - wt[0]) / wp
+            elif mv and prev is not None:
+                phase += ((x - prev[0]) ** 2 + (y - prev[1]) ** 2) ** 0.5 / cl.STRIDE_M
+                key = ("walk", wt[0] + round(((phase % 1.0) * wp) * 4) / 4)
+                prev = (x, y)
+            else:
+                key = ("walk", cl.STAND_T)
+                phase = (cl.STAND_T - wt[0]) / wp  # 歩き出すときは立った姿勢から
+                prev = (x, y)
+            a, b, s = sample(key)
+            tr.Set(a, f)
+            rot.Set(b, f)
+            if s is not None:
+                sc.Set(s, f)
+        first, last = frames[0][0], frames[-1][0]
+        if first > 0:
+            vis.Set(UsdGeom.Tokens.invisible, 0)
+        vis.Set(UsdGeom.Tokens.inherited, first)
+        vis.Set(UsdGeom.Tokens.invisible, last + 1)
+    UsdSkel.BindingAPI.Apply(skel).CreateAnimationSourceRel().SetTargets([loop.GetPath()])
+    return walker.height[model]
+
+
+def add_furniture(stage, k, usd, xy, rot, z=0.0):
+    """座る場所の家具（USD にないもの。space.FURNITURE）を置く。家具の原点は床の上の真ん中、正面は -y。"""
+    p = stage.DefinePrim(f"/Root/TS_Furniture{k}", "Xform")
+    p.GetReferences().AddReference(usd)
+    xf = UsdGeom.Xformable(p)
+    xf.AddTranslateOp().Set(Gf.Vec3d(float(xy[0]), float(xy[1]), float(z)))
+    xf.AddRotateZOp().Set(float(rot))
+
+
+def open_door(stage, prim, door, inside, spans, swing):
+    """部屋の扉（USD の扉の板。置いた点が蝶番）を、spans のコマの区間だけ部屋の中の向きへ 90 度開ける（swing コマで開く・閉じる）。
+    回す向きは、蝶番から板の真ん中への向きが、扉の前の点から中の点への向きへ回るほう。→ 開けた区間の数（扉がなければ None）"""
+    p = stage.GetPrimAtPath(prim)
+    if not p.IsValid():
+        log("扉がない:", prim)  # noqa: F821
+        return None
+    xf = UsdGeom.Xformable(p)
+    pivot = xf.ComputeLocalToWorldTransform(Usd.TimeCode.Default()).ExtractTranslation()
+    r = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render"]).ComputeWorldBound(p).ComputeAlignedRange()
+    mid = (r.GetMin() + r.GetMax()) / 2
+    leaf = np.array([mid[0] - pivot[0], mid[1] - pivot[1]])
+    into = np.subtract(inside, door)
+    sign = 1.0 if leaf[0] * into[1] - leaf[1] * into[0] > 0 else -1.0
+    op = xf.AddRotateZOp(opSuffix="twinsimOpen")  # 置いた向きのあとに足す（蝶番まわりに回る）
+    op.Set(0.0, 0)
+    for a, b in spans:
+        op.Set(0.0, max(0, a))
+        op.Set(90.0 * sign, a + swing)
+        op.Set(90.0 * sign, b)
+        op.Set(0.0, b + swing)
+    return len(spans)
 
 
 def add_lights(stage, lights):
@@ -461,7 +622,9 @@ async def main():
         while a > s0 and mv[a - s0]:
             a -= 1
         frames = [(f, tr[f - s0][0], tr[f - s0][1], tr[f - s0][2], bool(mv[f - s0])) for f in range(a, b + 1)]
-        cl.add_track(walker, name, p["model"], frames, z=float(job.get("z", 0.0)))
+        # 部屋の中（映らない、状態 in_room）は床の下へ。座る動作は正解の sit の区間（1.2）
+        under = [f for f0_, f1_, st in p.get("states", []) if st == "in_room" for f in range(max(f0_, a), min(f1_, b) + 1)]
+        add_person(walker, cl, name, p["model"], frames, z=float(job.get("z", 0.0)), sit=p.get("sit", []), clip=gt.get("sit_clip"), under=under)
         placed_names.append(name)
         if job.get("labels"):
             label_person(stage.GetPrimAtPath(f"/Root/{name}"))
@@ -483,6 +646,10 @@ async def main():
             add_gate(stage, k, pr["line"], pr["lanes"], pr["in_dir"])
         elif pr.get("kind") == "elevator":
             add_elevator(stage, k, pr["door"], pr["face"], float(job.get("z", 0.0)), float(pr.get("height", 2.9)))
+        elif pr.get("kind") == "furniture":
+            add_furniture(stage, k, pr["usd"], pr["xy"], pr["rot"], float(job.get("z", 0.0)))
+        elif pr.get("kind") == "door":
+            log("door", pr["prim"], "open spans", open_door(stage, pr["prim"], pr["door"], pr["inside"], pr["open"], int(pr.get("swing_frames", 24))))
     stage.SetStartTimeCode(0)
     stage.SetEndTimeCode(max(f1, 1))
     cams = job.get("cameras") or list(gt["cameras"])

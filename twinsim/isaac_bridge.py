@@ -163,6 +163,54 @@ def work_name(run):
     return f"{run.name}-{hashlib.sha1(str(Path(run).resolve()).encode()).hexdigest()[:6]}"
 
 
+DOOR_SWING_S = 0.8  # 扉が開く・閉じるのにかかる秒
+# 部屋に入る人: 中の点に着く 2.0 秒前（扉の前の点に着くころ）から開け始め、0.3 秒後に閉じ始める
+# （人は中の点で components.ROOM_DOOR_IN_S 立ってから映らなくなる。グループは最後の人が着いてから）。
+# 出る人: 中の点に現れた時（events.room の exit）から開け始め（人は components.ROOM_DOOR_OUT_S 立ってから歩く）、3.0 秒後に閉じ始める。
+# 前は入る 3.0 秒前から開け、長椅子から立ったばかりの人の前で扉が開いた（自動ドアのよう、2026-11-16）
+DOOR_OPEN = (2.0, 0.3, 0.0, 3.0)
+
+
+def door_keys(gt, room, total_frames):
+    """部屋の扉を開けておくコマの区間 [[開け始め, 閉じ始め], ...]（正解の events.room の enter・exit から。重なりはつなぐ）。
+    人は扉の前の点から中の点へまっすぐ歩いて入り、扉が閉じてから映らなくなる。出るときは中の点に現れ、扉が開いてから扉の前の点へ歩く（components.py）。"""
+    fps = gt["fps"]
+    a_in, b_in, a_out, b_out = DOOR_OPEN
+    spans = []
+    for p in gt["people"].values():
+        for e in p.get("events", {}).get("room", []):
+            if e.get("name") != room:
+                continue
+            if e.get("enter") is not None:
+                spans.append((e["enter"] - a_in, e["enter"] + b_in))
+            if e.get("exit") is not None and e["exit"] * fps < total_frames:
+                spans.append((e["exit"] - a_out, e["exit"] + b_out))
+    out = []
+    for a, b in sorted(spans):
+        fa, fb = max(0, int(round(a * fps))), int(round(b * fps))
+        if out and fa <= out[-1][1] + int(DOOR_SWING_S * fps) * 2:  # 閉じ切る前にまた開けるなら、開けたままに
+            out[-1][1] = max(out[-1][1], fb)
+        else:
+            out.append([fa, fb])
+    return out
+
+
+def component_props(sp, gt):
+    """1.2 の部品の描画: 座る場所の家具（USD にないもの）と、部屋の扉（人が通るときだけ開ける）。"""
+    from .space import FURNITURE
+    props = []
+    for k, p in sp.pois.items():
+        if p.get("kind") == "seats":
+            for fur in p.get("furniture", []):
+                if not fur.get("in_usd"):
+                    props.append({"kind": "furniture", "usd": FURNITURE[fur["asset"]]["usd"], "xy": list(map(float, fur["xy"])),
+                                  "rot": float(fur.get("rot", 0.0))})
+        elif p.get("kind") == "room" and p.get("door_prim"):
+            props.append({"kind": "door", "prim": f"/Root/{p['door_prim']}", "door": list(map(float, p["xy"])), "inside": list(map(float, p["inside"])),
+                          "open": door_keys(gt, k, gt["total_frames"]), "swing_frames": int(round(DOOR_SWING_S * gt["fps"]))})
+    return props
+
+
 def plan_render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=None, chunk_s=None, labels=False, preroll=0, cull=False):
     """描画のジョブの一覧を作る（まだ投入しない）。chunk_s を渡すと、カメラごと・chunk_s 秒ごとに分けて、いくつもの受け付けで並べて描ける。
     分けないときは、全部のカメラを 1 つのジョブで描く（舞台の読み込みが 1 回で済む）。
@@ -190,6 +238,7 @@ def plan_render(run_dir, frames=None, cameras=None, preset="RAY_TRACE", tint=Non
     for k, g in gt.get("gates", {}).items():  # ゲートの機械（USD にないので置く）
         if spec.get("render", {}).get("gate_props", True):
             props.append({"kind": "gate", "line": sp.poi(k)["line"], "lanes": len(g["lanes"]), "in_dir": g["in_dir"]})
+    props += component_props(sp, gt)
     base = {"run_dir": f"{CONTAINER}/runs/{name}", "usd": sp.spec["usd"], "props": props, "tint": tint, "preset": preset,
             "z": sp.z, "lights": sp.spec.get("lights", []), "labels": bool(labels), "preroll": int(preroll)}
     cams = list(cameras or gt["cameras"])

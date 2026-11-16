@@ -65,10 +65,13 @@ class Space:
                     if self.grid[i, j] and point_in_poly(poly, self.x0 + j * self.res, self.y0 + i * self.res):
                         self.grid[i, j] = False
         self.pois = spec.get("pois", {})
-        for p in self.pois.values():  # 座る場所（1.2）の席は家具: 歩ける所から外す（経路が席の列を通らないように。座る人は席の前から決まった速さで入る）
+        for p in self.pois.values():  # 座る場所（1.2）の席は家具: 歩ける所から外す（経路が席の列を通らないように。座る人は席の前から決まった動作で入る）
             if p.get("kind") == "seats":
                 from .scenario import seats_of
-                for (x, y), _yaw in seats_of(p):
+                for fur in p.get("furniture", []):  # 描画で置く家具は、床の上の大きさの分（USD にある家具は、歩ける所の地図にもう入っている）
+                    if not fur.get("in_usd"):
+                        self._block(furniture_place(fur)[0])
+                for (x, y), _yaw in seats_of(p, furniture=False):
                     for i in range(max(0, int((y - SEAT_BLOCK_M - self.y0) / self.res)), min(self.ny, int((y + SEAT_BLOCK_M - self.y0) / self.res) + 2)):
                         for j in range(max(0, int((x - SEAT_BLOCK_M - self.x0) / self.res)), min(self.nx, int((x + SEAT_BLOCK_M - self.x0) / self.res) + 2)):
                             if math.hypot(self.x0 + j * self.res - x, self.y0 + i * self.res - y) <= SEAT_BLOCK_M:
@@ -76,6 +79,14 @@ class Space:
         self.clear = distance_transform_edt(self.grid) * self.res  # 壁からの距離（m）
         self.zones = {k: [tuple(map(float, p)) for p in v["polygon"]] for k, v in spec.get("zones", {}).items()}
         self._route_cache = {}
+
+    def _block(self, poly):
+        """多角形の中の格子を歩けなくする（家具）。"""
+        xs, ys = [q[0] for q in poly], [q[1] for q in poly]
+        for i in range(max(0, int((min(ys) - self.y0) / self.res)), min(self.ny, int((max(ys) - self.y0) / self.res) + 2)):
+            for j in range(max(0, int((min(xs) - self.x0) / self.res)), min(self.nx, int((max(xs) - self.x0) / self.res) + 2)):
+                if point_in_poly(poly, self.x0 + j * self.res, self.y0 + i * self.res):
+                    self.grid[i, j] = False
 
     # ---- 格子と座標 ----
     def cell(self, x, y):
@@ -325,6 +336,29 @@ def find_space(name):
 
 
 SEAT_BLOCK_M = 0.25  # 席の点からこの距離（m）の中の格子を歩けなくする
+NVIDIA_HOSPITAL_PROPS = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Hospital/Props/"
+# 座る場所の家具（space.yaml の seats の furniture: [{asset, xy, rot, in_usd}]）。家具の座標で、正面は -y（rot は USD の z 軸まわりの回転、度）。
+# size は床の上の大きさ（x, y、m）、seats は座った人の腰の位置。in_usd が真なら空間の USD にもうある（歩ける所の地図にも入っている）ので置かない
+FURNITURE = {
+    "bench3": {"usd": NVIDIA_HOSPITAL_PROPS + "SM_Chair_02a.usd", "size": [2.356, 0.74], "seats": [[-0.785, 0.0], [0.0, 0.0], [0.785, 0.0]],
+               "note": "3 人掛けの長椅子（病院の待合。NVIDIA Isaac Sim の素材、CC BY 4.0）。"
+                       "腰の位置は奥行きの真ん中（座る動きを描いて決めた: 0.05 m 奥で脚が座面に、"
+                       "0.10 m 奥で体が背もたれにめり込む、2026-11-16）"},
+}
+
+
+def furniture_place(fur):
+    """家具 1 つ（space.yaml の furniture の要素）→ (床の上の四隅 [(x, y)], 席 [((x, y), 向き（度）)])。"""
+    F = FURNITURE[fur["asset"]]
+    (cx, cy), rot = map(float, fur["xy"]), math.radians(float(fur.get("rot", 0.0)))
+    c, s = math.cos(rot), math.sin(rot)
+
+    def w(x, y):
+        return cx + c * x - s * y, cy + s * x + c * y
+    hx, hy = F["size"][0] / 2, F["size"][1] / 2
+    corners = [w(-hx, -hy), w(hx, -hy), w(hx, hy), w(-hx, hy)]
+    yaw = (float(fur.get("rot", 0.0)) - 90.0 + 180.0) % 360.0 - 180.0  # 正面（-y）の向き
+    return corners, [(w(x, y), yaw) for x, y in F["seats"]]
 
 
 def load_space(name):

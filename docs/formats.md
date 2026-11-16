@@ -65,6 +65,7 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `elevator_times`・`cars`・`spots`・`door` | EV の着く時刻、号機の扉の位置・定員、EV 待ちの立つ場所 |
 | `gates[名前]` | レーンの中心 `lanes`・入館の向き `in_dir`・1 人あたりの時間 `service_s` |
 | `zones[名前]` | ゾーンの多角形 `[[x, y], …]` |
+| `sit_clip` | 座る動作の素材の区間 `{down, loop, up, fps, source}`（1.2 から。座った人がいるときだけ）。描画は `sit` の区間を、素材のこのコマへ比例で当てる（座っている間は `loop` を行って戻る）。素材は NVIDIA Isaac Sim の People の `SitAndStandChair`。`tracks` の座る・立つ動作の位置と向きは、この素材の体の軌跡から作ってある |
 | `groups[グループ]` | `{members, relation, leader, apart}`（1.2 から）。仲間の名前（現れた順）・関係（`colleagues` 同僚・`friends` 友人・`family` 家族・`companion` 付き添い）・先導の人（最初に現れた人。同行者は除く）・分かれていた区間 `[[始まりの秒, 終わりの秒], …]`（いちばん近い仲間から 3 m より離れた人がいる状態が 1 秒以上。終わりまで分かれていれば終わりは null。待ち合わせの組はそろってから数える） |
 
 `people[名前]` の中身:
@@ -76,7 +77,7 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `group`・`role`・`relation` | グループの名前（`G001`、1 人なら null）・同行者なら `companion`・グループの関係（1.2 から。`groups` と同じ） |
 | `start_frame`・`arrive_frame`・`speed_m_s` | 現れた・消えたコマ、思う歩く速さ |
 | `states` | `[[始まりのコマ, 終わりのコマ, 状態], …]`（状態は下の表） |
-| `sit` | `[[始まりのコマ, 終わりのコマ], …]`。座っていた区間（1.2 から。座った人だけ） |
+| `sit` | `[[座り始め, 座った, 立ち始め, 立ち終わり], …]`（コマ）。座る動作の区間（1.2 から。座った人だけ）。座り始め〜座ったが座る動作（席の前で振り向いて腰を下ろす、約 3.1 秒）、座った〜立ち始めが座っている間、立ち始め〜立ち終わりが立つ動作（約 2.2 秒）。計算の終わりまでに来なかった所は最後のコマ |
 | `events` | 秒。`start`・`end`、`gate_join`・`gate`（列に並んだ・通った）、`hall`・`wait_start`・`car`・`board_start`・`board`（EV）、`stops`（止まった区間）、`meet_start`・`meet_end`、`regroup`（ゲートの先で仲間を待った区間 `[[始まり, 終わり], …]`、1.2 から）、`service`（窓口ごとに `{name, join, called, start, end, point}`: 加わった・呼ばれた・応対の始まり・終わりの時刻と応対の場所の番号、1.2 から）、`room`（`{name, join, called, enter, exit}`、1.2 から）、`seat`（`[[座る段取りの始まり, 終わり, 場所], …]`、1.2 から）、`call`（呼ばれた時刻の一覧、1.2 から）、`spawn_wait_s`（入口がふさがって外で待った秒） |
 
 | 状態 | 意味 |
@@ -101,19 +102,20 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 ## 3. `frames.csv.gz`
 
 1 行目が列の名前: `frame, t, person, x, y, yaw, moving, state, zone, group, type, pose`。
-`t` は秒、`moving` は 0/1、`zone` は足元のゾーン（なければ空）、`group` は空か `G…`、`pose` は `walk`・`stand`・`sit`（1.2 から）。部屋の中（状態 `in_room`）の行は書かない（1.2 から）。
+`t` は秒、`moving` は 0/1、`zone` は足元のゾーン（なければ空）、`group` は空か `G…`、`pose` は `walk`・`stand`・`sit`・`sit_down`（座る動作）・`stand_up`（立つ動作）（1.2 から）。部屋の中（状態 `in_room`）の行は書かない（1.2 から）。
 
 ## 4. カメラの枠
 
 `mot/<カメラ>.txt`（MOTChallenge の gt.txt と同じ、カンマ区切り）: `frame, id, x, y, w, h, conf, class, visibility`。
 `frame` は 1 始まり、`id` は `mot/ids.json` の番号、`x, y, w, h` は画素（左上と幅・高さ）、`conf` と `class` は 1、`visibility` は見えている割合（0〜1、近似）。
 枠の 2 割以上が画面に入っている人を、隠れていても書く（見えている割合 0.4 未満は学習・評価から外すのが目安）。シナリオの `mot_stride` で間引ける。
+枠は、人の位置に立てた半径 0.25 m・背の高さの円柱を写した範囲。座っている人（`pose` が `sit`）は高さを座った高さ（0.42 m ＋背の高さ × 0.53）にし、前へ 0.5 m 出る膝（高さ 0.55 m）と足の先も入れる。座る・立つ動作の間は、立った枠との間を取る（1.2 から）。部屋の中の人は書かない（1.2 から）。
 
 `mot/ids.json`: `{"P0001": 1, …}`。番号はカメラをまたいで同じ人に同じ。
 
 **描画から出す正解（`labels/`）**: `twinsim.render(..., labels=True)`（`twinsim render --labels`）で、描いたのと同じコマの人ごとの枠と画素を
 Isaac Sim の Replicator で取り、描いた範囲のコマだけ `labels/<カメラ>.csv` に書く。`mot/` と違い、描かれた人の画素から作るので、
-枠は輪郭に合い、隠れは壁・家具・ほかの人を全部数える（2026-11-03 の確かめでは、`mot/` の枠は検出の枠より約 1.4 倍太かった）。
+枠は輪郭に合い、隠れは壁・家具・ほかの人を全部数える（2026-11-03 の確かめでは、`mot/` の枠は検出の枠より約 1.4 倍太かった）。部屋の中の人（描画では床の下に置く）は書かない（1.2 から）。
 
 | 列 | 中身 |
 |---|---|
