@@ -579,7 +579,12 @@ Results (16 runs, w2 in `~/dt-data/twinsim/crowd_check/warehouse1/`; summarised 
 | Break benches | 3.4 people sat per run |
 | Safety valve, overlap (on walkable cells), shaking, people stuck, largest step, free walking speed | 48 (sum of 16 runs), 0.031, 2.3, 0, 0.06 m, 16/16 |
 
-Checking the rendering (packing tables, benches, CamDock) is still to do.
+Rendering (GPU 3, seed 1: CamDock 30 s, CamPack 30 s, CamAisles 20 s; videos with the ground-truth boxes in `~/dt-data/twinsim/crowd_check/warehouse1/review/`):
+the packing tables were loaded at the asset's own size (the rescaling did not trigger; it stays for other assets). Workers stand on the north side of the tables facing south,
+and people waiting for a free table queue northwards from between tables 2 and 3. The benches stand on the floor between the pillars of the west wall, and the ground-truth
+boxes of sitting down and of seated people match the rendered bodies. The time clock is a notional place on the south wall: people stand in front of the wall to clock in, and
+one person queued behind. CamDock showed mostly empty floor and wall with small people, so it was moved closer and re-aimed (eye (-7, -14, 4.0), target (-19.5, -19.5, 0);
+a person at the time clock grows from about 75 to 100 pixels). CamAisles (an existing camera) has many people hidden behind shelves (the visible share is in MOT and `labels/`).
 
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 

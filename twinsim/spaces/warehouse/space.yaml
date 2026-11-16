@@ -69,4 +69,4 @@ zones:
 cameras:
   CamAisles: {eye: [-13.0, 4.0, 5.0], target: [-13.0, 18.0, 0.5], note: 通路を南から見下ろす, note_en: "Looks down the aisles from the south"}
   CamPack:   {eye: [2.0, -9.0, 5.0], target: [-12.0, 1.0, 0.5], note: 梱包の台と待つ場所, note_en: "Packing tables and the waiting area"}
-  CamDock:   {eye: [-5.0, -11.0, 4.5], target: [-18.0, -20.0, 0.8], note: 打刻機の列と休憩の長椅子（1.2）, note_en: "Time clock queue and break benches (1.2)"}
+  CamDock:   {eye: [-7.0, -14.0, 4.0], target: [-19.5, -19.5, 0.0], note: 打刻機の列と休憩の長椅子（1.2）, note_en: "Time clock queue and break benches (1.2)"}

@@ -26,12 +26,13 @@
   診察室の前は描画で 9 席）、診察室の扉（door_prim、人が通るときだけ開ける）、部屋の中の人は床の下、座っている人の正解の枠、部屋の扉はグループ全員がそろって閉じてから消える。GPU 3 だけで描いた。
   記録は ~/dt-data/twinsim/crowd_check/render12/（README.md・review/）、16 回の比べは parts1/ の render5
 - 済み（11/16 午後）: 窓口の前を経路が避ける（設定の services の窓口、Space.set_soft）、オフィスの昼のテンプレート office_lunch（ロビーの東の壁ぎわのコーヒーカウンター・列・USD のソファ 15 席、カメラ CamCafe）、家具 sofa3・counter2、仲間が先導の人の経路に合流するときの折り返し（その場で 20 分揺れた）。docs/validity.md の 5.11。16 回の比べは parts1/ の final8（外来）・lunch2（昼）、groups1/ の fold1（今のテンプレート）。昼の描画は ~/dt-data/twinsim/crowd_check/lunch1_render/
-- 済み（11/16 夜、計算だけ）: 倉庫のテンプレート warehouse_shift（20 分。荷受け → 打刻機 time_clock の列 → 指示を待つ → 棚を visits で番号の順に 6〜8 か所 →
+- 済み（11/16 夜）: 倉庫のテンプレート warehouse_shift（20 分。荷受け → 打刻機 time_clock の列 → 指示を待つ → 棚を visits で番号の順に 6〜8 か所 →
   梱包の台 packing（4 つ、作業点: 窓口に設定の state: work、列は台の列の真ん中から北）を繰り返す、早く来た人は休憩の長椅子 break_seats）、行き先の visits、
   家具 pack_table（NVIDIA の PackingTable。描画は box の大きさに合わせて縮尺を直す）、カメラ CamDock。棚の前の時間はピッキングの時間の内訳（De Koster ら 2007 の図 4、
   移動 50%）に合わせた。直し: 列へ歩く間の状態を pass に（前は service_queue。動きは変わらない）、tasks.json の 3_dwell に行き先の state の名前（work・wait）が入っていなかった。
-  docs/validity.md の 5.12。16 回の比べは ~/dt-data/twinsim/crowd_check/warehouse1/（w2、scripts/wh_stats.py・table.py）
-- 次: 倉庫の描画の確かめ（梱包の台の縮尺・向き、長椅子、CamDock の画角。GPU の確認を取ってから）→ 3 残りの直し → 4 空間を多角形・dict から → 1.1 との比べとリリースノート。
+  docs/validity.md の 5.12。16 回の比べは ~/dt-data/twinsim/crowd_check/warehouse1/（w2、scripts/wh_stats.py・table.py）。
+  描画も確かめた（GPU 3、warehouse1/review/。梱包の台は素材のままの大きさ、CamDock は近づけて向けなおした）
+- 次: 3 残りの直し → 4 空間を多角形・dict から → 1.1 との比べとリリースノート。
   描画の残り: ロビーの南の窓ぎわの長椅子のまわりの重なり、カフェのカウンターに店員・機械がない、描画の注釈（labels）で座る人の枠を確かめる（注釈は描画の約 3 倍の時間）
 
 ## 2026-11-12（1.1 の準備、ブランチ crowd-cfsm）
