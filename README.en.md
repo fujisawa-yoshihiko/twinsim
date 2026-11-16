@@ -173,6 +173,7 @@ The sources, the check results and the assumed values are in [docs/validity.en.m
 | `office_signage_ab` | Signage comparison. With the same arrivals, the share of people who look at the signage differs between A and B (verifies the method of measuring the effect; the effect itself cannot be verified) |
 | `hospital_gate_ev` | Hospital lobby → elevators in the west hall (same layout and cameras as hospital-sim's sim-gate; can be compared with the data of the earlier evaluation) |
 | `hospital_outpatient` | Hospital outpatients (1.2 components): ticket at reception → waiting seats → seats by the consultation rooms → consultation room → payment → pharmacy (30 min; consultation time from the MHLW Patient's Behavior Survey, others provisional) |
+| `office_lunch` | Office lunchtime (1.2 components): people going out for and returning from lunch pass the gate and elevators; some queue at the coffee counter in the lobby, then take it upstairs or rest on the sofas (30 min; elevator mix from Peters et al. 2011 for lunchtime, others provisional) |
 | `warehouse_picking` | Warehouse picking ("work, wait, move" in the factory diagram). Receiving → shelf → packing → wait → shelf → packing → leave |
 | `simple_room_smoke` | Operation check (small room, 20 s) |
 | `verify_corridor_speed`, `verify_fundamental_diagram`, `verify_groups`, `verify_gate_capacity`, `verify_counterflow`, `verify_bottleneck` | Engine verification (walking straight, speed and density, groups, a crowded gate, counterflow, a 1 m wide doorway). The results are in section 5 of docs/validity.en.md |

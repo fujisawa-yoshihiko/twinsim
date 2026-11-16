@@ -173,6 +173,7 @@ office・カメラ 1 台・300 コマ（映る人 25 人ほど）を本数と同
 | `office_signage_ab` | サイネージの比較。同じ到着で、見る人の割合を A・B で変える（効果を測る方法の確かめ。効果そのものは確かめられない） |
 | `hospital_gate_ev` | 病院のロビー → 西の広間の EV（hospital-sim の sim-gate と同じ配置・カメラ。前の評価のデータと比べられる） |
 | `hospital_outpatient` | 病院の外来（1.2 の部品）: 受付で番号札 → 待合 → 診察室の前の席 → 診察室 → 会計 → 薬（30 分。診察の時間は厚労省の受療行動調査、ほかは仮） |
+| `office_lunch` | オフィスの昼（1.2 の部品）: 昼食に出る・戻る人がゲートと EV を通り、一部はロビーのコーヒーカウンターの列に並んで買い、持って上がるかソファで休む（30 分。EV の内訳は Peters ら 2011 の昼、ほかは仮） |
 | `warehouse_picking` | 倉庫のピッキング（工場の図の「作業・待ち・移動」）。荷受け → 棚 → 梱包 → 待ち → 棚 → 梱包 → 帰る |
 | `simple_room_smoke` | 動作確認（小部屋、20 秒） |
 | `verify_corridor_speed`・`verify_fundamental_diagram`・`verify_groups`・`verify_gate_capacity`・`verify_counterflow`・`verify_bottleneck` | エンジンの確かめ（まっすぐ歩けるか・速さと密度・グループ・混んだゲート・すれ違い・幅 1 m の出入口）。結果は docs/validity.md の 5 |
