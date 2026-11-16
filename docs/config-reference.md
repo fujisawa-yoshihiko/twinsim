@@ -173,6 +173,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | `glance` | 数 | 止まる場所 `0`・EV `20`・待ち合わせ `45` | 止まっている間に見回す幅（度） |
 | [`meet`](#meet) | オブジェクト | なし | 待ち合わせ |
 | `then` | 文字列かオブジェクト | なし | 止まったあとの行き先（同じ形。`meet` は書けない） |
+| `visits` | 数か[分布](#distributions) | なし | 名前の頭の行き先（`"pick"`）で、候補から n か所（違う場所）を選び、名前の番号の順（`pick_2` が `pick_10` より先）に回る。それぞれで `dwell`・`state` で止まり、最後に `then` へ。巡回の順は空間の場所の番号で決まる（1.2 から。倉庫のピッキング） |
 | `variant_p` | 文字列 | なし | [`variants`](#variants) で `p` を差し替える名前 |
 
 `to` に書けるもの:
@@ -273,12 +274,19 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 | `call` | 真偽 | `false` | 呼び出し: 列に並ばず、待つ場所（`wait`）で待ち、空いた順に呼ばれて行く |
 | `wait` | 文字列 | 空間の `wait` | 待つ場所（`seats` の場所かゾーンの名前） |
 | `queue` | 文字列 | 空間に `line` があれば `"line"`、なければ `"area"` | `"line"`（線に並ぶ）・`"area"`（待つ場所で着いた順に待つ） |
+| `state` | 文字列 | `"service"` | 応対を受ける間の状態の名前。倉庫の梱包の台のような作業点（立って作業し、定員と列がある所）は `"work"`（`warehouse_shift`） |
 | `note` | 文字列 | なし | メモ |
 
 ```yaml
 # hospital_outpatient.yaml より（space: hospital）
 services:
   front_desk: {service_s: {type: lognormal, median: 45, sigma: 0.5}, call: true}
+```
+
+```yaml
+# warehouse_shift.yaml より（space: warehouse）。梱包の台 4 つを作業点にする（空くのを待つ人は列に並ぶ）
+services:
+  packing: {service_s: {type: lognormal, median: 30, sigma: 0.4}, state: work}
 ```
 
 <a id="rooms"></a>
@@ -426,7 +434,7 @@ rooms:
 |---|---|---|---|---|---|---|
 | `office` | `entrance`・`south_exit`・`west_corridor`・`east_room` | `gate` | `EV1`・`EV2` | `reception_w1`・`reception_w2`・`reception_e1`・`lounge_1`〜`3`・`sign_view`・`sign` | 窓口 `cafe`、座る `cafe_seats` | `CamGate`・`CamEV`・`CamLobby`・`CamCafe` |
 | `hospital` | `lobby_entrance`・`west`・`hall_side`・`west_room` | | `EV` | `reception_1`・`reception_2` | 窓口 `front_desk`・`cashier`・`pharmacy`、部屋 `consult_1`〜`5`・`other_clinics`、座る `lobby_seats`・`clinic_seats` | `CamGate`・`CamHall`・`CamClinic`・`CamWaiting` |
-| `warehouse` | `dock` | | | `pick_1`〜`12`・`pack_1`〜`4`・`staging_1`・`staging_2`・`break_1` | | `CamAisles`・`CamPack` |
+| `warehouse` | `dock` | | | `pick_1`〜`12`・`pack_1`〜`4`・`staging_1`・`staging_2`・`break_1` | 窓口 `time_clock`（打刻機）・`packing`（梱包の台 4 つ）、座る `break_seats` | `CamAisles`・`CamPack`・`CamDock` |
 | `simple_room` | `door_w`・`door_e` | | | `table_1`・`table_2` | | `CamRoom` |
 | `corridor` | `west`・`start`・`east`・`finish`・`east_narrow` | | | | | |
 | `corridor_door` | `west`・`east` | | | | | |

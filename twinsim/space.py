@@ -375,6 +375,7 @@ SOFA_SEAT_X = 0.10
 SOFT_W, SOFT_NEAR_M = 4.0, 0.3  # なるべく避ける円（Space.set_soft）の重み（1 m あたり、足す長さ m）と、始まり・終わりがその円の近くとみる余り（m）
 NVIDIA_HOSPITAL_PROPS = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Hospital/Props/"
 NVIDIA_OFFICE_PROPS = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Office/Props/"
+NVIDIA_ISAAC_PROPS = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Props/"
 # 家具（space.yaml の場所の furniture: [{asset, xy, rot, in_usd}]。座る場所の席・窓口のカウンター）。値は家具の座標（rot は USD の z 軸まわりの回転、度）。
 # box は床の上の形 [x0, y0, x1, y1]、front は正面（座る人・客の向く側）の向き（度、回す前）、seats は座った人の腰の位置。
 # in_usd が真なら空間の USD にもうある（歩ける所の地図にも入っている）ので置かない。形は素材の点から測った（2026-11-16）
@@ -389,6 +390,9 @@ FURNITURE = {
               "note": "3 人掛けのソファ（オフィスのロビー。NVIDIA Isaac Sim の素材、CC BY 4.0）。背もたれは -x、座面の高さ約 0.45 m"},
     "counter2": {"usd": NVIDIA_OFFICE_PROPS + "SM_ReceptionTableStraight.usd", "box": [-0.08, -1.0, 0.78, 1.0], "front": 180.0, "seats": [],
                  "note": "長さ 2 m・高さ 1.12 m のカウンター（オフィスの受付の机。NVIDIA Isaac Sim の素材、CC BY 4.0）。客は -x の側"},
+    "pack_table": {"usd": NVIDIA_ISAAC_PROPS + "PackingTable/packing_table.usd", "box": [-1.237, -0.401, 1.237, 0.381], "front": -90.0, "seats": [],
+                   "note": "長さ 2.47 m・高さ 0.99 m の梱包の台（箱・コンテナが載る。NVIDIA Isaac Sim の素材、CC BY 4.0）。前後どちらからも使える形。"
+                           "素材の単位は cm の舞台に m の値で、描画は box の大きさに合わせて縮尺を直す（isaac/render.py の add_furniture）"},
 }
 
 

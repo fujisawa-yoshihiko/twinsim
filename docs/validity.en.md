@@ -42,6 +42,7 @@ are not called "valid" until they have been fitted to real data (gate passage lo
 | Bottleneck capacity | 1.90–2.19 people/(m·s) at a width of 1.0 m | Seyfried et al. 2009 | Laboratory (doorway 2.8 m long, 20–60 people) | Check (`verify_bottleneck`) |
 | Shape of stopping time | Log-normal | Brown et al. 2005 | Telephone call-handling times | Shape (applying it to the reception desk is by analogy) |
 | Outpatient consultation time | under 5 min 28.1%, 5 to under 10 min 40.9%, 10 to under 20 min 15.0%, 20 to under 30 min 6.6%, 30 min or more 4.0% (unknown 5.4%). Approximated by a lognormal with median 421 s, σ 0.714 | MHLW 2023 Patient's Behavior Survey | Outpatients of Japanese hospitals, patients' answers | Consultation rooms of `hospital_outpatient` (from 1.2) |
+| Breakdown of order-picking time | travel 50%, search 20%, pick 15%, setup 10%, other 5% | De Koster et al. 2007 (Fig. 4, after Tompkins et al. 2003) | Typical picker-to-parts warehouse (it varies by warehouse; the same paper notes cases where other activities are large) | Time at shelves in `warehouse_shift` (target share of travel within a picking tour 50 / (50 + 20 + 15) = 59%; from 1.2) |
 
 Full bibliographic references are at the end of `validity.md` and in `literature.REFS`. The values were checked against the text and tables of the papers (Weidmann's formula via arXiv:1512.01426;
 the group proportions in the Osaka underground and Fruin's turnstile table from secondary sources that reproduce them; each is noted in `REFS[...]["check"]`).
@@ -541,6 +542,45 @@ Effect of the join fix on the existing templates (same seeds as 5.8; parts4 → 
 `office_ev_hall` 27 → 22, `hospital_gate_ev` 66 → 61, `verify_gate_capacity` 3 → 1; overlaps and shaking are the same or lower everywhere; the verdicts for pairs and spacing of waiting people are unchanged;
 strangers passing between members in `verify_gate_capacity` 5 → 0. `verify_groups` gives the same results.
 
+### 5.12 Warehouse shift start (work points with a capacity and a queue) and the state while walking to a queue (1.2, 2026-11-16)
+
+- Work points: the counter component (5.9) gained the name of the state while being served (`services.<counter>.state` in the configuration), so a place where people stand
+  and work and that has a capacity and a queue (the warehouse packing tables) can be written as a counter. There are four packing tables (the NVIDIA Isaac Sim asset
+  `PackingTable`, placed by the renderer; furniture `pack_table`); people waiting for a free one queue on a line running north from the middle of the row
+  (with a waiting area (`area`), the rule that prefers places by walls made them stand right beside other tables). The state while packing is `work`
+- Round order: destinations gained `visits`. It chooses n places among the candidates for the start of a name (`pick_1` to `12`) and goes round them in the order of the number
+  in the name (the numbers of the places in the space give the round order). If someone is already at a shelf, the existing rule for stops makes the next person stand at a
+  free place nearby (the shelves have no capacity)
+- Template `warehouse_shift` (20 min): workers come from the dock (`dock`), queue at the time clock (on the south wall; notional, nothing is placed by the renderer), wait for
+  instructions at the waiting place, go round 6 to 8 shelves and then pack at a packing table, repeatedly. 20% of early arrivals wait on the break benches (two benches of the
+  same asset as the hospital benches, by the west wall) before clocking in. The number of workers and the times for clocking in, waiting for instructions and packing are
+  provisional (ledger in section 6)
+- The stop time at shelves was set to match the breakdown of order-picking time (table in section 2; Fig. 4 of De Koster et al. 2007). The target share of travel within a
+  picking tour (from the end of waiting for instructions or of packing until heading to the next packing queue), travel / (travel + at shelves), is 59%. With a median of
+  12 s at shelves it was 52% (1 run); with 9 s, 56.7% (16 runs)
+- State while walking to a queue (affects counters with a queue line: the café in `office_lunch` and the warehouse): people heading for the queue line had the state
+  `service_queue` all the way, even while walking from far away (in the warehouse, people walking 10 to 20 m from a shelf were "queuing"). While more than 1.5 m from their place
+  in the queue they are now `pass`. Movement is unchanged (16 runs of `office_lunch`: safety valve, overlap, shaking and verdicts are the same as lunch2). The `service_queue`
+  time in `office_lunch` went from 968 to 815 minutes (sum of 16 runs; 16% was walking to the queue)
+- Dwells (`3_dwell` in `tasks.json`): it listed the stop states, so names given by `state` of a destination (the warehouse `work` and `wait`) were missing. It is now every state
+  except the walking ones (`pass`, `alight`, `ev_approach`) and inside a room (changes `tasks.json` of `warehouse_picking`)
+- Rendering: assets differ in the units of their stage (m or cm; the packing table asset has a cm stage with values in m). When the renderer places furniture, it rescales it if
+  the loaded width differs from the furniture box (`box` in `FURNITURE`) by more than 20%
+
+Results (16 runs, w2 in `~/dt-data/twinsim/crowd_check/warehouse1/`; summarised with `scripts/wh_stats.py`):
+
+| Measure | Value |
+|---|---|
+| People | 21 per run (2 per minute in the 8 minutes before the start, then 0.3 per minute) |
+| Share of time | walking 49%, at shelves 28%, packing 11%, waiting for instructions 6%, seated 3%, queuing 2%, clocking in 0.5% |
+| Travel within picking tours | 56.7% (target 59%) |
+| Time clock (queue line) | 21 per run. Time waiting in the queue median 0 s, top 10% 1 s, max 14 s; longest queue 0 to 3 people |
+| Packing tables (four, queue line) | 63 per run. Time waiting in the queue median 0 s, top 10% 23 s, max 88 s; longest queue 0 to 10 people |
+| Break benches | 3.4 people sat per run |
+| Safety valve, overlap (on walkable cells), shaking, people stuck, largest step, free walking speed | 48 (sum of 16 runs), 0.031, 2.3, 0, 0.06 m, 16/16 |
+
+Checking the rendering (packing tables, benches, CamDock) is still to do.
+
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 
 | Value | Current | How to calibrate |
@@ -554,6 +594,7 @@ strangers passing between members in `verify_gate_capacity` 5 → 0. `verify_gro
 | Service times at counters (reception, payment, pharmacy), default time in rooms, time in other departments | Provisional (1.2; lognormal shape) | Ticketing and calling logs of the counters, hand labels on video |
 | Outpatient arrival rate, group shares and relations, destination shares | Provisional (1.2) | Reception records, real video |
 | Office lunchtime share of the busiest 5 minutes (11%), share stopping at the café, café service time (median 50 s), time on the sofas (median 10 min) | Provisional (1.2, `office_lunch`; only the elevator mix is from the literature) | Elevator logs, till records, real video |
+| Warehouse: number of workers, time to clock in (median 4 s), time waiting for instructions (20 to 90 s), packing time (median 30 s), shelves per tour (6 to 8), share waiting on the benches (20%) and how long (median 150 s), walking speed (1.3 m/s) | Provisional (1.2, `warehouse_shift`; only the time at shelves follows the breakdown in the literature) | Time-clock records, warehouse management records (start and end times of picks), real video |
 | Companion formation (family values reused), formation of four or more, time constant of the front–back fluctuation, longest wait beyond gates | Provisional (1.2) | Trajectories of pairs and triads in real video |
 | Shape of the time-of-day peak (how morning arrivals build up) | No literature figures obtained. Generated at the constant rate of the busiest 5 minutes | Aggregate the gate passage logs per minute |
 

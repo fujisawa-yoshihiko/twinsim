@@ -26,6 +26,10 @@ pois:
   benches: {kind: seats, row: {from: [26.0, -1.7], to: [32.0, -1.7], n: 10, yaw: 90}}
   room_1:  {kind: room, xy: [35.0, 1.5], inside: [35.0, 2.8]}
   sofa:    {kind: seats, furniture: [{asset: bench3, xy: [40.0, -1.6], rot: 180}]}
+  shelf_1: {kind: spot, xy: [8.0, 1.4], face: [8.0, 2.5]}
+  shelf_2: {kind: spot, xy: [18.0, 1.4], face: [18.0, 2.5]}
+  shelf_3: {kind: spot, xy: [28.0, 1.4], face: [28.0, 2.5]}
+  shelf_10: {kind: spot, xy: [44.0, 1.4], face: [44.0, 2.5]}
 zones:
   all: {polygon: [[0.0, -2.0], [50.0, -2.0], [50.0, 2.0], [0.0, 2.0]]}
 """
@@ -70,6 +74,16 @@ def test_line_queue_is_first_come_first_served(space_dir, tmp_path):
         assert e1["start"] >= e0["end"] - 1e-6  # 前の人が済んでから
     states = {s for p in gt["people"].values() for _a, _b, s in p["states"]}
     assert {"service_queue", "service"} <= states
+    # 列へ歩く間は pass: 列に並ぶ状態（service_queue）になるのは、列の線（15, 0.2 から東へ）の近く（LINE_JOIN_M）に来てから
+    from twinsim.components import LINE_JOIN_M
+    n = 0
+    for name, p in gt["people"].items():
+        for f0, _f1, st in p["states"]:
+            if st == "service_queue":
+                x, y = gt["tracks"][name][f0 - p["start_frame"]][:2]
+                assert math.hypot(max(0.0, 15.0 - x), y - 0.2) <= LINE_JOIN_M + 0.1, (name, f0, x, y)
+                n += 1
+    assert n >= 6
 
 
 def test_called_waiting_sits_and_room_hides_people(space_dir, tmp_path):
@@ -128,12 +142,17 @@ def test_group_leader_is_served_and_party_enters_together(space_dir, tmp_path):
 
 
 def test_component_config_errors(space_dir):
-    """設定の確かめ: 窓口でない場所・知らないキー・待つ場所でない名前・名前の頭で種類の違う場所が混ざる行き先は誤り。"""
+    """設定の確かめ: 窓口でない場所・知らないキー・待つ場所でない名前・名前の頭で種類の違う場所が混ざる行き先は誤り。
+    visits は名前の頭の行き先にだけ、1 以上の数か分布。"""
     base = cfg(space_dir, {"to": "counter"})
     for extra, word in (({"services": {"room_1": {}}}, "service の場所でない"), ({"services": {"counter": {"seconds": 3}}}, "知らないキー"),
                         ({"rooms": {"room": {"wait": "east"}}}, "席（seats）の場所かゾーン")):
         with pytest.raises(ValueError, match=word):
             twinsim.validate({**base, **extra})
+    for dest, word in (({"to": "shelf_1", "visits": 2}, "名前の頭の行き先"), ({"to": "shelf", "visits": 0}, "1 以上の数か分布")):
+        with pytest.raises(ValueError, match=word):
+            twinsim.validate(cfg(space_dir, dest))
+    twinsim.validate(cfg(space_dir, {"to": "shelf", "visits": {"type": "choice", "values": {"2": 0.5, "3": 0.5}}}))
     sp = load_space("hospital")
     assert {p["kind"] for k, p in sp.pois.items() if k.startswith("reception_")} == {"spot"}  # 1.1 の受付の spot と、1.2 の窓口の名前は重ならない
 
@@ -253,3 +272,48 @@ def test_office_lunch_runs(tmp_path):
         xy = np.array(gt["tracks"][n])[:, :2]
         if len(xy) > 1:
             assert float(np.hypot(*np.diff(xy, axis=0).T).max()) <= 0.2, n
+
+
+def test_visits_go_round_in_name_order(space_dir, tmp_path):
+    """visits: 名前の頭の候補から n か所（違う場所）を選び、名前の番号の順（shelf_3 が shelf_10 より先）に回って、それぞれで止まる。
+    止まる間の状態は行き先の state。滞留（tasks.json の 3_dwell）に、行き先の state で付けた名前の状態も入る。"""
+    shelves = {1: 8.0, 2: 18.0, 3: 28.0, 10: 44.0}
+    r = twinsim.simulate(cfg(space_dir, {"to": "shelf", "visits": 3, "state": "work", "dwell": 4.0, "then": "east"}, rate=3.0, duration=120,
+                             outputs=["ground_truth", "tasks"]), out_dir=tmp_path / "v")
+    gt = r.ground_truth()
+    n = 0
+    for name, p in gt["people"].items():
+        stops = p["events"].get("stops", [])
+        if "end" not in p["events"]:
+            continue
+        tr = gt["tracks"][name]
+        seen = [min(shelves, key=lambda k: abs(shelves[k] - tr[int(round(t0 * gt["fps"])) - p["start_frame"]][0])) for t0, _t1, st in stops if st == "work"]
+        assert len(seen) == 3 and seen == sorted(set(seen)), (name, seen)
+        n += 1
+    assert n >= 3
+    tasks = json.loads((tmp_path / "v" / "tasks.json").read_text())
+    assert any(d["state"] == "work" for d in tasks["3_dwell"])
+
+
+def test_warehouse_shift_runs(tmp_path):
+    """倉庫のシフトの始まりのテンプレート（7 分）: 打刻機の列で打刻し、棚を回り、梱包の台（作業点、状態 work）で梱包する。跳びがない。
+    梱包の台 4 つは描画で置く家具（歩ける所の外、大きさの箱を描画へ渡す）、休憩の長椅子は 6 席。"""
+    from twinsim.isaac_bridge import component_props
+    from twinsim.scenario import seats_of
+    sp = load_space("warehouse")
+    assert not sp.walkable(-15.0, -0.8) and sp.walkable(-15.0, 0.0) and len(seats_of(sp.pois["break_seats"])) == 6
+    props = component_props(sp, {"fps": 30, "total_frames": 1, "people": {}})
+    tables = [p for p in props if p["kind"] == "furniture" and p["usd"].endswith("packing_table.usd")]
+    assert len(tables) == 4 and all(len(p["box"]) == 4 for p in tables)
+    r = twinsim.simulate({**twinsim.template("warehouse_shift"), "duration_s": 420, "cameras": [], "outputs": ["ground_truth"]}, out_dir=tmp_path / "w")
+    gt = r.ground_truth()
+    sv = [e for p in gt["people"].values() for e in p["events"].get("service", []) if e.get("start") is not None]
+    assert {e["name"] for e in sv} == {"time_clock", "packing"}
+    for name, p in gt["people"].items():
+        for e in p["events"].get("service", []):
+            if e["name"] == "packing" and e.get("start") is not None:  # 梱包の間の状態は work
+                f = int(round((e["start"] + 1.0) * gt["fps"]))
+                assert any(f0 <= f <= f1 and st == "work" for f0, f1, st in p["states"]), name
+        xy = np.array(gt["tracks"][name])[:, :2]
+        if len(xy) > 1:
+            assert float(np.hypot(*np.diff(xy, axis=0).T).max()) <= 0.2, name

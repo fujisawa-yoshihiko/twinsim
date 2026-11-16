@@ -8,7 +8,8 @@ engine.Sim が ComponentsMixin を継ぐ（motion_model "cfsm" でも "lane" で
                                                                     （映らない。状態 in_room）→ 時間がたつと同じ番号で出てくる
   ("seat", 名前, 秒, 状態, 見回す角度)                                空いた席へ歩いて座る（埋まっていれば近くに立つ）→ 時間がたつと立つ
 グループは 1 組で動く: 窓口は先導の人だけが応対を受け、仲間は近く（待つ場所があれば隣の席）で待つ（状態 companion_wait）。部屋には一緒に入って一緒に出る。
-状態: service_queue（窓口の列・部屋の扉の前で待つ）・service（応対中）・call_wait（呼ばれるのを待つ）・seated（座っている）・in_room（部屋の中）。
+状態: service_queue（窓口・作業点の列・部屋の扉の前で待つ）・service（応対中。作業点は設定の state、倉庫の梱包の台は work）・
+call_wait（呼ばれるのを待つ）・seated（座っている）・in_room（部屋の中）。
 座る・立つ動作は素材（SitAndStandChair）の体の軌跡どおりに動く（play）。Agent.sit_spans は [座り始め, 座った, 立ち始め, 立ち終わり] のコマで、
 正解の people[].sit と frames.csv の pose（sit_down・sit・stand_up）になる（outputs.py）。
 """
@@ -21,6 +22,7 @@ from . import dists
 
 INF = math.inf
 LINE_GAP = 0.65  # 窓口の列の前後の間隔（m。ゲートの列 QUEUE_GAP と同じ）
+LINE_JOIN_M = 1.5  # 列の場所からこの距離（m）より遠い間は、列へ歩く人（状態 pass）。列が進んで詰める一歩（0.65 m）は service_queue のまま
 SERVICE_NEAR_M = 0.4  # 応対の場所からこの距離（m）の中に着いたら応対を受ける
 SERVICE_AVOID_M = 0.8  # 窓口の応対の場所のまわりで、通る人の経路がなるべく避ける円の半径（m。space.Space.set_soft）
 COMPANION_BACK_M = 1.5  # 窓口・部屋で先導の人を待つ仲間が立つ所（応対の場所・扉から手前へ。m）
@@ -143,10 +145,12 @@ def _poly_slots(pts, gap, n):
 
 class Service:
     """窓口。points は応対を受ける人の立つ点、faces は向く点。mode: line（line の線に並ぶ）・area（wait の範囲・席で、着いた順に待つ）・
-    call（呼び出し。wait の範囲・席で待ち、空いた順に呼ばれる。area との違いは状態の名前だけ）。"""
+    call（呼び出し。wait の範囲・席で待ち、空いた順に呼ばれる。area との違いは状態の名前だけ）。
+    state は応対を受ける間の状態の名前（既定 service。倉庫の梱包の台のような作業点は work）。"""
 
-    def __init__(self, name, points, faces, service_s=None, mode="line", line=None, wait=None, rng=None, aside=None):
+    def __init__(self, name, points, faces, service_s=None, mode="line", line=None, wait=None, rng=None, aside=None, state="service"):
         self.name = name
+        self.state = state
         # 付き添いが待つ所: 点・席（seats）やゾーンの名前・なし（応対の場所の手前）
         self.aside = aside if isinstance(aside, str) else np.asarray(aside, float) if aside is not None else None
         self.points = [np.asarray(p, float) for p in points]
@@ -338,7 +342,9 @@ class ComponentsMixin:
         q = S.slot(k)
         if not self.space.walkable(*q):
             q = np.asarray(self.alloc_stand(a, tuple(S.slot(max(0, k - 1)))), float)
-        self.walk_then(a, p, q, "service_queue", lambda a, t, p: self.hold(a, t, p, "service_queue", S.points[0], 0.0))
+        # 列の場所から遠い間は歩く人（pass）。前は列へ向かう間ずっと service_queue で、倉庫で棚から 10〜20 m 歩く人も列に並ぶことになっていた（2026-11-16）
+        far = float(np.hypot(*(np.asarray(p, float) - q))) > LINE_JOIN_M
+        self.walk_then(a, p, q, "pass" if far else "service_queue", lambda a, t, p: self.hold(a, t, p, "service_queue", S.points[0], 0.0))
 
     # ---- 座る ----
     def take_seat(self, a, t, p, ss, state, dur, near=(), glance=20.0):
@@ -536,7 +542,7 @@ class ComponentsMixin:
                 return
             dur = a.comp["step"][2] if a.comp["step"][2] is not None else S.sample()
             # 着いた所で応対を受ける（応対の点へ置き直すと、手前で止まった人が 1 コマで最大 1.4 m 跳んだ、2026-11-13）
-            self.hold(a, t, p, "service", S.faces[i], a.comp["step"][3] if len(a.comp["step"]) > 3 else 0.0)
+            self.hold(a, t, p, S.state, S.faces[i], a.comp["step"][3] if len(a.comp["step"]) > 3 else 0.0)
             a.until = t + dur
             a.hold = False
             rec["start"], rec["end"], rec["point"] = round(t, 2), round(t + dur, 2), i

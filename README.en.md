@@ -137,7 +137,7 @@ Coordinates are world meters (Z up); simulator frames start at 0 (seconds = fram
 | `logs/` | CSV | Gate crossing logs and elevator operation logs (the same format as real data). Made with `twinsim export-logs <run>` |
 | `<TWINSIM_DATA>/ward/<space>_ward_layout.json` | JSON | Ward beds, nurse-station layouts, and the walkable distances and paths between them (`twinsim ward-layout`) |
 
-States: `pass`, `gate_queue`, `ev_approach`, `ev_wait`, `alight`, `reception`, `dwell`, `sign_check`, `companion_wait` (warehouse: `work`, `wait`).
+States: `pass`, `gate_queue`, `ev_approach`, `ev_wait`, `alight`, `reception`, `dwell`, `sign_check`, `companion_wait` (warehouse: `work`, `wait`). From 1.2 also `group_wait`, `service_queue`, `service`, `call_wait`, `seated`, `in_room` (meanings in docs/formats.en.md, section 2).
 Notes: the `mot/` boxes are approximate projections of a box around the person (not tight to the silhouette), and their visibility is approximate too. Use `labels/` for detection and tracking. There are 10 character models, and each person's clothing color is varied.
 
 ## Basis of the movement
@@ -174,6 +174,7 @@ The sources, the check results and the assumed values are in [docs/validity.en.m
 | `hospital_gate_ev` | Hospital lobby → elevators in the west hall (same layout and cameras as hospital-sim's sim-gate; can be compared with the data of the earlier evaluation) |
 | `hospital_outpatient` | Hospital outpatients (1.2 components): ticket at reception → waiting seats → seats by the consultation rooms → consultation room → payment → pharmacy (30 min; consultation time from the MHLW Patient's Behavior Survey, others provisional) |
 | `office_lunch` | Office lunchtime (1.2 components): people going out for and returning from lunch pass the gate and elevators; some queue at the coffee counter in the lobby, then take it upstairs or rest on the sofas (30 min; elevator mix from Peters et al. 2011 for lunchtime, others provisional) |
+| `warehouse_shift` | Warehouse shift start (1.2 components, work points with a capacity and a queue): workers come from the dock and queue at the time clock → wait for instructions → go round shelves in number order → packing tables (four, with a queue for a free one), repeatedly. Early arrivals wait on the break benches (20 min; time at shelves set to match the breakdown of picking time (half is travel), others provisional) |
 | `warehouse_picking` | Warehouse picking ("work, wait, move" in the factory diagram). Receiving → shelf → packing → wait → shelf → packing → leave |
 | `simple_room_smoke` | Operation check (small room, 20 s) |
 | `verify_corridor_speed`, `verify_fundamental_diagram`, `verify_groups`, `verify_gate_capacity`, `verify_counterflow`, `verify_bottleneck` | Engine verification (walking straight, speed and density, groups, a crowded gate, counterflow, a 1 m wide doorway). The results are in section 5 of docs/validity.en.md |

@@ -202,8 +202,9 @@ def component_props(sp, gt):
     for k, p in sp.pois.items():
         for fur in p.get("furniture", []):  # 座る場所の席・窓口のカウンター
             if not fur.get("in_usd"):
-                props.append({"kind": "furniture", "usd": FURNITURE[fur["asset"]]["usd"], "xy": list(map(float, fur["xy"])),
-                              "rot": float(fur.get("rot", 0.0))})
+                F = FURNITURE[fur["asset"]]
+                props.append({"kind": "furniture", "usd": F["usd"], "xy": list(map(float, fur["xy"])),
+                              "rot": float(fur.get("rot", 0.0)), "box": F["box"]})
         if p.get("kind") == "room" and p.get("door_prim"):
             props.append({"kind": "door", "prim": f"/Root/{p['door_prim']}", "door": list(map(float, p["xy"])), "inside": list(map(float, p["inside"])),
                           "open": door_keys(gt, k, gt["total_frames"]), "swing_frames": int(round(DOOR_SWING_S * gt["fps"]))})

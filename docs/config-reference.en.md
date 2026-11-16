@@ -173,6 +173,7 @@ Elements of `streams[].destinations` and `elevator.alight.destinations`. A name 
 | `glance` | number | stop `0`, elevator `20`, meeting `45` | How far to look around while stopped (degrees) |
 | [`meet`](#meet) | object | none | Meeting up |
 | `then` | string or object | none | Next destination after stopping (same form, without `meet`) |
+| `visits` | number or [distribution](#distributions) | none | With a destination given as the start of a name (`"pick"`), choose n different places among the candidates and go round them in the order of the number in the name (`pick_2` before `pick_10`), stopping at each with `dwell` and `state`, then go on to `then`. The round order comes from the numbers of the places in the space (from 1.2; warehouse picking) |
 | `variant_p` | string | none | Name that replaces `p` in [`variants`](#variants) |
 
 Values of `to`:
@@ -273,12 +274,19 @@ Routes of people going elsewhere avoid, where they can, the front of the counter
 | `call` | boolean | `false` | Calling: people do not queue; they wait at the waiting place (`wait`) and are called in order as points free up |
 | `wait` | string | `wait` of the space | Waiting place (a place of kind `seats` or a zone name) |
 | `queue` | string | `"line"` if the space has `line`, otherwise `"area"` | `"line"` (queue along the line) or `"area"` (wait at the waiting place in order of arrival) |
+| `state` | string | `"service"` | Name of the state while being served. For a work point such as a warehouse packing table (people stand and work there; it has a capacity and a queue), `"work"` (`warehouse_shift`) |
 | `note` | string | none | Note |
 
 ```yaml
 # from hospital_outpatient.yaml (space: hospital)
 services:
   front_desk: {service_s: {type: lognormal, median: 45, sigma: 0.5}, call: true}
+```
+
+```yaml
+# from warehouse_shift.yaml (space: warehouse). The four packing tables are work points (people waiting for a free one queue)
+services:
+  packing: {service_s: {type: lognormal, median: 30, sigma: 0.4}, state: work}
 ```
 
 <a id="rooms"></a>
@@ -426,7 +434,7 @@ Names for `origin`, `to`, `via`, `cars` and `props`. To see them on a map, run `
 |---|---|---|---|---|---|---|
 | `office` | `entrance`, `south_exit`, `west_corridor`, `east_room` | `gate` | `EV1`, `EV2` | `reception_w1`, `reception_w2`, `reception_e1`, `lounge_1` to `3`, `sign_view`, `sign` | counter `cafe`, seats `cafe_seats` | `CamGate`, `CamEV`, `CamLobby`, `CamCafe` |
 | `hospital` | `lobby_entrance`, `west`, `hall_side`, `west_room` | | `EV` | `reception_1`, `reception_2` | counters `front_desk`, `cashier`, `pharmacy`; rooms `consult_1` to `5`, `other_clinics`; seating `lobby_seats`, `clinic_seats` | `CamGate`, `CamHall`, `CamClinic`, `CamWaiting` |
-| `warehouse` | `dock` | | | `pick_1` to `12`, `pack_1` to `4`, `staging_1`, `staging_2`, `break_1` | | `CamAisles`, `CamPack` |
+| `warehouse` | `dock` | | | `pick_1` to `12`, `pack_1` to `4`, `staging_1`, `staging_2`, `break_1` | counters `time_clock` (time clock), `packing` (four packing tables), seats `break_seats` | `CamAisles`, `CamPack`, `CamDock` |
 | `simple_room` | `door_w`, `door_e` | | | `table_1`, `table_2` | | `CamRoom` |
 | `corridor` | `west`, `start`, `east`, `finish`, `east_narrow` | | | | | |
 | `corridor_door` | `west`, `east` | | | | | |

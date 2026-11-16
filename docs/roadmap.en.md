@@ -13,7 +13,7 @@ Decided (2026-11-12):
 - Non-human movers (wheelchairs, AGVs and others) go into 1.3 or later
 - Groups are checked over the density range measured in the literature, 0–0.3 people/m² (table below). Denser places are not judged; their values are only reported
 
-Progress: 1 groups is done (2026-11-12, [validity.en.md, section 5.8](validity.en.md#58-group-formation-12-2026-11-12)). 2 components: counters, calling, seating, rooms and the hospital outpatient template are done (2026-11-13, [5.9](validity.en.md#59-components-that-are-the-purpose-of-a-trip-12-2026-11-13)). Rendering (sitting, benches, consultation-room doors, people inside rooms) is done (2026-11-16, [5.10](validity.en.md#510-checking-the-rendering-sitting-benches-consultation-room-doors-and-people-inside-rooms-12-2026-11-16); people being served drifting from the reception desk was fixed in [5.11](validity.en.md#511-routes-avoiding-the-front-of-counters-office-lunchtime-coffee-counter-and-folds-when-members-join-the-leaders-route-12-2026-11-16)). Office lunchtime (coffee counter queue, sofas) is done (2026-11-16, 5.11). The warehouse template is still to come.
+Progress: 1 groups is done (2026-11-12, [validity.en.md, section 5.8](validity.en.md#58-group-formation-12-2026-11-12)). 2 components: counters, calling, seating, rooms and the hospital outpatient template are done (2026-11-13, [5.9](validity.en.md#59-components-that-are-the-purpose-of-a-trip-12-2026-11-13)). Rendering (sitting, benches, consultation-room doors, people inside rooms) is done (2026-11-16, [5.10](validity.en.md#510-checking-the-rendering-sitting-benches-consultation-room-doors-and-people-inside-rooms-12-2026-11-16); people being served drifting from the reception desk was fixed in [5.11](validity.en.md#511-routes-avoiding-the-front-of-counters-office-lunchtime-coffee-counter-and-folds-when-members-join-the-leaders-route-12-2026-11-16)). Office lunchtime (coffee counter queue, sofas) is done (2026-11-16, 5.11). Warehouse shift start (time clock queue, packing tables as work points with a queue, going round shelves in number order, break benches) is done (2026-11-16, [5.12](validity.en.md#512-warehouse-shift-start-work-points-with-a-capacity-and-a-queue-and-the-state-while-walking-to-a-queue-12-2026-11-16); checking the rendering is still to do).
 
 Order of work: 1 groups → 2 components → 3 remaining movement fixes → 4 making spaces → rendering (seated people, chairs, counters) → comparison with 1.1 and release notes.
 The work is on branch `crowd-1.2`.
@@ -59,7 +59,7 @@ What to build:
 
 What exists now: entrances and exits (`spawn`, `exit`), gates (`gate`), elevators and waiting areas (`elevator`, `wait_zone`), stopping places (`spot`: reception, waiting area, in front of a sign),
 placed objects (`prop: signage`), and itinerary steps (`dwell`, `then`, `meet`, `via`, `state`).
-The warehouse "work, waiting, moving" (template `warehouse_picking`) is written as stopping places and stopping times (no capacity, queue or service).
+The warehouse "work, waiting, moving" (template `warehouse_picking`) is written as stopping places and stopping times (no capacity, queue or service). In 1.2, `warehouse_shift` makes the packing tables work points (the counter component with the state `work`) with a capacity and a queue.
 
 Components derived from offices, hospitals, warehouses and other domains:
 

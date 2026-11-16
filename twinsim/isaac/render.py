@@ -295,13 +295,21 @@ def add_person(walker, cl, name, model, frames, z=0.0, sit=(), clip=None, under=
     return walker.height[model]
 
 
-def add_furniture(stage, k, usd, xy, rot, z=0.0):
-    """座る場所の家具（USD にないもの。space.FURNITURE）を置く。家具の原点は床の上の真ん中、正面は -y。"""
+def add_furniture(stage, k, usd, xy, rot, z=0.0, box=None):
+    """座る場所の家具（USD にないもの。space.FURNITURE）を置く。家具の原点は床の上の真ん中、正面は -y。
+    box（床の上の形 [x0, y0, x1, y1]、m）を渡すと、読み込んだ素材の横幅が box と 2 割より違うとき、box に合わせて縮尺を直す
+    （素材によって舞台の単位が m と cm で違い、読み込み方で 100 倍ずれる。梱包の台、2026-11-16）。"""
     p = stage.DefinePrim(f"/Root/TS_Furniture{k}", "Xform")
     p.GetReferences().AddReference(usd)
     xf = UsdGeom.Xformable(p)
     xf.AddTranslateOp().Set(Gf.Vec3d(float(xy[0]), float(xy[1]), float(z)))
     xf.AddRotateZOp().Set(float(rot))
+    if box is not None:
+        r = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default", "render"]).ComputeUntransformedBound(p).ComputeAlignedRange()
+        got, want = float(r.GetMax()[0] - r.GetMin()[0]), float(box[2] - box[0])
+        if got > 0 and not 0.8 < got / want < 1.25:
+            xf.AddScaleOp().Set(Gf.Vec3f(want / got, want / got, want / got))
+            log("家具の縮尺を直した:", usd.split("/")[-1], round(got, 3), "→", round(want, 3))  # noqa: F821
 
 
 def open_door(stage, prim, door, inside, spans, swing):
@@ -647,7 +655,7 @@ async def main():
         elif pr.get("kind") == "elevator":
             add_elevator(stage, k, pr["door"], pr["face"], float(job.get("z", 0.0)), float(pr.get("height", 2.9)))
         elif pr.get("kind") == "furniture":
-            add_furniture(stage, k, pr["usd"], pr["xy"], pr["rot"], float(job.get("z", 0.0)))
+            add_furniture(stage, k, pr["usd"], pr["xy"], pr["rot"], float(job.get("z", 0.0)), pr.get("box"))
         elif pr.get("kind") == "door":
             log("door", pr["prim"], "open spans", open_door(stage, pr["prim"], pr["door"], pr["inside"], pr["open"], int(pr.get("swing_frames", 24))))
     stage.SetStartTimeCode(0)

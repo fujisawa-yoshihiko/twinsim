@@ -137,7 +137,7 @@ office・カメラ 1 台・300 コマ（映る人 25 人ほど）を本数と同
 | `logs/` | CSV | ゲートの通過記録・EV の運行記録（実データと同じ形）。`twinsim export-logs <結果>` で作る |
 | `<TWINSIM_DATA>/ward/<空間>_ward_layout.json` | JSON | 病棟のベッド・ナースステーションの置き方と、その間の歩ける所の上の道のりと道の点の列（`twinsim ward-layout`） |
 
-状態: `pass`・`gate_queue`・`ev_approach`・`ev_wait`・`alight`・`reception`・`dwell`・`sign_check`・`companion_wait`（倉庫は `work`・`wait`）。
+状態: `pass`・`gate_queue`・`ev_approach`・`ev_wait`・`alight`・`reception`・`dwell`・`sign_check`・`companion_wait`（倉庫は `work`・`wait`）。1.2 から `group_wait`・`service_queue`・`service`・`call_wait`・`seated`・`in_room`（意味は docs/formats.md の 2）。
 注意: `mot/` の枠は人を囲む箱を映した近似（輪郭にぴったりではない）、見えている割合も近似。検出・追跡には `labels/` を使う。人物モデルは 10 種類で、服の色を人ごとに変えている。
 
 ## 人の動きの根拠
@@ -174,6 +174,7 @@ office・カメラ 1 台・300 コマ（映る人 25 人ほど）を本数と同
 | `hospital_gate_ev` | 病院のロビー → 西の広間の EV（hospital-sim の sim-gate と同じ配置・カメラ。前の評価のデータと比べられる） |
 | `hospital_outpatient` | 病院の外来（1.2 の部品）: 受付で番号札 → 待合 → 診察室の前の席 → 診察室 → 会計 → 薬（30 分。診察の時間は厚労省の受療行動調査、ほかは仮） |
 | `office_lunch` | オフィスの昼（1.2 の部品）: 昼食に出る・戻る人がゲートと EV を通り、一部はロビーのコーヒーカウンターの列に並んで買い、持って上がるかソファで休む（30 分。EV の内訳は Peters ら 2011 の昼、ほかは仮） |
+| `warehouse_shift` | 倉庫のシフトの始まり（1.2 の部品、作業点に定員と列）: 荷受けから来て打刻機の列 → 指示を待つ → 棚を番号の順に回る → 梱包の台（4 つ、空くのを待つ列）を繰り返す。早く来た人は休憩の長椅子で待つ（20 分。棚の前の時間はピッキングの時間の内訳（移動 5 割）に合わせた、ほかは仮） |
 | `warehouse_picking` | 倉庫のピッキング（工場の図の「作業・待ち・移動」）。荷受け → 棚 → 梱包 → 待ち → 棚 → 梱包 → 帰る |
 | `simple_room_smoke` | 動作確認（小部屋、20 秒） |
 | `verify_corridor_speed`・`verify_fundamental_diagram`・`verify_groups`・`verify_gate_capacity`・`verify_counterflow`・`verify_bottleneck` | エンジンの確かめ（まっすぐ歩けるか・速さと密度・グループ・混んだゲート・すれ違い・幅 1 m の出入口）。結果は docs/validity.md の 5 |

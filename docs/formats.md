@@ -92,12 +92,12 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | `sign_check` | 案内板・サイネージを見る |
 | `companion_wait` | 同行者を待つ |
 | `group_wait` | ゲートを先に通った人が、通った先でグループの仲間を待つ（1.2 から） |
-| `service_queue` | 窓口の列に並ぶ・着いた順に待つ・部屋の扉の前で待つ（1.2 から） |
-| `service` | 窓口で応対を受ける（1.2 から） |
+| `service_queue` | 窓口・作業点の列に並ぶ・着いた順に待つ・部屋の扉の前で待つ（1.2 から）。列へ歩く間（列の場所から 1.5 m より遠い間）は `pass`（2026-11-16 から。前は列へ向かう間ずっと `service_queue`） |
+| `service` | 窓口で応対を受ける（1.2 から）。作業点は設定で名前を変える（倉庫の梱包の台は `work`） |
 | `call_wait` | 呼ばれるのを待つ（座っているかは `sit`・`pose`、1.2 から） |
 | `seated` | 座る場所に座っている（1.2 から） |
 | `in_room` | 部屋の中（映らない。`tracks` には部屋の中の点で続き、`frames.csv`・MOT・`tasks.json` には出ない。1.2 から） |
-| `work`・`wait` | 倉庫の作業・待ち（倉庫のテンプレート） |
+| `work`・`wait` | 倉庫の作業（棚の前・梱包の台）・指示を待つ（倉庫のテンプレート。行き先の `state` で付けた名前） |
 
 ## 3. `frames.csv.gz`
 
@@ -152,7 +152,7 @@ Replicator は、新しく見えた人をしばらく返さないことや、前
 | `seconds`・`zones`・`zone_area_m2` | 秒の数、ゾーンの名前、ゾーンの面積 |
 | `1_count` | `present`（秒ごとの全体の人数）、`by_zone[ゾーン]`・`by_state[状態]`（秒ごとの人数）。各秒の最初のコマで数える |
 | `2_direction` | `gate_per_min["ゲート:in/out"]`（1 分ごとの通過人数）、`gate_events` |
-| `3_dwell` | 3 秒以上止まった区間 `[{person, state, start_s, end_s, zone}]` |
+| `3_dwell` | 3 秒以上止まった区間 `[{person, state, start_s, end_s, zone}]`。歩く状態（`pass`・`alight`・`ev_approach`）と部屋の中のほかの全部の状態（2026-11-16 から。前は止まる状態を並べていて、倉庫の `work`・`wait` が入っていなかった） |
 | `4_group` | `{G001: [名前, …]}` |
 | `5_congestion` | `levels_per_m2`（段階の境い、既定 [0.1, 0.2] 人/m²）、`density[ゾーン]`・`level[ゾーン]`（秒ごと） |
 | `6_trend` | `od_per_min`: `[{minute, origin, destination, count}]` |

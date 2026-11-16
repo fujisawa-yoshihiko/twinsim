@@ -25,8 +25,9 @@ from .camera import Camera, boxes_with_visibility, camera_dict
 from .components import SIT_CLIP, box_shape, sit_pose
 from .engine import state_runs
 
-STOP_STATES = ("gate_queue", "ev_wait", "reception", "dwell", "sign_check", "companion_wait", "group_wait",
-               "service_queue", "service", "call_wait", "seated")  # 3_dwell の滞留（3 秒以上止まった区間）。部屋の中 in_room は映らないので入れない
+# 3_dwell の滞留（3 秒以上止まった区間）は、歩く状態と部屋の中（映らない）のほかの全部の状態。前は止まる状態を並べていて、
+# 行き先の state で付けた名前（倉庫の work・wait など）が滞留に入っていなかった（2026-11-16）
+MOVE_STATES = ("pass", "alight", "ev_approach", "in_room")
 
 
 def resolve_cameras(spec, space):
@@ -239,7 +240,7 @@ def task_aggregates(sim, agents, per_frame, spec):
     for a in agents:
         f0 = a.frames[0][0]
         for s0, s1, st in state_runs(a.states, f0):
-            if st in STOP_STATES and (s1 - s0 + 1) / fps >= 3.0:
+            if st not in MOVE_STATES and (s1 - s0 + 1) / fps >= 3.0:
                 k = s0 - f0
                 dwell.append({"person": a.name, "state": st, "start_s": round(s0 / fps, 2), "end_s": round(s1 / fps, 2),
                               "zone": sp.zone_of(a.frames[k][1], a.frames[k][2])})

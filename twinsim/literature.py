@@ -60,6 +60,13 @@ REFS = {
                "30 分以上 4.0%・不詳 5.4%。不詳を除いた割合に合う対数正規は中央 421 秒・σ 0.714（区切りでの差 0.04 以内）。患者の答えた時間",
         "where": "日本の病院の外来（2023 年 10 月）",
         "check": "結果の概要の PDF の図 3 の数値（2026-11-13）"},
+    "dekoster2007": {
+        "cite": "De Koster, R., Le-Duc, T., Roodbergen, K. J. (2007). Design and control of warehouse order picking: A literature review. "
+                "European Journal of Operational Research 182(2): 481–501.（図 4 の元は Tompkins, J. A. ら (2003). Facilities Planning. Wiley）",
+        "use": "人が棚へ行く形のピッキングの作業者の時間の内訳（典型）: 移動 50%・探す 20%・取る 15%・準備 10%・その他 5%。"
+               "事例によっては移動以外も大きいが、移動がふつういちばん大きい。warehouse_shift の棚の前の時間を、巡回の中の移動 59% の目安に合わせた",
+        "where": "人が棚へ行く形の倉庫の典型（特定の倉庫の測定ではない）",
+        "check": "本文 p.486 の図 4 と前の段落（2026-11-16）"},
     "nicolas2021": {
         "cite": "Nicolas, A., Hassan, F. H. (2021). Social groups in pedestrian crowds: review of their influence on the dynamics and their "
                 "modelling. arXiv:2107.13293.",

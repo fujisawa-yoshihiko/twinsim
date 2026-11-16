@@ -36,6 +36,27 @@ pois:
   staging_1: {kind: spot, xy: [-14.0, -8.0], face: [-14.0, -6.0], note: 次の指示を待つ場所}
   staging_2: {kind: spot, xy: [-12.0, -8.0], face: [-12.0, -6.0]}
   break_1:   {kind: spot, xy: [-24.0, -16.0], face: [-26.0, -16.0], note: 休憩}
+  # 1.2 の部品（docs/spec.md の 1。倉庫のテンプレート warehouse_shift）。打刻機・梱包の台・休憩の長椅子は USD にないので見立て（台と長椅子は描画で置く）
+  time_clock:                # 打刻機（南の壁。描画で置く物はない）。列は壁から北へ
+    kind: service
+    points: [[-16.0, -22.75]]
+    faces: [[-16.0, -23.6]]
+    line: [[-16.0, -22.1], [-16.0, -14.0]]
+  packing:                   # 梱包の台 4 つ（作業点。pack_1〜4 と同じ所）。空くのを待つ人は台の列の真ん中から北へ並ぶ
+    kind: service
+    points: [[-20.0, 0.0], [-15.0, 0.0], [-10.0, 0.0], [-5.0, 0.0]]
+    faces: [[-20.0, -1.5], [-15.0, -1.5], [-10.0, -1.5], [-5.0, -1.5]]
+    line: [[-12.5, 1.6], [-12.5, 8.0]]
+    furniture:
+      - {asset: pack_table, xy: [-20.0, -0.8], rot: 180}
+      - {asset: pack_table, xy: [-15.0, -0.8], rot: 180}
+      - {asset: pack_table, xy: [-10.0, -0.8], rot: 180}
+      - {asset: pack_table, xy: [-5.0, -0.8], rot: 180}
+  break_seats:               # 休憩の長椅子 2 台（6 席。西の壁の柱の間、東向き）
+    kind: seats
+    furniture:
+      - {asset: bench3, xy: [-25.6, -16.0], rot: 90}
+      - {asset: bench3, xy: [-25.6, -18.6], rot: 90}
 
 zones:
   aisles:   {polygon: [[-27.5, 8.5], [5.0, 8.5], [5.0, 25.5], [-27.5, 25.5]]}
@@ -48,3 +69,4 @@ zones:
 cameras:
   CamAisles: {eye: [-13.0, 4.0, 5.0], target: [-13.0, 18.0, 0.5], note: 通路を南から見下ろす, note_en: "Looks down the aisles from the south"}
   CamPack:   {eye: [2.0, -9.0, 5.0], target: [-12.0, 1.0, 0.5], note: 梱包の台と待つ場所, note_en: "Packing tables and the waiting area"}
+  CamDock:   {eye: [-5.0, -11.0, 4.5], target: [-18.0, -20.0, 0.8], note: 打刻機の列と休憩の長椅子（1.2）, note_en: "Time clock queue and break benches (1.2)"}

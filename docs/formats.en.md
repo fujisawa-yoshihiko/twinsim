@@ -92,12 +92,12 @@ Contents of `people[name]`:
 | `sign_check` | Looking at a sign / signage |
 | `companion_wait` | Waiting for a companion |
 | `group_wait` | Having passed a gate first, waiting beyond it for the other group members (from 1.2) |
-| `service_queue` | Queuing at a counter, waiting in order of arrival, or waiting in front of a room door (from 1.2) |
-| `service` | Being served at a counter (from 1.2) |
+| `service_queue` | Queuing at a counter or work point, waiting in order of arrival, or waiting in front of a room door (from 1.2). While walking to the queue (more than 1.5 m from the place in it), `pass` (from 2026-11-16; before, `service_queue` all the way to the queue) |
+| `service` | Being served at a counter (from 1.2). Work points get another name in the configuration (`work` at the warehouse packing tables) |
 | `call_wait` | Waiting to be called (whether seated is in `sit` and `pose`; from 1.2) |
 | `seated` | Sitting at seating (from 1.2) |
 | `in_room` | Inside a room (not visible; `tracks` continue at a point inside the room, but the person is not in `frames.csv`, MOT or `tasks.json`; from 1.2) |
-| `work`, `wait` | Working / waiting in the warehouse (warehouse template) |
+| `work`, `wait` | Working (at shelves and packing tables) / waiting for instructions in the warehouse (warehouse templates; names given by `state` of a destination) |
 
 ## 3. `frames.csv.gz`
 
@@ -153,7 +153,7 @@ Rendering takes about 1.5 to 2 times as long with the labels.
 | `seconds`, `zones`, `zone_area_m2` | Number of seconds, zone names, zone areas |
 | `1_count` | `present` (total number of people per second), `by_zone[zone]` and `by_state[state]` (number of people per second). Counted at the first frame of each second |
 | `2_direction` | `gate_per_min["gate:in/out"]` (number of people passing per minute), `gate_events` |
-| `3_dwell` | Intervals stopped for 3 s or more `[{person, state, start_s, end_s, zone}]` |
+| `3_dwell` | Intervals stopped for 3 s or more `[{person, state, start_s, end_s, zone}]`: all states except the walking ones (`pass`, `alight`, `ev_approach`) and inside a room (from 2026-11-16; before, a list of stop states that missed the warehouse `work` and `wait`) |
 | `4_group` | `{G001: [name, …]}` |
 | `5_congestion` | `levels_per_m2` (thresholds between levels, default [0.1, 0.2] people/m²), `density[zone]` and `level[zone]` (per second) |
 | `6_trend` | `od_per_min`: `[{minute, origin, destination, count}]` |

@@ -40,9 +40,15 @@ OUTPUTS = ("ground_truth", "frames", "tasks", "graph", "mot", "aicity", "preview
 # 設定の一番上のキー（docs/spec.md）。綴りの誤りを既定の値のまま黙って動かさないように、ほかのキーは誤りにする
 CONFIG_KEYS = set(DEFAULTS) | {"name", "title", "title_en", "description", "space", "demand", "elevator", "validity", "variants", "variant", "graph",
                                "mot_stride", "congestion_levels", "calibration", "services", "rooms"}
-SERVICE_KEYS = {"service_s", "servers", "call", "wait", "queue", "note"}  # 設定の services.<窓口>（1.2、components.py）
+SERVICE_KEYS = {"service_s", "servers", "call", "wait", "queue", "state", "note"}  # 設定の services.<窓口>（1.2、components.py）
 ROOM_KEYS = {"stay_s", "capacity", "call", "wait", "note"}  # 設定の rooms.<部屋>
 COMPONENT_KINDS = ("service", "room", "seats")
+
+
+def name_order(name):
+    """場所の名前の並べ方: 末尾の番号を数として（pick_2 が pick_10 より先）。"""
+    m = re.search(r"(\d+)$", name)
+    return (name[:m.start()], int(m.group(1))) if m else (name, -1)
 
 
 def component_cfg(spec, key, name):
@@ -260,6 +266,14 @@ def validate(spec):
             kinds = {space.pois[k].get("kind") for k in space.pois if k.startswith(to + "_")}
             if len(kinds) > 1:
                 errs.append(f"{where}: 行き先 {to} の候補（{to}_…）に種類の違う場所が混ざる（{', '.join(sorted(map(str, kinds)))}）")
+        if isinstance(d, dict) and d.get("visits") is not None:
+            if to in space.pois or to == "elevator":
+                errs.append(f"{where}: visits は名前の頭の行き先（{to}_… の場所のどれか）にだけ書ける")
+            if d.get("meet"):
+                errs.append(f"{where}: visits と meet は一緒に書けない")
+            v = d["visits"]
+            if not (isinstance(v, dict) and "type" in v or isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 1):
+                errs.append(f"{where}: visits は 1 以上の数か分布（今は {v!r}）")
         if isinstance(d, dict):
             for g in [*d.get("via", []), *(d.get("meet") or {}).get("via", [])]:
                 if space.pois.get(g, {}).get("kind") != "gate":
@@ -518,6 +532,16 @@ class Builder:
         if isinstance(d, str):
             d = {"to": d}
         sp = self.space
+        if d.get("visits") is not None:  # 名前の頭の候補から n か所を選び、名前の番号の順に回る（倉庫のピッキング。1.2）
+            cands = sorted((k for k in sp.pois if k.startswith(d["to"] + "_")), key=name_order)
+            n = min(max(1, int(round(float(dists.sample(d["visits"], self.rng))))), len(cands))
+            one = {k: v for k, v in d.items() if k not in ("visits", "then", "via")}
+            steps = []
+            for i, name in enumerate(sorted(self.rng.sample(cands, n), key=name_order)):
+                steps += self.plan_for(dict(one, to=name, via=d.get("via", [])) if i == 0 else dict(one, to=name))
+            if d.get("then"):
+                steps += self.plan_for(d["then"])
+            return steps
         steps = [("gate", g) for g in d.get("via", [])]
         to = d["to"]
         group = to
@@ -774,8 +798,8 @@ class Builder:
                 n = int(c.get("servers", len(pts)))
                 mode = "call" if c.get("call") else c.get("queue") or ("line" if p.get("line") else "area")
                 services[k] = Service(k, pts[:n], faces[:n], c.get("service_s"), mode, p.get("line"), c.get("wait") or p.get("wait"), rng,
-                                      aside=p.get("aside"))
-                self.meta.setdefault("services", {})[k] = {"servers": n, "mode": mode, "service_s": services[k].service_s,
+                                      aside=p.get("aside"), state=c.get("state") or "service")
+                self.meta.setdefault("services", {})[k] = {"servers": n, "mode": mode, "state": services[k].state, "service_s": services[k].service_s,
                                                           "source": (c.get("service_s") or {}).get("source") if isinstance(c.get("service_s"), dict) else None}
             elif kind == "room":
                 c = component_cfg(spec, "rooms", k)
