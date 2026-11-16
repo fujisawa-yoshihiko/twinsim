@@ -264,6 +264,7 @@ The keys are gate place names.
 ## `services`
 
 From 1.2. Behaviour of each counter (a place of kind `service` in the space). Keys are place names or the start of a name (`consult` for `consult_1` and so on). The geometry (service points, directions, queue line, waiting place) is in the space ([spec.en.md](spec.en.md), section 1).
+Routes of people going elsewhere avoid, where they can, the front of the counters listed here (0.8 m from the service points), so that people being served do not keep giving way to passers-by and drift from the desk ([validity.en.md](validity.en.md), section 5.11).
 
 | Key | Type | Default | Contents |
 |---|---|---|---|
@@ -423,7 +424,7 @@ Names for `origin`, `to`, `via`, `cars` and `props`. To see them on a map, run `
 
 | Space | Appear and leave | Gates | Elevators | Stops | Counters, rooms, seating (1.2) | Candidate cameras |
 |---|---|---|---|---|---|---|
-| `office` | `entrance`, `south_exit`, `west_corridor`, `east_room` | `gate` | `EV1`, `EV2` | `reception_w1`, `reception_w2`, `reception_e1`, `lounge_1` to `3`, `sign_view`, `sign` | | `CamGate`, `CamEV`, `CamLobby` |
+| `office` | `entrance`, `south_exit`, `west_corridor`, `east_room` | `gate` | `EV1`, `EV2` | `reception_w1`, `reception_w2`, `reception_e1`, `lounge_1` to `3`, `sign_view`, `sign` | counter `cafe`, seats `cafe_seats` | `CamGate`, `CamEV`, `CamLobby`, `CamCafe` |
 | `hospital` | `lobby_entrance`, `west`, `hall_side`, `west_room` | | `EV` | `reception_1`, `reception_2` | counters `front_desk`, `cashier`, `pharmacy`; rooms `consult_1` to `5`, `other_clinics`; seating `lobby_seats`, `clinic_seats` | `CamGate`, `CamHall`, `CamClinic`, `CamWaiting` |
 | `warehouse` | `dock` | | | `pick_1` to `12`, `pack_1` to `4`, `staging_1`, `staging_2`, `break_1` | | `CamAisles`, `CamPack` |
 | `simple_room` | `door_w`, `door_e` | | | `table_1`, `table_2` | | `CamRoom` |

@@ -196,16 +196,15 @@ def door_keys(gt, room, total_frames):
 
 
 def component_props(sp, gt):
-    """1.2 の部品の描画: 座る場所の家具（USD にないもの）と、部屋の扉（人が通るときだけ開ける）。"""
+    """1.2 の部品の描画: 家具（座る場所の席・窓口のカウンター。USD にないもの）と、部屋の扉（人が通るときだけ開ける）。"""
     from .space import FURNITURE
     props = []
     for k, p in sp.pois.items():
-        if p.get("kind") == "seats":
-            for fur in p.get("furniture", []):
-                if not fur.get("in_usd"):
-                    props.append({"kind": "furniture", "usd": FURNITURE[fur["asset"]]["usd"], "xy": list(map(float, fur["xy"])),
-                                  "rot": float(fur.get("rot", 0.0))})
-        elif p.get("kind") == "room" and p.get("door_prim"):
+        for fur in p.get("furniture", []):  # 座る場所の席・窓口のカウンター
+            if not fur.get("in_usd"):
+                props.append({"kind": "furniture", "usd": FURNITURE[fur["asset"]]["usd"], "xy": list(map(float, fur["xy"])),
+                              "rot": float(fur.get("rot", 0.0))})
+        if p.get("kind") == "room" and p.get("door_prim"):
             props.append({"kind": "door", "prim": f"/Root/{p['door_prim']}", "door": list(map(float, p["xy"])), "inside": list(map(float, p["inside"])),
                           "open": door_keys(gt, k, gt["total_frames"]), "swing_frames": int(round(DOOR_SWING_S * gt["fps"]))})
     return props

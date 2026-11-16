@@ -12,7 +12,7 @@ import yaml
 
 from . import dists
 from .characters import MODELS
-from .components import Room, SeatSet, Service
+from .components import SERVICE_AVOID_M, Room, SeatSet, Service
 from .engine import Agent, Car, Gate, Meet, Sim, group_slots
 from .literature import GROUP_RELATION_SHARE, GROUP_RELATIONS, PROFILES, WEIDMANN_FD, lift_demand_per_min
 from .space import ROOT, load_space, point_in_poly
@@ -782,6 +782,9 @@ class Builder:
                 rooms[k] = Room(k, p["xy"], p["inside"], c.get("capacity", p.get("capacity", 1)), c.get("stay_s"),
                                 "call" if c.get("call") else "door", c.get("wait") or p.get("wait"), rng)
                 self.meta.setdefault("rooms", {})[k] = {"capacity": rooms[k].capacity, "mode": rooms[k].mode, "stay_s": rooms[k].stay_s}
+        # 設定の services に書いた窓口の前は、通る人の経路がなるべく避ける（応対中の人が通る人に道をあけ続け、机から 1.25 m 離れて
+        # 応対を受けていた。外来の描画、2026-11-16。docs/validity.md の 5.11）
+        sp.set_soft([(q[0], q[1], SERVICE_AVOID_M, k) for k, S in services.items() if component_cfg(spec, "services", k) for q in S.points])
         sim = Sim(sp, fps, total, gates, cars, spots, lmax=float(spec["people"].get("lateral_max_m", 0.6)), on_arrival=on_arrival,
                   motion_model=spec["people"].get("motion_model", "cfsm"), cfsm=spec["people"].get("cfsm"),
                   elevator_policy=policy, speed_density=spec["people"].get("speed_density"), ev_timing=timing,

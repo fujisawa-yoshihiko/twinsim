@@ -196,6 +196,11 @@ def test_furniture_seats(space_dir):
     for (_x, y), yaw in seats:
         assert y == pytest.approx(-1.6) and yaw == pytest.approx(90.0)  # rot 180: 正面（回す前の -y）が +y
     assert sorted(round(x, 3) for (x, _), _ in seats) == [39.215, 40.0, 40.785]
+    from twinsim.space import furniture_place
+    _, sofa = furniture_place({"asset": "sofa3", "xy": [1.0, 2.0], "rot": -90.0})  # ソファの正面は回す前の +x
+    assert all(yaw == pytest.approx(-90.0) for _, yaw in sofa) and sorted(round(x, 2) for (x, _), _ in sofa) == [0.4, 1.0, 1.6]
+    corners, none = furniture_place({"asset": "counter2", "xy": [0.0, 0.0], "rot": 0.0})
+    assert none == [] and min(x for x, _ in corners) == pytest.approx(-0.08) and max(x for x, _ in corners) == pytest.approx(0.78)
     assert not sp.walkable(40.0, -1.6) and not sp.walkable(38.9, -1.3) and sp.walkable(40.0, -0.9)
 
 
@@ -211,3 +216,40 @@ def test_door_open_spans():
     assert sum(p["kind"] == "furniture" for p in props) == 5  # ロビーの壁ぎわ 2 つ・診察室の前 3 つ（ロビーの島の長椅子は USD にある）
     assert {p["prim"] for p in props if p["kind"] == "door"} == {"/Root/SM_Door_01b9", "/Root/SM_Door_01b7", "/Root/SM_Door_01b8",
                                                                   "/Root/SM_Door_01b5_8", "/Root/SM_Door_01b6"}
+
+
+def test_routes_avoid_service_fronts(space_dir):
+    """設定の services に書いた窓口の前（応対の場所から SERVICE_AVOID_M）は、通る人の経路がなるべく避ける。その窓口へ行く経路は避けない。"""
+    from twinsim.components import SERVICE_AVOID_M
+    sp = load_space(str(space_dir))
+    q = (15.0, 1.45)
+
+    def closest(path):
+        best = 9.0
+        for (x0, y0), (x1, y1) in zip(path, path[1:]):
+            dx, dy = x1 - x0, y1 - y0
+            u = max(0.0, min(1.0, ((q[0] - x0) * dx + (q[1] - y0) * dy) / max(dx * dx + dy * dy, 1e-12)))
+            best = min(best, math.hypot(x0 + u * dx - q[0], y0 + u * dy - q[1]))
+        return best
+    assert closest(sp.route((10.0, 1.4), (20.0, 1.4))) < SERVICE_AVOID_M  # 避ける所がなければ、窓口の前をまっすぐ通る
+    sp.set_soft([(q[0], q[1], SERVICE_AVOID_M, "counter")])
+    assert closest(sp.route((10.0, 1.4), (20.0, 1.4))) >= SERVICE_AVOID_M - 0.05
+    assert closest(sp.route((10.0, 1.4), (15.0, 1.2))) < 0.3  # その窓口へ行く人は避けない
+
+
+def test_office_lunch_runs(tmp_path):
+    """オフィスの昼のテンプレート（5 分）: コーヒーカウンターの列で応対を受け、跳びがない。カウンターは描画で置く家具（歩ける所の外）、席はソファ 15 席。"""
+    from twinsim.isaac_bridge import component_props
+    from twinsim.scenario import seats_of
+    sp = load_space("office")
+    assert not sp.walkable(4.9, 1.75) and len(seats_of(sp.pois["cafe_seats"])) == 15
+    props = component_props(sp, {"fps": 30, "total_frames": 1, "people": {}})
+    assert any(p["kind"] == "furniture" and p["usd"].endswith("SM_ReceptionTableStraight.usd") for p in props)
+    r = twinsim.simulate({**twinsim.template("office_lunch"), "duration_s": 300, "cameras": [], "outputs": ["ground_truth"]}, out_dir=tmp_path / "o")
+    gt = r.ground_truth()
+    sv = [e for p in gt["people"].values() for e in p["events"].get("service", []) if e.get("start") is not None]
+    assert len(sv) >= 3 and all(e["name"] == "cafe" for e in sv)
+    for n in gt["people"]:
+        xy = np.array(gt["tracks"][n])[:, :2]
+        if len(xy) > 1:
+            assert float(np.hypot(*np.diff(xy, axis=0).T).max()) <= 0.2, n

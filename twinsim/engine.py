@@ -245,6 +245,21 @@ def _wrap(d):
     return (d + 180.0) % 360.0 - 180.0
 
 
+def _no_fold(pts, short=1.0):
+    """折れ線の、短い（short m 未満の）行って戻る折り返しを取り除く（つないだ経路の継ぎ目で後ろへ戻る点）。"""
+    out = list(pts)
+    i = 1
+    while i < len(out) - 1:
+        a, b, c = (np.asarray(out[k], float) for k in (i - 1, i, i + 1))
+        u, v = b - a, c - b
+        if float(u @ v) < 0 and min(float(np.hypot(*u)), float(np.hypot(*v))) < short:
+            del out[i]
+            i = max(1, i - 1)
+        else:
+            i += 1
+    return out
+
+
 class Sim(ComponentsMixin):
     """sim = Sim(space, fps, total_frames, gates, cars, spots); sim.add(agent); sim.run()。
     services・rooms・seatsets は部品（components.py の Service・Room・SeatSet、名前 → 物）。
@@ -853,10 +868,14 @@ class Sim(ComponentsMixin):
         j = int(np.searchsorted(lp.cum, min(lp.length, b.s + 1.0)))
         if j >= len(lp.p) - 1 or float(np.hypot(*(lp.p[j] - np.asarray(p)))) > 15.0:
             return
+        # 合流するのは、先導の人の 1 m 先から先の経路の点のうち、自分にいちばん近い点（先導の人の少し先の点に合流すると、その点が自分より後ろのとき、
+        # 経路が後ろへ 0.4 m 戻ってから折り返し、目指す向きが毎コマ入れ替わってその場で 20 分揺れた。office_lunch の種 11、2026-11-16）
+        q0 = np.asarray(p, float)
+        j = j + int(np.argmin([float(np.hypot(*(lp.p[i] - q0))) for i in range(j, len(lp.p) - 1)]))
         head = self.space.route(tuple(p), tuple(lp.p[j]))
         end = tuple(lp.p[-1])
         tail = [tuple(target)] if math.hypot(end[0] - target[0], end[1] - target[1]) < 0.3 else list(self.space.route(end, tuple(target)))
-        pts = list(head) + [tuple(q) for q in lp.p[j + 1:]] + tail[1:]
+        pts = _no_fold(list(head) + [tuple(q) for q in lp.p[j + 1:]] + tail[1:])
         if len(pts) >= 2:
             a.path, a.s = Path(pts), 0.0
 

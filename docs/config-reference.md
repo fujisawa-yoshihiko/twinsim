@@ -264,6 +264,7 @@ YAML でも同じ形で書けます。座標は世界の座標（m、Z が上）
 ## `services`
 
 1.2 から。窓口（空間の `service` の場所）ごとのふるまい。キーは場所の名前か、名前の頭（`consult` で `consult_1`〜）です。場所の形（応対の場所・向き・列の線・待つ場所）は空間に書きます（[spec.md](spec.md) の 1）。
+ここに書いた窓口の前（応対の場所から 0.8 m）は、ほかへ行く人の経路がなるべく避けます（応対中の人が通る人に道をあけ続けて机から離れないように。[validity.md](validity.md) の 5.11）。
 
 | キー | 型 | 既定 | 中身 |
 |---|---|---|---|
@@ -423,7 +424,7 @@ rooms:
 
 | 空間 | 現れる・出る | ゲート | EV | 止まる | 窓口・部屋・座る（1.2） | カメラの候補 |
 |---|---|---|---|---|---|---|
-| `office` | `entrance`・`south_exit`・`west_corridor`・`east_room` | `gate` | `EV1`・`EV2` | `reception_w1`・`reception_w2`・`reception_e1`・`lounge_1`〜`3`・`sign_view`・`sign` | | `CamGate`・`CamEV`・`CamLobby` |
+| `office` | `entrance`・`south_exit`・`west_corridor`・`east_room` | `gate` | `EV1`・`EV2` | `reception_w1`・`reception_w2`・`reception_e1`・`lounge_1`〜`3`・`sign_view`・`sign` | 窓口 `cafe`、座る `cafe_seats` | `CamGate`・`CamEV`・`CamLobby`・`CamCafe` |
 | `hospital` | `lobby_entrance`・`west`・`hall_side`・`west_room` | | `EV` | `reception_1`・`reception_2` | 窓口 `front_desk`・`cashier`・`pharmacy`、部屋 `consult_1`〜`5`・`other_clinics`、座る `lobby_seats`・`clinic_seats` | `CamGate`・`CamHall`・`CamClinic`・`CamWaiting` |
 | `warehouse` | `dock` | | | `pick_1`〜`12`・`pack_1`〜`4`・`staging_1`・`staging_2`・`break_1` | | `CamAisles`・`CamPack` |
 | `simple_room` | `door_w`・`door_e` | | | `table_1`・`table_2` | | `CamRoom` |

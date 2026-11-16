@@ -1,0 +1,55 @@
+# オフィスの昼（1.2 の部品）: 昼食に出る人・戻る人がゲートと EV を通り、一部はロビーのコーヒーカウンターに並んで買い、持って上がるか、ソファで休んでから上がる。30 分。
+# EV の流れの内訳は文献の値（Peters ら 2011 の昼: 入る 45%・出る 45%・階の間 10%）。昼の混む 5 分の割合、カフェに寄る割合、応対の時間、ソファにいる時間は
+# 文献の値がないので仮（docs/validity.md の台帳）。カウンターは見立て（描画で置く）、ソファは USD のもの。
+name: office_lunch
+title: オフィスの昼（コーヒーカウンターの列・ソファで休む、30 分）
+title_en: "Office lunchtime (coffee counter queue, resting on sofas, 30 minutes)"
+space: office
+seed: 1
+duration_s: 1800
+people:
+  profile: office_commute_jp
+demand:                      # EV を使う人の量（Peters ら 2011）
+  population: 600            # 建物にいる人数（仮。office_gate_ev と同じ）
+  period: lunch              # 昼: 入る 45%・出る 45%・階の間 10%
+  peak_pct_5min: 11          # 昼のいちばん混む 5 分に EV を使う人の割合（仮）
+streams:
+  - name: back_from_lunch    # 昼食から戻る（入る流れの 95%）
+    origin: entrance
+    rate: {type: lift_demand, flow: incoming, share: 0.95}
+    types: staff
+    destinations:
+      - {to: elevator, p: 0.9, via: [gate]}
+      - {to: cafe, p: 0.1, via: [gate], then: elevator}   # 仮: コーヒーを買って上がる
+  - name: visitors           # 受付 → EV（入る流れの 5%、仮）
+    origin: entrance
+    rate: {type: lift_demand, flow: incoming, share: 0.05}
+    types: visitor
+    destinations:
+      - {to: reception, via: [gate], dwell: {type: lognormal, median: 25, sigma: 0.4, min: 8, max: 90}, then: elevator}
+  - name: through            # ゲートの内側の通り抜け（仮。office_gate_ev と同じ）
+    origin: south_exit
+    rate: {type: constant, per_min: 2, unit: persons}
+    destinations:
+      - {to: west_corridor, p: 0.5}
+      - {to: east_room, p: 0.5}
+elevator:
+  cars: [EV1, EV2]
+  capacity: 8
+  schedule: {type: interval, offset: {type: uniform, min: 5, max: 40}, interval: {type: uniform, min: 35, max: 60}}   # 仮
+  alight:
+    count: {type: lift_demand, flow: outgoing}   # 出る流れ（昼は 45%）を EV の着く回数で割る
+    types: staff
+    destinations:            # 仮
+      - {to: entrance, p: 0.72, via: [gate]}     # 昼食へ出る
+      - {to: south_exit, p: 0.08}
+      - {to: cafe, p: 0.12, then: elevator}       # コーヒーを買って上がる
+      - {to: cafe, p: 0.08, then: {to: cafe_seats, dwell: {type: lognormal, median: 600, sigma: 0.5, min: 120, max: 1800}, then: elevator}}   # 買ってソファで休む
+services:
+  cafe: {service_s: {type: lognormal, median: 50, sigma: 0.4, min: 15, max: 240}, note: 仮（注文から受け取りまで）}
+cameras:
+  - {name: CamCafe}
+  - {name: CamLobby}
+  - {name: CamGate}
+render:
+  props: []

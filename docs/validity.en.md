@@ -492,7 +492,7 @@ Found by rendering and fixed:
 | People vanished the moment they reached the inside point, which a camera facing the door saw happen behind the open door | They stand at the inside point until the door closes. When leaving, they appear at the inside point before the door opens |
 | In a pair, the first to enter vanished behind the door held open for the second (members were looked up in the party called to the room, which did not include a member following the leader in later) | People of the same group entering the same room are members, and everyone stands until the door closes after the last member arrives |
 | Because the first person stands at the inside point, the second could not reach the same point and waited inside the doorway for up to 30 s | Members go to points 0.6 m to the side of the inside point. People standing inside and waiting for the door are, like seated people, not avoided by others (members now enter within 1.6 s of each other) |
-| A person being served at the reception kept giving way to passers-by, drifted 1.25 m from the desk and was served there (CamGate; in 16 runs, 4.1% of services drifted more than 0.9 m, at most 1.91 m) | Not fixed (remaining). If people being served do not give way, the safety valve rose 168 → 368 and overlaps 0.28 → 1.03; limiting it to 0.4 m gave a safety valve of 330 and 1 stuck person. The service points are near a walking route, and people being served keep the flow going by giving way. The next step is to make passers-by route away from the front of the reception |
+| A person being served at the reception kept giving way to passers-by, drifted 1.25 m from the desk and was served there (CamGate; in 16 runs, 4.1% of services drifted more than 0.9 m, at most 1.91 m) | Not fixed here (fixed in 5.11 by making passers-by route away from the front of counters). If people being served do not give way, the safety valve rose 168 → 368 and overlaps 0.28 → 1.03; limiting it to 0.4 m gave a safety valve of 330 and 1 stuck person. The service points are near a walking route, and people being served keep the flow going by giving way. The next step is to make passers-by route away from the front of the reception |
 | With seats reduced to the 12 of the USD benches (14 stand-in seats before), standing waiters increased 1.7 times, and the safety valve and overlaps around the island increased (178 → 222, 0.23 → 0.49) | The same benches were added by the renderer along the west wall and south window of the lobby and in front of the consultation rooms (18 seats in the lobby, 9 in front of the consultation rooms) |
 
 Results (16 runs of 30 minutes; before = the result of 5.9; final7 → render5 in `~/dt-data/twinsim/crowd_check/parts1/`):
@@ -504,9 +504,42 @@ Results (16 runs of 30 minutes; before = the result of 5.9; final7 → render5 i
 | Stuck people, largest step | 0, 0.08 m | 0, 0.07 m |
 | Pairs that agree, free walking speed that agrees | 15/16, 16/16 | 15/16, 16/16 |
 
-Counting positions outside the walkable area too (seats, inside rooms), overlaps fell from 0.31 to 0.28, but on walkable cells they rose from 0.23 to 0.28. People being served drifting from the reception desk also remains (table above). Most are between companions standing and waiting around the bench added at the south window of the lobby and people passing (remaining).
+Counting positions outside the walkable area too (seats, inside rooms), overlaps fell from 0.31 to 0.28, but on walkable cells they rose from 0.23 to 0.28. People being served drifting from the reception desk was fixed in 5.11. Most are between companions standing and waiting around the bench added at the south window of the lobby and people passing (remaining).
 The benches added to the hospital space are also rendered, and removed from the walkable area, in templates that do not use components (such as `hospital_gate_ev`).
 In the check with `hospital_gate_ev` made 2.5 times busier (tests/test_benchmark_gt.py), a pair of people standing and waiting for the elevator closer than 0.3 m appeared in one of seeds 1–8 both in the components version and now (seed 1 then, seed 4 now).
+
+### 5.11 Routes avoiding the front of counters, office lunchtime (coffee counter), and folds when members join the leader's route (1.2, 2026-11-16)
+
+- Routes avoiding the front of counters: routes of people going elsewhere avoid, where they can, a circle of 0.8 m around the service points of the counters listed in `services` of the configuration
+  (4 m is added to the route weight per metre, and line-of-sight thinning does not cross it; it does not apply to people going to or leaving that counter; `Space.set_soft`). This fixes the remaining issue of 5.10,
+  "people being served at the reception keep giving way to passers-by and drift from the desk". Not giving way, or giving way only up to 0.4 m, was not adopted because passers-by pushed through in front of the reception and the safety valve doubled
+- Office lunchtime template `office_lunch` (30 minutes): people going out for and returning from lunch pass the gate and elevators; some queue at a coffee counter along the east wall of the lobby (a stand-in: the same asset as the
+  reception desk of the USD, placed by the renderer), then take it upstairs or rest on the sofas of the USD (15 seats) before going up. The elevator mix is from the literature (Peters et al. 2011, lunchtime); the rest is provisional
+  (ledger in section 6). It is the first template using a queuing counter (`line`)
+- Furniture: a sofa `sofa3` (three seats, front +x) and a counter `counter2` (no seats) were added, and `furniture` can now be written on counters too. The pelvis depth on the sofa was decided by seating characters
+  at different depths on an empty stage (+0.10 m; at 0 m or less the shins go into the front edge of the seat, at +0.20 m they perch on the front edge). The three sofas around the southern coffee table are not used,
+  because the points where people stand before sitting are outside the walkable area (0.5 m grid)
+- Folds when members join the leader's route (applies to every template with groups): a member joining the leader's route joined at the point 1 m ahead of the leader. When that point was behind the member,
+  the route went back 0.4 m and then turned around, the target direction switched every frame, and the person shook in place (in `office_lunch` seed 11, a visitor stayed 20 minutes east of the reception; the route kept being rebuilt,
+  so the safety valve did not act either). Members now join at the point of the leader's route, from 1 m ahead of the leader onwards, that is nearest to them, and short folds in the joined route are removed
+
+Results (16 runs):
+
+| Template | Measure | Before | Now |
+|---|---|---|---|
+| `hospital_outpatient` (render5 of 5.10 → final8) | Safety valve, overlaps (on walkable cells), shaking | 168, 0.28, 0.5 | 98, 0.16, 0.3 |
+| | Share of services where the person drifted more than 0.9 m from the service point, top-10% drift | 4.1%, 0.71 m | 2.2%, 0.20 m |
+| | Stuck people, pairs, free walking speed | 0, 15/16, 16/16 | 0, 15/16, 16/16 |
+| `office_lunch` (before the join fix lunch1 → now lunch2) | Safety valve, overlaps, shaking | 249, 0.17, 6.6 | 156, 0.16, 3.7 |
+| | Stuck people, spacing of waiting people, pairs, free walking speed | 1, 16/16, 16/16, 16/16 | 0, 16/16, 16/16, 16/16 |
+
+The café of `office_lunch` (total of 16 runs): 48 people buy per run; queuing time median 47 s, top 10% 198 s; people sat on the sofas 14 times per run. The queue was at most 2 to 14 people
+(the queue line holds 11; beyond that it extends in the direction of the end of the line). 40 seconds were rendered with CamCafe to look at the counter, queue and seated people (`~/dt-data/twinsim/crowd_check/lunch1_render/`).
+The counter has no staff and no coffee machine, so it can look like people queuing at a reception desk (remaining).
+
+Effect of the join fix on the existing templates (same seeds as 5.8; parts4 → fold1 in `~/dt-data/twinsim/crowd_check/groups1/`; parts4 is the version of 5.9): safety valve `office_gate_ev` 13 → 15,
+`office_ev_hall` 27 → 22, `hospital_gate_ev` 66 → 61, `verify_gate_capacity` 3 → 1; overlaps and shaking are the same or lower everywhere; the verdicts for pairs and spacing of waiting people are unchanged;
+strangers passing between members in `verify_gate_capacity` 5 → 0. `verify_groups` gives the same results.
 
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 
@@ -520,6 +553,7 @@ In the check with `hospital_gate_ev` made 2.5 times busier (tests/test_benchmark
 | Variability of gate time per person | Range from the literature, shape provisional | Time intervals in the gate passage logs |
 | Service times at counters (reception, payment, pharmacy), default time in rooms, time in other departments | Provisional (1.2; lognormal shape) | Ticketing and calling logs of the counters, hand labels on video |
 | Outpatient arrival rate, group shares and relations, destination shares | Provisional (1.2) | Reception records, real video |
+| Office lunchtime share of the busiest 5 minutes (11%), share stopping at the café, café service time (median 50 s), time on the sofas (median 10 min) | Provisional (1.2, `office_lunch`; only the elevator mix is from the literature) | Elevator logs, till records, real video |
 | Companion formation (family values reused), formation of four or more, time constant of the front–back fluctuation, longest wait beyond gates | Provisional (1.2) | Trajectories of pairs and triads in real video |
 | Shape of the time-of-day peak (how morning arrivals build up) | No literature figures obtained. Generated at the constant rate of the busiest 5 minutes | Aggregate the gate passage logs per minute |
 

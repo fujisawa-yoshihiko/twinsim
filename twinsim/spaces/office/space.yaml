@@ -38,6 +38,14 @@ pois:
   south_exit:    {kind: exit, xy: [-10.5, -15.0], hidden: [-10.5, -20.0], note: 南の廊下（歩ける所は焼いた範囲の端 y = -16 まで。その先の廊下の hidden まで歩いてから消える）}
   west_corridor: {kind: exit, xy: [-15.0, 20.0]}
   east_room:     {kind: exit, xy: [0.0, 22.5]}
+  # 1.2 の部品（docs/spec.md の 1、twinsim/components.py）。オフィスの昼のテンプレート office_lunch で使う。ソファは USD のもの、カウンターは描画で置く
+  cafe:          {kind: service, points: [[4.1, 1.25], [4.1, 2.25]], faces: [[5.0, 1.25], [5.0, 2.25]], line: [[3.3, 1.0], [3.3, -3.4], [0.5, -3.4]], aside: [2.4, 3.2],
+                  furniture: [{asset: counter2, xy: [4.57, 1.75], rot: 0}],
+                  note: ロビーの東の壁ぎわのコーヒーカウンター（見立て。柱の間に、USD の受付の机と同じ素材の 2 m のカウンターを描画で置く）。客の立つ所 2 か所、列は壁ぎわを南へ、仲間は北で待つ}
+  cafe_seats:    {kind: seats, furniture: [{asset: sofa3, xy: [4.08, -9.54], rot: 180, in_usd: true}, {asset: sofa3, xy: [2.45, -6.39], rot: -89.7, in_usd: true},
+                                        {asset: sofa3, xy: [0.36, -6.4], rot: -89.7, in_usd: true}, {asset: sofa3, xy: [3.1, 11.31], rot: -89.7, in_usd: true},
+                                        {asset: sofa3, xy: [1.05, 11.31], rot: -89.7, in_usd: true}],
+                  note: ロビーの南東と北東の USD のソファ（SM_Sofa4・8・9・10・11）の 15 席。南のコーヒーテーブルを囲むソファ 5〜7 は、座る前に立つ所が歩ける所の外（0.5 m の格子）なので使わない}
 
 # ゾーン（多角形）。正解の集計（ゾーンごとの人数・滞留）とグラフのノードに使う。上から順に当てはめる（先に書いたものが優先）。
 zones:
@@ -60,3 +68,4 @@ cameras:
   CamGate:  {eye: [-0.8, 5.5, 2.7], target: [-3.0, 14.5, 0.8], note: ロビーから北の廊下（扉の向こうのゲート）を見る, note_en: "Looks from the lobby at the north corridor (the gate beyond the door)"}
   CamEV:    {eye: [-8.0, 4.0, 2.7], target: [-14.0, -3.0, 0.8], note: 受付の北から、西のエレベーター前を見る, note_en: "Looks from north of the reception at the elevator hall to the west"}
   CamLobby: {eye: [4.5, -7.5, 2.7], target: [-5.0, 2.0, 0.8], note: 南東の角からロビー全体を見る, note_en: "Looks at the whole lobby from the south-east corner"}
+  CamCafe:  {eye: [-1.0, 4.5, 2.7], target: [3.5, -3.0, 0.6], note: 受付の北東から、東の壁ぎわのコーヒーカウンターの列と南東のソファを見る（1.2 のオフィスの昼）, note_en: "Looks from north-east of the reception at the coffee counter queue along the east wall and the south-east sofas (1.2 office lunchtime)"}
