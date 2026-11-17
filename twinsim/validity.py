@@ -534,10 +534,11 @@ def group_formation(run, members):
 
 
 def passes_between(run, members):
-    """知らない人が、そろって歩く仲間（LINK_M より近い 2 人）を結ぶ線の内側（両端 10% を除く）を、1 コマの動きで横切った回数と、線があった分。"""
+    """知らない人が、そろって歩く仲間（LINK_M より近い 2 人）を結ぶ線の内側（両端 10% を除く）を、1 コマの動きで横切った回数と、線があった分。
+    知らない人は、ほかのグループの人と 1 人の人。待ち合わせの同行者（members には入れない）も、同じグループなら仲間とみる。"""
     fps = run.fps
     total = int(run.gt["total_frames"])
-    mem_of = {n: g for g, names in members.items() for n in names}
+    mem_of = {n: d["group"] for n, d in run.P.items() if d["group"] is not None}
     names_all = list(run.P)
     n, link_frames = 0, 0
     pairs = [(a, b) for names in members.values() for i, a in enumerate(names) for b in names[i + 1:]]

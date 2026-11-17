@@ -147,6 +147,23 @@ def test_validity_judges_group_formation(tmp_path):
     assert not math.isnan(gf["dyad"]["bins"][0]["mean_x_m"])
 
 
+def test_a_companion_between_mates_is_not_a_stranger():
+    """仲間の間を横切った回数: 待ち合わせで合流した同行者（グループの人数には数えない）は、同じグループなら知らない人に数えない。
+    前は同行者を知らない人に数え、office_ev_hall の種 14 で、合流した 4 人目が仲間の 2 人の間を 1.5 秒歩いた分が 45 回になった。"""
+    from types import SimpleNamespace
+
+    from twinsim.validity import passes_between
+    n = 30
+    x = np.linspace(0.0, 3.0, n)
+    walk = lambda y: {"xy": np.c_[x, np.broadcast_to(y, (n,))], "state": ["pass"] * n, "f0": 0}  # noqa: E731
+    cross = np.c_[3.05 - x, np.full(n, 0.5)]  # 横に並んで歩く 2 人（y = 0 m・1 m）の間を、向かいから抜ける
+    for group, role, want in (("G1", "companion", 0), ("G2", None, 1), (None, None, 1)):
+        P = {"A": {**walk(0.0), "group": "G1", "info": {}}, "B": {**walk(1.0), "group": "G1", "info": {}},
+             "C": {"xy": cross, "state": ["pass"] * n, "f0": 0, "group": group, "info": {"role": role}}}
+        run = SimpleNamespace(fps=10, gt={"total_frames": n}, P=P, at=lambda m, f, P=P: f if 0 <= f < len(P[m]["xy"]) else None)
+        assert passes_between(run, {"G1": ["A", "B"]})["count"] == want, (group, role)
+
+
 def test_group_eval_counts_like_setti2015(hospital_run):
     """グループを見つける課題の評価: 正解そのものは F1 = 1。2 組を 1 つにまとめると、T = 2/3 でも当たらない（まちがいの人が多い）。
     3 人組の 2 人だけ（2/3）は T = 2/3 で当たり、T = 1 で外れ。"""

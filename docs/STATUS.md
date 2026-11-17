@@ -2,7 +2,7 @@
 
 ## 2026-11-12（1.2 の作業、ブランチ crowd-1.2）
 
-- 1.1（crowd-cfsm 7dfe9a6、タグ v1.1.0）の上に積む。版の番号はまだ 1.1.0。目標の案と決めることは docs/roadmap.md
+- 1.1（crowd-cfsm 7dfe9a6、タグ v1.1.0）の上に積む。版の番号は 1.2.0（11/17 に上げた。タグはまだ）。目標の案と決めることは docs/roadmap.md
 - 済み: 扉の向こうとの行き来で線の近くへ置き直す一歩が最大約 1 m 跳ぶのを直した（docs/validity.md の 5.7。EV の前の 66 回で 0.2 m より大きい一歩 217 → 0）
 - 試して入れていない: グループの横のまとまり（ブランチ crowd-dyad 07722e2）。2 人連れの距離は縮む（「合う」73/88 → 76/88）が、安全弁と重なりが増えた。
   残りの離れは、混んだ流れで知らない人が 2 人の間に入ったまま歩く場面（素材 v6 A_office_ev_mid の G015）。他人が仲間の間を通らない決まりと組み合わせて作り直す。
@@ -43,7 +43,11 @@
   show-space は真上の図のない空間で格子の平面図（--out）。GUI: POST /api/space で多角形の空間の中身、画面から渡せる空間は一覧の名前か多角形の dict だけ（server.check_gui_space。
   サーバーの上のファイルを読ませない）。地図は真上の図のある空間だけ（corridor と同じ）。例 examples/08_space_from_polygons.py。validity の Run は設定に書いた空間を読む。USD のない空間の描画は分かる誤りに（前は KeyError: usd）。
   validity.md の到着の行の出典が None と出ていたのを「設定の値」に。テストは tests/test_space_poly.py と test_server.py に足した
-- 次: 1.1 との比べとリリースノート。
+- 済み（11/17 夕方）: 1.1 との比べとリリースノート（docs/release-1.2.md・英語版）。版の番号を 1.2.0 に（pyproject・__init__・uv.lock）、README の版の表、roadmap（今の版 1.2、1.3 に「1.2 から送るもの」）。
+  比べは ~/dt-data/twinsim/crowd_check/release_1.2/（README.md。1.1 のテンプレート 13 個 × 両方の版 134 回ずつ＋1.2 の 3 つ × 16 回、判定は 1.2 で、scripts/judge_all.py・summary.md）。
+  グループのない verify_* 4 つと office_smoke は 1.1 と同じ軌跡。比べで、仲間の間を横切った回数が待ち合わせの同行者を知らない人に数えていたのを直した（validity.passes_between、テスト 1 件）。
+  1.1 の例 6 つを 1.2 で動かした（compat/）。fa7ef52 は push 済み・CI 通過
+- 次: 出す（CI が通ったら main を早送り、タグ v1.2.0、GitHub の Releases。ユーザーの確認を取ってから）。
   描画の残り: ロビーの南の窓ぎわの長椅子のまわりの重なり、カフェのカウンターに店員・機械がない、描画の注釈（labels）で座る人の枠を確かめる（注釈は描画の約 3 倍の時間）
 
 ## 2026-11-12（1.1 の準備、ブランチ crowd-cfsm）

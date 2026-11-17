@@ -26,12 +26,12 @@ git clone https://github.com/fujisawa-yoshihiko/twinsim.git && cd twinsim && uv 
 
 | Version | Contents | Release notes (implementation, changes and verification) |
 |---|---|---|
+| 1.2 | Groups (relations, formation, splitting and rejoining, evaluation for the group-finding task), components other than elevators that are the purpose of a trip (counters, called waiting, seating, rooms, work points) with templates for a hospital outpatient clinic, office lunchtime and a warehouse shift, writing spaces as polygons | [docs/release-1.2.en.md](docs/release-1.2.en.md) |
 | 1.1 | Movement in which people do not collide (cfsm) is the default. Ground truth for detection and tracking from rendering (visible-part boxes, occlusion ratio). Parallel rendering | [docs/release-1.1.en.md](docs/release-1.1.en.md) |
 | 1.0 | The first release (JSON configurations, Python library, GUI, ground truth, rendering) | [docs/release-1.0.en.md](docs/release-1.0.en.md) |
-| 1.2 (planned) | Group features (relations, formation, splitting and rejoining, a group-finding task), components other than elevators that are the purpose of a trip (counters, called waiting, seating, rooms), building spaces from polygons | [docs/roadmap.en.md](docs/roadmap.en.md) |
 | 1.3 (planned) | Two or more cameras (matching people across cameras, flows of counts), non-human movers (wheelchairs, AGVs and others) | [docs/roadmap.en.md](docs/roadmap.en.md) |
 
-To install a specific version, use `pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git@v1.1.0"`. How versions are released is described in "Releasing a version" in [docs/architecture.en.md](docs/architecture.en.md).
+To install a specific version, use `pip install "git+https://github.com/fujisawa-yoshihiko/twinsim.git@v1.2.0"`. How versions are released is described in "Releasing a version" in [docs/architecture.en.md](docs/architecture.en.md).
 
 ## Using it from Python
 
