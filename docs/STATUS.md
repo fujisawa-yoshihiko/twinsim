@@ -47,8 +47,12 @@
   比べは ~/dt-data/twinsim/crowd_check/release_1.2/（README.md。1.1 のテンプレート 13 個 × 両方の版 134 回ずつ＋1.2 の 3 つ × 16 回、判定は 1.2 で、scripts/judge_all.py・summary.md）。
   グループのない verify_* 4 つと office_smoke は 1.1 と同じ軌跡。比べで、仲間の間を横切った回数が待ち合わせの同行者を知らない人に数えていたのを直した（validity.passes_between、テスト 1 件）。
   1.1 の例 6 つを 1.2 で動かした（compat/）。fa7ef52 は push 済み・CI 通過
-- 次: 出す（CI が通ったら main を早送り、タグ v1.2.0、GitHub の Releases。ユーザーの確認を取ってから）。
-  描画の残り: ロビーの南の窓ぎわの長椅子のまわりの重なり、カフェのカウンターに店員・機械がない、描画の注釈（labels）で座る人の枠を確かめる（注釈は描画の約 3 倍の時間）
+- 11/18: ユーザーの「2を描く」で、出す前に描画の残り 3 つを直す（docs/validity.md の 5.14、記録は ~/dt-data/twinsim/crowd_check/render13/）。
+  済み（計算の側）: 部屋の中の点の重なり（入る人は横の空いた所へ、出る人は空くまで中で待つ。events の room の exit は出た時刻）、席の前に立つ人（free_spot・alloc_stand は席の前の点から 0.5 m、
+  押し出された人は離れる）、カフェ（カウンターを壁から 0.8 m 離し、後ろに店員 2 人の流れ cafe_staff_1・2（clerk、work）、飲み物の機械、台の上のコーヒー。家具の z）、
+  判定の決まった人数の流れ。1.2 の 182 回を取り直した（release_1.2 の v1.2b、summary_v1.2b.md。変わったのは外来と昼だけ）。
+  描画はまだ: GPU 3 はユーザーの vLLM（Qwen3.5-9B、88 GB）が使っていて載らないので GPU 2 を案に、確認待ち。区間は scripts/render_now.py（昼の CamCafe 772〜802 秒、外来の CamWaiting 1,751〜1,781 秒と labels）
+- 次: 描いて確かめる（機械の正面の向き・店員の見え方・座る人の labels の枠）→ リリースノートを直す → push → 出す（main の早送り・タグ v1.2.0・Releases。ユーザーの確認を取ってから）。
 
 ## 2026-11-12（1.1 の準備、ブランチ crowd-cfsm）
 

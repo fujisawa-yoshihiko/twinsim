@@ -655,7 +655,7 @@ async def main():
         elif pr.get("kind") == "elevator":
             add_elevator(stage, k, pr["door"], pr["face"], float(job.get("z", 0.0)), float(pr.get("height", 2.9)))
         elif pr.get("kind") == "furniture":
-            add_furniture(stage, k, pr["usd"], pr["xy"], pr["rot"], float(job.get("z", 0.0)), pr.get("box"))
+            add_furniture(stage, k, pr["usd"], pr["xy"], pr["rot"], float(job.get("z", 0.0)) + float(pr.get("z", 0.0)), pr.get("box"))
         elif pr.get("kind") == "door":
             log("door", pr["prim"], "open spans", open_door(stage, pr["prim"], pr["door"], pr["inside"], pr["open"], int(pr.get("swing_frames", 24))))
     stage.SetStartTimeCode(0)

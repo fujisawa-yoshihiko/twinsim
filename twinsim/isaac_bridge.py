@@ -204,7 +204,7 @@ def component_props(sp, gt):
             if not fur.get("in_usd"):
                 F = FURNITURE[fur["asset"]]
                 props.append({"kind": "furniture", "usd": F["usd"], "xy": list(map(float, fur["xy"])),
-                              "rot": float(fur.get("rot", 0.0)), "box": F["box"]})
+                              "rot": float(fur.get("rot", 0.0)), "box": F["box"], "z": float(fur.get("z", 0.0))})
         if p.get("kind") == "room" and p.get("door_prim"):
             props.append({"kind": "door", "prim": f"/Root/{p['door_prim']}", "door": list(map(float, p["xy"])), "inside": list(map(float, p["inside"])),
                           "open": door_keys(gt, k, gt["total_frames"]), "swing_frames": int(round(DOOR_SWING_S * gt["fps"]))})

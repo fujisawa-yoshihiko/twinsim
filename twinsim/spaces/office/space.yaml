@@ -39,9 +39,16 @@ pois:
   west_corridor: {kind: exit, xy: [-15.0, 20.0]}
   east_room:     {kind: exit, xy: [0.0, 22.5]}
   # 1.2 の部品（docs/spec.md の 1、twinsim/components.py）。オフィスの昼のテンプレート office_lunch で使う。ソファは USD のもの、カウンターは描画で置く
-  cafe:          {kind: service, points: [[4.1, 1.25], [4.1, 2.25]], faces: [[5.0, 1.25], [5.0, 2.25]], line: [[3.3, 1.0], [3.3, -3.4], [0.5, -3.4]], aside: [2.4, 3.2],
-                  furniture: [{asset: counter2, xy: [4.57, 1.75], rot: 0}],
-                  note: ロビーの東の壁ぎわのコーヒーカウンター（見立て。柱の間に、USD の受付の机と同じ素材の 2 m のカウンターを描画で置く）。客の立つ所 2 か所、列は壁ぎわを南へ、仲間は北で待つ}
+  cafe:          {kind: service, points: [[3.6, 1.25], [3.6, 2.25]], faces: [[4.5, 1.25], [4.5, 2.25]], line: [[2.8, 1.0], [2.8, -3.4], [0.0, -3.4]], aside: [1.9, 3.2],
+                  furniture: [{asset: counter2, xy: [4.07, 1.75], rot: 0}, {asset: drinks_machine, xy: [5.62, 3.4], rot: 180},
+                              {asset: coffee_to_go, xy: [4.16, 0.95], z: 1.12}, {asset: coffee_to_go, xy: [4.13, 1.07], z: 1.12}, {asset: cup_full, xy: [4.16, 2.55], z: 1.12}],
+                  note: ロビーの東の壁ぎわのコーヒーカウンター（見立て。USD の受付の机と同じ素材の 2 m のカウンターを、壁から 0.8 m あけて描画で置く。後ろに店員 2 人（cafe_clerk）、
+                    北の柱との間に飲み物の機械、高い台の上に持ち帰りのコーヒーとカップ。前は壁に付けて置き、店員も機械もなく受付の机に並ぶようにも見えた、2026-11-18）。
+                    客の立つ所 2 か所、列は南へ、仲間は北で待つ}
+  cafe_back_1:   {kind: spawn, xy: [5.2, 1.25], note: カフェの店員が現れる所（カウンターの後ろ。office_lunch の流れ cafe_staff_1。始まりからいる）}
+  cafe_back_2:   {kind: spawn, xy: [5.2, 2.25], note: 同じく cafe_staff_2}
+  cafe_clerk_1:  {kind: spot, xy: [5.2, 1.25], face: [3.6, 1.25], note: カフェの店員の立つ所（客の立つ所 cafe の 1 つ目の向かい）}
+  cafe_clerk_2:  {kind: spot, xy: [5.2, 2.25], face: [3.6, 2.25], note: カフェの店員の立つ所（2 つ目の向かい）}
   cafe_seats:    {kind: seats, furniture: [{asset: sofa3, xy: [4.08, -9.54], rot: 180, in_usd: true}, {asset: sofa3, xy: [2.45, -6.39], rot: -89.7, in_usd: true},
                                         {asset: sofa3, xy: [0.36, -6.4], rot: -89.7, in_usd: true}, {asset: sofa3, xy: [3.1, 11.31], rot: -89.7, in_usd: true},
                                         {asset: sofa3, xy: [1.05, 11.31], rot: -89.7, in_usd: true}],

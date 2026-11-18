@@ -22,7 +22,7 @@ import zlib
 import numpy as np
 
 from . import dists
-from .components import SEAT_MOVE_M_S, ComponentsMixin
+from .components import SEAT_MOVE_M_S, STAND_SEAT_CLEAR_M, ComponentsMixin
 from .literature import GROUP_DENSITY, GROUP_RELATIONS, group_lateral_scale, weidmann_speed
 
 TURN_DEG_S = 90.0
@@ -413,10 +413,17 @@ class Sim(ComponentsMixin):
         return min((c.door for c in self.cars), key=lambda d: math.hypot(d[0] - p[0], d[1] - p[1]))
 
     # ---- 立つ場所 ----
+    def seat_fronts(self):
+        """使う座る場所の、席の前の点（座りに来る人・立って出る人が通る所）の配列 (n, 2)。"""
+        if getattr(self, "_seat_fronts", None) is None:
+            self._seat_fronts = np.array([s[2] for ss in self.seatsets.values() for s in ss.seats], float).reshape(-1, 2)
+        return self._seat_fronts
+
     def alloc_stand(self, a, target, gap=0.65):
         """target に近く、ほかの人の立つ場所から gap m 以上離れた、歩ける所（壁から 0.2 m）で、target から見通せる所を割り当てる
         （見通しを見ないと、受付の机の向こう側に立つ場所を取り、仲間と逆向きに歩き出した、hospital_gate_ev の種 7、2026-11-12）。"""
         others = [xy for k, xy in self.alloc.items() if k != a.name]
+        fronts = self.seat_fronts()  # 席の前の点のまわりには立たない（STAND_SEAT_CLEAR_M）
         tx, ty = float(target[0]), float(target[1])
         cands = [(tx, ty)]
         for r in (0.7, 1.2, 1.7, 2.3):
@@ -427,6 +434,8 @@ class Sim(ComponentsMixin):
             if not self.space.walkable(x, y) or self.space.clearance(x, y) < 0.2:
                 continue
             if self.model == "cfsm" and (x, y) != (tx, ty) and not self.space.los((tx, ty), (x, y), 0.0):
+                continue
+            if len(fronts) and float(np.hypot(*(fronts - (x, y)).T).min()) < STAND_SEAT_CLEAR_M:
                 continue
             if all(math.hypot(x - ox, y - oy) >= gap for ox, oy in others):
                 self.alloc[a.name] = (x, y)
@@ -1521,6 +1530,24 @@ class Sim(ComponentsMixin):
                                     and not ((dq < SPACE_M) & (dq < dp - 1e-9)).any()):
                                 self.here[a.name] = q
                                 a.xy, p, nudged = q.copy(), q, True
+                fr = self.seat_fronts()
+                if (self.model == "cfsm" and not nudged and a.mode == "stop" and len(fr) and getattr(a, "seat", None) is None
+                        and not getattr(a, "sitting", False) and not (getattr(a, "nudge", None) and t < a.nudge[1])):
+                    # 席の前の点の STAND_SEAT_CLEAR_M の中に立って待つ人は、少しずつ外へ離れる（道をあけて席の前へ押し出された人と、
+                    # 座りに来る人・立って出る人が重なった。外来の 16 回で、部屋の外の重なりの 9 割、2026-11-18）。
+                    # 道をあける一歩を席の前へ入れないようにすると、道をあけられずに 2 人が 0.16 m で 120 秒立った（種 12）ので、あとから離れる
+                    # 離れる向きは、近くの席の前の点みなから離れる向きの和（席の列の前では、隣り合う 2 つの点の間で左右に行き来して出られなかった）
+                    dfr = np.hypot(*(fr - p).T)
+                    k = np.flatnonzero((dfr < STAND_SEAT_CLEAR_M) & (dfr > 1e-9))
+                    push = ((p - fr[k]) / dfr[k, None] * (STAND_SEAT_CLEAR_M - dfr[k])[:, None]).sum(0) if len(k) else np.zeros(2)
+                    npu = float(np.hypot(*push))
+                    if npu > 1e-9:
+                        q = p + push / npu * min(STAND_SEAT_CLEAR_M - float(dfr[k].min()), SPACE_M_S * dt)
+                        others = np.delete(XY, idx[id(a)], axis=0)
+                        dq, dp = (np.hypot(*(others - q).T), np.hypot(*(others - p).T)) if len(others) else (np.zeros(0), np.zeros(0))
+                        if self._can_step(p, q) and not ((dq < 2 * self.C["radius"]) & (dq < dp)).any():
+                            self.here[a.name] = q
+                            a.xy, p, nudged = q.copy(), q, True
                 if a.glance and t >= a.next_glance:
                     a.glance_i += 1
                     a.next_glance = t + a.rng.uniform(1.5, 3.5)

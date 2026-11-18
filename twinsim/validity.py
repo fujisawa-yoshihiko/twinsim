@@ -213,7 +213,7 @@ def group_sizes(run):
 
 
 def expected_group_share(run, streams):
-    """シナリオの人数の分布（ゼロ切断ポアソン）から、人の数の割合の期待値（流れごとの人数で重みづけ）。"""
+    """シナリオの人数の分布（ゼロ切断ポアソンか、決まった人数）から、人の数の割合の期待値（流れごとの人数で重みづけ）。"""
     spec = run.spec
     if not spec:
         return None
@@ -225,10 +225,15 @@ def expected_group_share(run, streams):
         n = streams.get(name, 0)
         if not n:
             continue
+        if isinstance(gs, dict) and gs.get("type") == "constant":
+            gs = gs.get("value")
         if gs is None:
             share = [1.0, 0, 0, 0, 0]
         elif isinstance(gs, dict) and gs.get("type") == "zero_truncated_poisson":
             share = ztp_person_share(gs["lam"], 5)
+        elif isinstance(gs, (int, float)) and not isinstance(gs, bool) and gs >= 1 and float(gs).is_integer():
+            share = [0.0] * 5  # 人数を決めた流れ（店員の 1 人など、2026-11-18）
+            share[min(int(gs), 5) - 1] = 1.0
         else:
             return None
         acc += n * np.array(share)

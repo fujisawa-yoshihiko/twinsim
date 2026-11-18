@@ -25,6 +25,7 @@ pois:
   desk:    {kind: service, points: [[20.0, 1.45], [22.0, 1.45]], faces: [[20.0, 2.5], [22.0, 2.5]], wait: benches}
   benches: {kind: seats, row: {from: [26.0, -1.7], to: [32.0, -1.7], n: 10, yaw: 90}}
   room_1:  {kind: room, xy: [35.0, 1.5], inside: [35.0, 2.8]}
+  clinic_many: {kind: room, xy: [46.0, 1.5], inside: [46.0, 3.3], capacity: 30}
   sofa:    {kind: seats, furniture: [{asset: bench3, xy: [40.0, -1.6], rot: 180}]}
   shelf_1: {kind: spot, xy: [8.0, 1.4], face: [8.0, 2.5]}
   shelf_2: {kind: spot, xy: [18.0, 1.4], face: [18.0, 2.5]}
@@ -261,11 +262,20 @@ def test_office_lunch_runs(tmp_path):
     from twinsim.isaac_bridge import component_props
     from twinsim.scenario import seats_of
     sp = load_space("office")
-    assert not sp.walkable(4.9, 1.75) and len(seats_of(sp.pois["cafe_seats"])) == 15
+    assert not sp.walkable(4.4, 1.75) and len(seats_of(sp.pois["cafe_seats"])) == 15
+    # カウンターは壁から離して置き、後ろ（店員の立つ所）は歩ける。飲み物の機械の床は歩けない、カウンターの上の物（z）は床をふさがない（2026-11-18）
+    assert sp.walkable(5.2, 1.75) and not sp.walkable(5.2, 3.4)
     props = component_props(sp, {"fps": 30, "total_frames": 1, "people": {}})
     assert any(p["kind"] == "furniture" and p["usd"].endswith("SM_ReceptionTableStraight.usd") for p in props)
+    assert any(p["kind"] == "furniture" and p["usd"].endswith("SM_CoffeeToGo.usd") and p["z"] == 1.12 for p in props)
     r = twinsim.simulate({**twinsim.template("office_lunch"), "duration_s": 300, "cameras": [], "outputs": ["ground_truth"]}, out_dir=tmp_path / "o")
     gt = r.ground_truth()
+    clerks = [n for n, p in gt["people"].items() if p["type"] == "clerk"]
+    assert len(clerks) == 2  # 店員は始まりから終わりまでカウンターの後ろで work
+    for n in clerks:
+        xy = np.array(gt["tracks"][n])[:, :2]
+        assert gt["people"][n]["start_frame"] == 0 and len(xy) == gt["total_frames"] and (xy[:, 0] > 4.85).all()
+        assert {s for _a, _b, s in gt["people"][n]["states"]} <= {"pass", "work"}
     sv = [e for p in gt["people"].values() for e in p["events"].get("service", []) if e.get("start") is not None]
     assert len(sv) >= 3 and all(e["name"] == "cafe" for e in sv)
     for n in gt["people"]:
@@ -317,3 +327,48 @@ def test_warehouse_shift_runs(tmp_path):
         xy = np.array(gt["tracks"][name])[:, :2]
         if len(xy) > 1:
             assert float(np.hypot(*np.diff(xy, axis=0).T).max()) <= 0.2, name
+
+
+def test_room_point_is_not_shared(space_dir, tmp_path):
+    """定員の多い部屋: 中の点に、出てくる人と入る人・出てくる人どうしが重ならない（入る人は横の空いた所へ、出る人は空くまで中で待つ）。
+    前は外来の「ほかの科」の中の点で、16 回の重なりの 2/3 がここだった（2026-11-18）。扉が開く時刻（events の exit）は、待って出た時刻。"""
+    r = twinsim.simulate(cfg(space_dir, {"to": "clinic_many", "then": "east"}, rate=8.0, duration=300,
+                             rooms={"clinic_many": {"stay_s": {"type": "uniform", "min": 20, "max": 60}}}), out_dir=tmp_path / "r")
+    gt = r.ground_truth()
+    ins = np.array([46.0, 3.3])
+    by = {}
+    with gzip.open(r.out_dir / "frames.csv.gz", "rt") as f:
+        for row in csv.DictReader(f):
+            q = np.array([float(row["x"]), float(row["y"])])
+            if float(np.hypot(*(q - ins))) < 2.0:
+                by.setdefault(int(row["frame"]), []).append((row["person"], q, row["group"]))
+    close = 0
+    for rows in by.values():
+        for i, (_a, qa, ga) in enumerate(rows):
+            for _b, qb, gb in rows[i + 1:]:
+                if not (ga and ga == gb) and float(np.hypot(*(qa - qb))) < 0.3:
+                    close += 1
+    assert len(by) > 300 and close == 0
+    ev = [e for p in gt["people"].values() for e in p["events"].get("room", []) if e.get("exit") is not None and e.get("enter") is not None]
+    assert len(ev) >= 20 and all(e["exit"] >= e["enter"] for e in ev)
+
+
+def test_standing_waiters_keep_off_seat_fronts(space_dir, tmp_path):
+    """呼ばれるのを待つ人で席が埋まると、立って待つ。立つ所は席の前の点（座りに来る人が通る所）から STAND_SEAT_CLEAR_M より離す。
+    前は席の前に立つ人と、座りに来る人・立って出る人が重なった（外来の 16 回で、部屋の外の重なりの 9 割、2026-11-18）。"""
+    from twinsim.components import SEAT_APPROACH_M
+    from twinsim.scenario import seats_of
+    STAND_SEAT_CLEAR_M = 0.5  # components.STAND_SEAT_CLEAR_M と同じ（前の版でも同じ物差しで数えられるように、ここに書く）
+    sp = load_space(str(space_dir))
+    fronts = np.array([[x + SEAT_APPROACH_M * math.cos(math.radians(yw)), y + SEAT_APPROACH_M * math.sin(math.radians(yw))]
+                       for (x, y), yw in seats_of(sp.pois["benches"])])
+    r = twinsim.simulate(cfg(space_dir, {"to": "desk", "then": "east"}, rate=12.0, duration=200,
+                             services={"desk": {"service_s": {"type": "uniform", "min": 25, "max": 35}, "call": True}}), out_dir=tmp_path / "r")
+    stand = near = 0
+    with gzip.open(r.out_dir / "frames.csv.gz", "rt") as f:
+        for row in csv.DictReader(f):
+            if row["state"] == "call_wait" and row["pose"] == "stand":
+                stand += 1
+                near += float(np.hypot(*(fronts - (float(row["x"]), float(row["y"]))).T).min()) < STAND_SEAT_CLEAR_M - 0.05
+    assert stand > 1000 and near / stand < 0.01, (stand, near)
+

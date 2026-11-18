@@ -188,8 +188,8 @@ class Space:
                         self.grid[i, j] = False
         self.pois = spec.get("pois", {})
         for p in self.pois.values():  # 家具（1.2。座る場所の席・窓口のカウンター）: 描画で置く家具は、床の上の形の分を歩ける所から外す
-            for fur in p.get("furniture", []):  # （USD にある家具 in_usd は、歩ける所の地図にもう入っている）
-                if not fur.get("in_usd"):
+            for fur in p.get("furniture", []):  # （USD にある家具 in_usd は、歩ける所の地図にもう入っている。z で台の上に置く物は床をふさがない）
+                if not fur.get("in_usd") and not float(fur.get("z", 0.0)):
                     self._block(furniture_place(fur)[0])
             if p.get("kind") == "seats":  # 家具でない席は半径 SEAT_BLOCK_M（経路が席の列を通らないように。座る人は席の前から決まった動作で入る）
                 from .scenario import seats_of
@@ -505,7 +505,8 @@ SOFT_W, SOFT_NEAR_M = 4.0, 0.3  # なるべく避ける円（Space.set_soft）�
 NVIDIA_HOSPITAL_PROPS = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Hospital/Props/"
 NVIDIA_OFFICE_PROPS = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Environments/Office/Props/"
 NVIDIA_ISAAC_PROPS = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.1/Isaac/Props/"
-# 家具（space.yaml の場所の furniture: [{asset, xy, rot, in_usd}]。座る場所の席・窓口のカウンター）。値は家具の座標（rot は USD の z 軸まわりの回転、度）。
+# 家具（space.yaml の場所の furniture: [{asset, xy, rot, in_usd, z}]。座る場所の席・窓口のカウンター・カウンターの上の物（z は床からの高さ m））。
+# 値は家具の座標（rot は USD の z 軸まわりの回転、度）。
 # box は床の上の形 [x0, y0, x1, y1]、front は正面（座る人・客の向く側）の向き（度、回す前）、seats は座った人の腰の位置。
 # in_usd が真なら空間の USD にもうある（歩ける所の地図にも入っている）ので置かない。形は素材の点から測った（2026-11-16）
 FURNITURE = {
@@ -519,6 +520,12 @@ FURNITURE = {
               "note": "3 人掛けのソファ（オフィスのロビー。NVIDIA Isaac Sim の素材、CC BY 4.0）。背もたれは -x、座面の高さ約 0.45 m"},
     "counter2": {"usd": NVIDIA_OFFICE_PROPS + "SM_ReceptionTableStraight.usd", "box": [-0.08, -1.0, 0.78, 1.0], "front": 180.0, "seats": [],
                  "note": "長さ 2 m・高さ 1.12 m のカウンター（オフィスの受付の机。NVIDIA Isaac Sim の素材、CC BY 4.0）。客は -x の側"},
+    "drinks_machine": {"usd": NVIDIA_OFFICE_PROPS + "SM_DrinksMachine.usd", "box": [0.0, -0.61, 0.85, 0.61], "front": 0.0, "seats": [],
+                       "note": "幅 1.2 m・奥行き 0.85 m・高さ 1.83 m の飲み物の機械（NVIDIA Isaac Sim の素材、CC BY 4.0）。原点は背の面の真ん中、正面は +x"},
+    "coffee_to_go": {"usd": NVIDIA_OFFICE_PROPS + "SM_CoffeeToGo.usd", "box": [-0.044, -0.043, 0.044, 0.043], "front": 0.0, "seats": [],
+                     "note": "ふた付きの持ち帰りのコーヒー（高さ 0.12 m。NVIDIA Isaac Sim の素材、CC BY 4.0）。カウンターの上に z で置く"},
+    "cup_full": {"usd": NVIDIA_OFFICE_PROPS + "SM_Cup_full.usd", "box": [-0.045, -0.06, 0.045, 0.06], "front": 0.0, "seats": [],
+                 "note": "コーヒーの入ったカップ（高さ 0.10 m。NVIDIA Isaac Sim の素材、CC BY 4.0）。カウンターの上に z で置く"},
     "pack_table": {"usd": NVIDIA_ISAAC_PROPS + "PackingTable/packing_table.usd", "box": [-1.237, -0.401, 1.237, 0.381], "front": -90.0, "seats": [],
                    "note": "長さ 2.47 m・高さ 0.99 m の梱包の台（箱・コンテナが載る。NVIDIA Isaac Sim の素材、CC BY 4.0）。前後どちらからも使える形。"
                            "素材の単位は cm の舞台に m の値で、描画は box の大きさに合わせて縮尺を直す（isaac/render.py の add_furniture）"},

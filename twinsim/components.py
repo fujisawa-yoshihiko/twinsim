@@ -32,6 +32,13 @@ WALL_PREF = 2.0  # 立って待つ所を選ぶとき、壁から 0.6 m より遠
 # isaac_bridge.DOOR_OPEN と合わせる、2026-11-16）
 ROOM_DOOR_IN_S, ROOM_DOOR_OUT_S = 1.3, 0.8
 ROOM_MATE_SIDE_M = 0.6  # 部屋の中で、仲間が立つ所の中の点からの横のずれ（m）
+# 部屋の中の点で人が重なった（定員の多い「ほかの科」で、出てくる人と入る人・出てくる人どうしが同じ点に立った。外来の 16 回で重なりの 2/3、2026-11-18）:
+# 入る人は、立つ人・出てくる人・そこへ向かう人からこの距離（m）より離れた横の所へ（横へ ROOM_MATE_SIDE_M ずつ ROOM_SIDE_SLOTS まで）。
+# 出る人は、自分の点のこの距離の中に人がいる間は中で待つ（ROOM_EXIT_WAIT_S まで）
+ROOM_POINT_CLEAR_M, ROOM_SIDE_SLOTS, ROOM_EXIT_WAIT_S = 0.5, 2, 30.0
+# 立って待つ所は、席の前の点（SEAT_APPROACH_M）からこの距離（m）より離す（席の前に立つ人と、座りに来る人・立って出る人が重なった。
+# 外来の 16 回で、部屋の外の重なりの 9 割、2026-11-18）
+STAND_SEAT_CLEAR_M = 0.5
 SEAT_MOVE_M_S = 0.5  # 席の前から席へ・席から前へ移る速さ（m/s。座る・立つ動作の代わり。人の動きの決まりは通さない）
 SEAT_APPROACH_M = 0.6  # 席の前の、歩いて着く点までの距離（m。そこから席へまっすぐ入る。席は歩ける所から外す（space.SEAT_BLOCK_M）ので、その外）
 SIT_SEAT_M, SIT_TRUNK = 0.42, 0.53  # 座った人の頭の高さ = 座面の高さ + 背の高さ × 座高の比（座高は背の高さの 5 割強）
@@ -428,6 +435,10 @@ class ComponentsMixin:
         j0, j1 = max(0, int((c[0] - radius - sp.x0) / sp.res)), min(sp.nx, int((c[0] + radius - sp.x0) / sp.res) + 1)
         ii, jj = np.nonzero(sp.grid[i0:i1, j0:j1] & (sp.clear[i0:i1, j0:j1] >= 0.3))
         pts = np.stack([sp.x0 + (jj + j0) * sp.res, sp.y0 + (ii + i0) * sp.res], 1)
+        fronts = self.seat_fronts()
+        if len(fronts):  # 席の前の点のまわりには立たない（STAND_SEAT_CLEAR_M）
+            keep = np.hypot(*(pts[:, None] - fronts[None]).transpose(2, 0, 1)).min(1) >= STAND_SEAT_CLEAR_M
+            pts, ii, jj = pts[keep], ii[keep], jj[keep]
         d = np.hypot(*(pts - c).T)
         # 壁ぎわを先に（通路の真ん中に立つと、待合の島の南の通路をふさぎ、呼ばれた人が出られなかった、2026-11-13）
         score = d + WALL_PREF * np.maximum(0.0, sp.clear[i0:i1, j0:j1][ii, jj] - 0.6)
@@ -439,6 +450,8 @@ class ComponentsMixin:
                 continue
             self.alloc[a.name] = (float(q[0]), float(q[1]))
             return self.alloc[a.name]
+        if radius < 12.0:  # 混んで埋まっていれば、広げてもう一度（2026-11-18）
+            return self.free_spot(a, center, radius * 2, gap)
         return self.alloc_stand(a, tuple(c))
 
     def _stand_wait(self, a, t, p, state, dur):
@@ -572,7 +585,7 @@ class ComponentsMixin:
                 yaw = a.yaw if a.yaw is not None else 0.0
                 q = np.asarray(p, float)  # 着いた所（中の点へ置き直すと、1 コマで最大 0.34 m 跳んだ）
 
-                a.room_in_t, a.room_wait = t, True
+                a.room_in_t, a.room_wait, a.room_going = t, True, None
 
                 def away(a, t, p):
                     # 仲間がまだ中へ歩いている間は、扉が開いたままなので立って待つ（先に入った人が、開いた扉の向こうで消えた、2026-11-16）。
@@ -582,7 +595,7 @@ class ComponentsMixin:
                     if t < last + ROOM_DOOR_IN_S - 1e-9 and t < a.room_in_t + 30.0:
                         self.play(a, t, [(float(p[0]), float(p[1]), a.yaw if a.yaw is not None else 0.0)] * 2, "pass", away)
                         return
-                    a.mode, a.state, a.hold, a.room_wait = "away", "in_room", False, False
+                    a.mode, a.state, a.hold, a.room_wait, a.room_target = "away", "in_room", False, False, None
                     self.here[a.name] = np.asarray(p, float).copy()
                     a.until = max(R._exit[id(lead)], t)
                     a.events["room"][-1]["exit"] = round(a.until, 2)
@@ -593,8 +606,39 @@ class ComponentsMixin:
             d = np.asarray(R.inside, float) - np.asarray(R.door, float)
             side = np.array([-d[1], d[0]]) / max(float(np.hypot(*d)), 1e-9)
             target = np.asarray(R.inside, float) + side * ROOM_MATE_SIDE_M * math.ceil(k / 2) * (1 if k % 2 else -1)
-            self.walk_then(a, p, target, "pass", inside, straight=True)
+            a.room_target = self._room_slot(a, target, side)
+            a.room_going = R
+            self.walk_then(a, p, a.room_target, "pass", inside, straight=True)
         self.walk_then(a, p, R.door, "pass", go_in)
+
+    def _room_slot(self, a, pref, side):
+        """部屋の中の点で a が立つ所: pref か、その横（ROOM_MATE_SIDE_M ずつ ROOM_SIDE_SLOTS まで）で、映っている人の位置と、
+        ほかの人が向かう・立つ部屋の中の点から ROOM_POINT_CLEAR_M 以上離れた所。どこも埋まっていれば pref。"""
+        taken = []
+        for b in self.agents:
+            if b is a or b.mode in ("pending", "done", "away"):
+                continue
+            taken.append(np.asarray(self.where(b)[0], float))
+            if getattr(b, "room_target", None) is not None:
+                taken.append(b.room_target)
+        T = np.array(taken, float).reshape(-1, 2)
+        for m in [0] + [s * k for k in range(1, ROOM_SIDE_SLOTS + 1) for s in (1, -1)]:
+            q = pref + side * ROOM_MATE_SIDE_M * m
+            if not len(T) or float(np.hypot(*(T - q).T).min()) >= ROOM_POINT_CLEAR_M:
+                return q
+        return pref
+
+    def _room_exit_blocked(self, a, xy, R):
+        """部屋から出る a の点 xy に、映っている人がいる（ROOM_POINT_CLEAR_M の中）か、同じ部屋へ入る人が扉から中へ歩いている。"""
+        for b in self.agents:
+            if b is a or b.mode in ("pending", "done", "away"):
+                continue
+            if getattr(b, "room_going", None) is R:
+                return True
+            q = self.where(b)[0]
+            if math.hypot(q[0] - xy[0], q[1] - xy[1]) < ROOM_POINT_CLEAR_M:
+                return True
+        return False
 
     def room_mates(self, a, R):
         """a と一緒に部屋 R へ入る仲間（a を含む。先導の人が先、あとは名前の順）。呼ばれた組（R.parties）のほか、あとから先導の人を追って入る仲間も。"""
@@ -610,8 +654,12 @@ class ComponentsMixin:
             if a.mode != "away":
                 continue
             xy = self.here[a.name]
-            if t >= a.until:  # このコマから映る: 中の点で扉が開き切るまで立ってから、扉へ歩く（このコマの記録は step_agents が書く）
-                R = a.comp["room"]
+            R = a.comp["room"]
+            if t >= a.until and t < a.until + ROOM_EXIT_WAIT_S and self._room_exit_blocked(a, xy, R):
+                pass  # 自分の点に人がいる・入る人が歩いている間は中で待つ（下で in_room として記録）
+            elif t >= a.until:  # このコマから映る: 中の点で扉が開き切るまで立ってから、扉へ歩く（このコマの記録は step_agents が書く）
+                if a.events.get("room"):
+                    a.events["room"][-1]["exit"] = round(t, 2)  # 待って遅れた分（描画の扉はこの時刻に開く）
                 a.xy = np.asarray(xy, float).copy()
                 d = np.asarray(R.door, float) - np.asarray(xy, float)
                 yaw = math.degrees(math.atan2(d[1], d[0]))

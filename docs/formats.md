@@ -73,7 +73,7 @@ def project(cam, pts):                       # pts: (N, 3) 世界の座標 → (
 | キー | 中身 |
 |---|---|
 | `model`・`kind`・`height_m`・`tint_index` | 人物モデル（Isaac Sim の人物、10 種類）・性別 F/M・背の高さ（m）・服の色の番号（描画で人ごとに色を変える） |
-| `type`・`stream`・`origin`・`destination`・`flow` | 種類（staff・visitor など）・流れの名前・現れた場所・行き先・「現れた場所->行き先」 |
+| `type`・`stream`・`origin`・`destination`・`flow` | 種類（staff・visitor・clerk（店員、office_lunch のカフェ）など）・流れの名前・現れた場所・行き先・「現れた場所->行き先」 |
 | `group`・`role`・`relation` | グループの名前（`G001`、1 人なら null）・同行者なら `companion`・グループの関係（1.2 から。`groups` と同じ） |
 | `start_frame`・`arrive_frame`・`speed_m_s` | 現れた・消えたコマ、思う歩く速さ |
 | `states` | `[[始まりのコマ, 終わりのコマ, 状態], …]`（状態は下の表） |

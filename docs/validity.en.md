@@ -638,6 +638,40 @@ Remaining:
   (people working at shelves now step aside)
 - The car a late boarding person gets into may already have left (car departure times are not modeled; the elevator doors stay open in the rendering)
 
+### 5.14 Remaining rendering fixes: overlaps at seat fronts and room points, staff and a machine at the cafe (1.2, 2026-11-18)
+
+The three rendering items among the known limitations in the 1.2 release notes (overlaps around benches, no staff or machine at the cafe counter, the rendered annotation boxes of seated people) were fixed and checked.
+Simulation records are in `~/dt-data/twinsim/crowd_check/render13/` (README.md); the 16-run comparison is v1.2 → v1.2b in `~/dt-data/twinsim/crowd_check/release_1.2/`.
+
+- **Where the overlaps were:** in 16 outpatient runs, of 1,608 pair-frames with centres under 0.3 m (excluding mates, all positions in `frames.csv`), 1,057 were at the inside point of "other clinics" (`other_clinics`).
+  People leaving a room appear there and wait for the door to open (5.10). With a capacity of 100 and many people coming and going, people coming out and going in, or two coming out, stood on the same point. It is outside the walkable area, so the previous overlap measure (on the walkable area) did not count it.
+  499 were people standing and waiting within 0.5 m of a seat front point (where people walk in to sit) with people sitting down, standing up and leaving, or passing. They came from the fallback `alloc_stand` when the standing-spot search was full at busy times, and from people pushed in front of seats while making way.
+- **Fix (room points):** a person going in takes the inside point or one of up to two points 0.6 m to each side that is 0.5 m from visible people and from points others are heading for (`ROOM_POINT_CLEAR_M`, `ROOM_SIDE_SLOTS`).
+  A person coming out waits inside while someone is within 0.5 m of their point or someone is walking in from the door to the same room (up to 30 s, `ROOM_EXIT_WAIT_S`). The `exit` of `room` in `events` is now the time they actually came out (the rendered door opens then)
+- **Fix (seat fronts):** standing spots keep 0.5 m from seat front points (`free_spot`, `alloc_stand`, `STAND_SEAT_CLEAR_M`). If nothing is free within 6 m at busy times, the search widens to 12 m.
+  A person pushed in front of seats while making way moves away at 0.2 m/s in the direction of the sum of the directions away from all nearby seat front points (away from only the nearest point, they went back and forth between two neighbouring points in front of a row and could not get out)
+- **Tried and not used:** stopping making-way steps from entering seat fronts (unable to make way, a passer-by and a stander stood 0.16 m apart for 120 s; seed 12). Also waiting until the straight path into and out of a room is clear (people waiting at the door and people coming out collided; in a test room overlaps rose from 24 to 231 pair-frames)
+- **Cafe:** the counter, the same asset as the reception desk in the USD, is a 1.12 m high ledge only on the customer side (0.35 m deep) and a 0.75 m desk on the staff side (measured from the asset's points). The counter was moved 0.8 m away from the wall,
+  with two staff behind it (streams `cafe_staff_1` and `_2`, one each appearing at time 0 and staying in state `work` to the end, type `clerk`), a drinks machine between it and the pillar to the north (`SM_DrinksMachine`, 1.2 m wide, 1.83 m high),
+  and two takeaway coffees and a cup on the ledge (furniture now has a height above the floor, `z`; items with a height do not block the floor). The customer points, queue and waiting point for mates moved 0.5 m west too.
+  The tracks of the office templates that do not use the cafe are unchanged (nobody walks near the counter)
+- **Judgements:** with a stream of fixed group size (`group_size: 1` of the staff), the group-size judgement was skipped (not zero-truncated Poisson). A fixed size now enters the expected shares
+
+Results (16 runs each; before is v1.2 in `release_1.2/`, now is v1.2b; the other templates have the same tracks):
+
+| Template | Measure | Before | Now |
+|---|---|---|---|
+| `hospital_outpatient` | Overlaps (pair-frames, total over 16 runs, excluding mates, all positions) | 1,608 (other clinics' inside point 1,057, standers at seat fronts 499) | 798 (0, 73) |
+| | Overlaps on the walkable area (per 1,000 person-frames, mean per run) | 0.041 | 0.071 (excluding seed 12, 0.025 → 0.003) |
+| | Safety valve (per run), shaking, stuck people, largest step | 1.94, 0.3, 0, 0.07 m | 1.88, 0.2, 0, 0.07 m |
+| | Free walking speed, group size, dyads, lateral spread | 16/16, 16/16, 16/16, 16/16 | 16/16, 16/16, 15/16, 15/16 |
+| `office_lunch` | Safety valve, overlaps on the walkable area, shaking | 1.25, 0.003, 2.5 | 0.94, 0.000, 2.3 |
+| | Taking over 10 s to board, mean travel time (excluding staff) | 1.0%, 74.7 s | 1.4%, 71.2 s |
+| | Judgements (speed, group size, dyads, standing spacing, arrivals / lateral spread / gate headway) | 16/16 / 14/16 / 2/2 | 16/16 / 16/16 / 1/1 |
+
+Remaining: in seed 12 of the outpatients, a passer-by got stuck for 18 s beside a person standing and waiting to be called, and most of the overlap on the walkable area is this one case (resolved by the safety valve; the same pattern as the remainder in 5.13).
+Seed 12 is a busy run whose results swing widely: 0.29 in the previous version, 0.27 with the move-away rule turned off (21 safety-valve uses) and 1.09 now (8 uses).
+
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 
 | Value | Current | How to calibrate |

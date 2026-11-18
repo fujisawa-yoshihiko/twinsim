@@ -442,7 +442,7 @@ rooms:
 
 | 空間 | 現れる・出る | ゲート | EV | 止まる | 窓口・部屋・座る（1.2） | カメラの候補 |
 |---|---|---|---|---|---|---|
-| `office` | `entrance`・`south_exit`・`west_corridor`・`east_room` | `gate` | `EV1`・`EV2` | `reception_w1`・`reception_w2`・`reception_e1`・`lounge_1`〜`3`・`sign_view`・`sign` | 窓口 `cafe`、座る `cafe_seats` | `CamGate`・`CamEV`・`CamLobby`・`CamCafe` |
+| `office` | `entrance`・`south_exit`・`west_corridor`・`east_room` | `gate` | `EV1`・`EV2` | `reception_w1`・`reception_w2`・`reception_e1`・`lounge_1`〜`3`・`sign_view`・`sign` | 窓口 `cafe`、座る `cafe_seats`、カフェの店員の現れる所 `cafe_back_1`・`cafe_back_2` と立つ所 `cafe_clerk_1`・`cafe_clerk_2`（1.2 の `office_lunch`） | `CamGate`・`CamEV`・`CamLobby`・`CamCafe` |
 | `hospital` | `lobby_entrance`・`west`・`hall_side`・`west_room` | | `EV` | `reception_1`・`reception_2` | 窓口 `front_desk`・`cashier`・`pharmacy`、部屋 `consult_1`〜`5`・`other_clinics`、座る `lobby_seats`・`clinic_seats` | `CamGate`・`CamHall`・`CamClinic`・`CamWaiting` |
 | `warehouse` | `dock` | | | `pick_1`〜`12`・`pack_1`〜`4`・`staging_1`・`staging_2`・`break_1` | 窓口 `time_clock`（打刻機）・`packing`（梱包の台 4 つ）、座る `break_seats` | `CamAisles`・`CamPack`・`CamDock` |
 | `simple_room` | `door_w`・`door_e` | | | `table_1`・`table_2` | | `CamRoom` |

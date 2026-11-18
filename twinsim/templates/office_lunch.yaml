@@ -1,6 +1,6 @@
 # オフィスの昼（1.2 の部品）: 昼食に出る人・戻る人がゲートと EV を通り、一部はロビーのコーヒーカウンターに並んで買い、持って上がるか、ソファで休んでから上がる。30 分。
 # EV の流れの内訳は文献の値（Peters ら 2011 の昼: 入る 45%・出る 45%・階の間 10%）。昼の混む 5 分の割合、カフェに寄る割合、応対の時間、ソファにいる時間は
-# 文献の値がないので仮（docs/validity.md の台帳）。カウンターは見立て（描画で置く）、ソファは USD のもの。
+# 文献の値がないので仮（docs/validity.md の台帳）。カウンターは見立て（描画で置く。後ろに店員 2 人）、ソファは USD のもの。
 name: office_lunch
 title: オフィスの昼（コーヒーカウンターの列・ソファで休む、30 分）
 title_en: "Office lunchtime (coffee counter queue, resting on sofas, 30 minutes)"
@@ -27,6 +27,20 @@ streams:
     types: visitor
     destinations:
       - {to: reception, via: [gate], dwell: {type: lognormal, median: 25, sigma: 0.4, min: 8, max: 90}, then: elevator}
+  - name: cafe_staff_1       # カフェの店員（カウンターの後ろに始まりからいる。2 人、状態 work）
+    origin: cafe_back_1
+    rate: {type: times, times: [0]}
+    group_size: 1
+    types: clerk
+    destinations:
+      - {to: cafe_clerk_1, dwell: 100000, state: work}
+  - name: cafe_staff_2
+    origin: cafe_back_2
+    rate: {type: times, times: [0]}
+    group_size: 1
+    types: clerk
+    destinations:
+      - {to: cafe_clerk_2, dwell: 100000, state: work}
   - name: through            # ゲートの内側の通り抜け（仮。office_gate_ev と同じ）
     origin: south_exit
     rate: {type: constant, per_min: 2, unit: persons}

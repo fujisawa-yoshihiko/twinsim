@@ -73,7 +73,7 @@ Contents of `people[name]`:
 | Key | Contents |
 |---|---|
 | `model`, `kind`, `height_m`, `tint_index` | Character model (Isaac Sim characters, 10 kinds), sex F/M, height (m), clothing color index (rendering gives each person a different color) |
-| `type`, `stream`, `origin`, `destination`, `flow` | Type (staff, visitor, etc.), stream name, where the person appeared, destination, "origin->destination" |
+| `type`, `stream`, `origin`, `destination`, `flow` | Type (staff, visitor, clerk (counter staff at the office_lunch cafe), etc.), stream name, where the person appeared, destination, "origin->destination" |
 | `group`, `role`, `relation` | Group name (`G001`; null if alone), `companion` if the person is a companion, the group's relation (from 1.2; same as in `groups`) |
 | `start_frame`, `arrive_frame`, `speed_m_s` | Frames at which the person appeared and disappeared, desired walking speed |
 | `states` | `[[start frame, end frame, state], …]` (states in the table below) |
