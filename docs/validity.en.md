@@ -671,6 +671,20 @@ Results (16 runs each; before is v1.2 in `release_1.2/`, now is v1.2b; the other
 
 Remaining: in seed 12 of the outpatients, a passer-by got stuck for 18 s beside a person standing and waiting to be called, and most of the overlap on the walkable area is this one case (resolved by the safety valve; the same pattern as the remainder in 5.13).
 Seed 12 is a busy run whose results swing widely: 0.29 in the previous version, 0.27 with the move-away rule turned off (21 safety-valve uses) and 1.09 now (8 uses).
+In the same seed 12, from 1,470 to 1,545 s while the waiting area was crowded, the companions of two called patients took long to get through people standing and waiting to be called (40 s for 3 m).
+They entered the consultation room up to 18 s after their patients, and the mean dyad distance went from 0.83 to 1.12 m, making the judgement a caution.
+Over all 16 runs, the time from being called to entering a room (mean 27.6 s, 90th percentile 38.8 s), the delay of companions (mean 0.4 s) and the number of people in that area (about 25) are the same as before.
+We take it as one case caused by small differences in where people stand. The lateral spread at 15/16 is the density bin 0.10–0.15 people/m² of seed 10 (29 points), where the difference of −0.176 m is just over the tolerance of 0.172 m.
+
+Rendering (one GPU): with the current version, `CamCafe` from 772 to 802 s of office lunchtime (seed 1) and `CamWaiting` from 1,751 to 1,781 s of the outpatients (seed 1, with the rendered annotations `labels/`) were rendered (records in `review/` of render13).
+
+- **Cafe:** the two staff stand behind the counter and have ground-truth boxes (full-body boxes including the legs hidden by the counter). The takeaway coffees and the cup sit on the high ledge.
+  The drinks machine is outside the view of `CamCafe` (at the north end), so 10 frames were rendered with two trial cameras to check that its front (the display and buttons) faces the lobby (west) (`rot: 180`)
+- **Rendered annotations of seated people:** the IoU of the full-body box (including hidden parts) with the simulation box (`mot/`) while seated (5,452 rows) has a median of 0.72, a 10th percentile of 0.62 and none under 0.5 (walking people: median 0.65).
+  During the sitting-down motion (655 rows), 95 rows are under 0.5: the rendered annotation encloses the body bending forward, but the simulation box only changes its height with the pelvis and does not follow the upper body bending forward
+- **Around benches:** no visible overlaps in the 30 rendered seconds. This seed had no overlaps at seat fronts in the previous version either, so the difference before and after is seen in the numbers above
+- **The Isaac Sim receiver:** it exits after a job that outputs rendered annotations (a second annotation in the same Isaac Sim comes out empty or wrong; since 2026-11-03). `tools/render_farm.sh` restarts it automatically, but
+  one started with `./isaac_up.sh` is not restarted, so start it again to render more (written in [operations.en.md](operations.en.md))
 
 ## 6. Values without literature (provisional) and how to calibrate them with real data
 

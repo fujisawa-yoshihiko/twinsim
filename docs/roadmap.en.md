@@ -110,8 +110,9 @@ What to build (1.2):
 
 From [the known limitations in release-1.2.en.md](release-1.2.en.md#known-limitations):
 
-- Rendering: overlaps around the benches along the south windows of the hospital lobby, staff and a machine at the coffee counter, checking the rendered ground-truth boxes (`labels/`) of seated people
-- Movement: people taking over 10 s to board in front of crowded elevators (20% in the office of corpus set A), shaking in place (2–6 per 1,000 person-seconds), late boarders boarding a car that has left
+- Rendering: the simulation box during the sitting-down motion (the upper body bending forward), something placed in rendering for the time clock
+- Movement: people taking over 10 s to board in front of crowded elevators (20% in the office of corpus set A), shaking in place (2–6 per 1,000 person-seconds), late boarders boarding a car that has left,
+  getting stuck beside people standing and waiting in a crowded waiting area (seed 12 of the outpatients)
 - Spaces: a simple scene for rendering (floor and walls extruded) from a space written as polygons
 
 ### Two or more cameras

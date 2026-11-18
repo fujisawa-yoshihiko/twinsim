@@ -26,8 +26,9 @@ It summarises the implementation and changes since 1.1 (2026-11-12) and the resu
 - Counters (`services`): a queue (`line`), first come first served in an area (`area`) or calling (`call`: people sit and wait and are called as places free up). The number of service places and the service time go in the configuration.
   A place where people work standing (the packing tables of the warehouse) can be written as a counter with a state name (`state: work`) ([5.9](validity.en.md#59-components-that-are-the-purpose-of-a-trip-12-2026-11-13),
   [5.12](validity.en.md#512-warehouse-shift-start-work-points-with-a-capacity-and-a-queue-and-the-state-while-walking-to-a-queue-12-2026-11-16)).
-- Seating (`seats` in a space): people walk to a free seat and sit; if all are taken they stand nearby. Seats can be made on furniture (`furniture`).
-- Rooms (`rooms`): a door, a capacity and a time inside. People inside are not seen (their ground-truth boxes stop too) and come out with the same person number.
+- Seating (`seats` in a space): people walk to a free seat and sit; if all are taken they stand nearby (keeping off the front of seats, where people walk in to sit). Seats can be made on furniture (`furniture`).
+- Rooms (`rooms`): a door, a capacity and a time inside. People inside are not seen (their ground-truth boxes stop too) and come out with the same person number. People going in take separate inside points, and people coming out wait inside until the area around their point is clear
+  ([5.14](validity.en.md#514-remaining-rendering-fixes-overlaps-at-seat-fronts-and-room-points-staff-and-a-machine-at-the-cafe-12-2026-11-18)).
 - `visits` in a destination: choose n places from the candidates with a name prefix and visit them in the order of their numbers (warehouse shelves).
 - Routes of people going elsewhere avoid the front of counters where possible ([5.11](validity.en.md#511-routes-avoiding-the-front-of-counters-office-lunchtime-coffee-counter-and-folds-when-members-join-the-leaders-route-12-2026-11-16)).
 - Three new templates: `hospital_outpatient` (hospital outpatients, 30 min: reception → waiting area → consultation room → cashier → pharmacy; consultation times from the MHLW Patient's Behavior Survey),
@@ -36,11 +37,13 @@ It summarises the implementation and changes since 1.1 (2026-11-12) and the resu
 - Added to the spaces: in the hospital, reception, cashier, pharmacy, benches in the waiting areas, five consultation rooms and cameras `CamClinic` and `CamWaiting`; in the office, a coffee counter, sofas and camera `CamCafe`;
   in the warehouse, a time clock, packing tables, break benches and camera `CamDock`.
 
-### Rendering (5.10–5.12)
+### Rendering (5.10–5.12, 5.14)
 
 - Sitting motion (NVIDIA Isaac Sim People's `SitAndStandChair` retargeted to the character skeleton). The simulation sits down and stands up along the body trajectory of the asset, so the ground-truth position and the rendered body agree
   ([5.10](validity.en.md#510-checking-the-rendering-sitting-benches-consultation-room-doors-and-people-inside-rooms-12-2026-11-16)).
-- Furniture: benches, sofas (`sofa3`), counters (`counter2`) and packing tables (`pack_table`). Furniture not in the USD is placed by the renderer.
+- Furniture: benches, sofas (`sofa3`), counters (`counter2`), packing tables (`pack_table`), a drinks machine, takeaway coffees and a cup. Furniture not in the USD is placed by the renderer.
+  Furniture can have a height above the floor, `z` (items on a ledge; items with a height do not block the floor).
+- The office coffee counter was moved away from the wall, with two staff behind it (type `clerk`, state `work`) and a drinks machine beside it (5.14).
 - Consultation-room doors open only when someone passes (`door_prim`). People inside rooms are put under the floor and do not appear in the rendered ground truth (`labels/`).
 - The ground-truth box of a seated person uses the seated height and includes the knees and feet that stick out in front.
 
@@ -64,7 +67,8 @@ It summarises the implementation and changes since 1.1 (2026-11-12) and the resu
 ### Changes to the output formats ([formats.en.md](formats.en.md))
 
 - `ground_truth.json`: `groups`, per-person `relation` and `sit` (intervals of the sitting motion), `sit_clip`, and the events `regroup`, `service`, `room`, `seat` and `call`.
-  States `group_wait`, `service_queue`, `service`, `call_wait`, `seated` and `in_room` (and names given with a destination's `state`). When the configuration contains the space itself, `space` is its `name`.
+  States `group_wait`, `service_queue`, `service`, `call_wait`, `seated` and `in_room` (and names given with a destination's `state`). The person type `type` can be `clerk` (staff).
+  When the configuration contains the space itself, `space` is its `name`.
 - `frames.csv.gz`: a column `pose` (`walk`, `stand`, `sit`, `sit_down`, `stand_up`) is added at the end. Rows inside rooms (`in_room`) are not written.
 - `mot/` and `labels/`: a seated person's box uses the seated height. People inside rooms are not written.
 - `3_dwell` in `tasks.json`: now every state except the walking states and inside a room (before, it listed stopping states and missed the warehouse's `work` and `wait`; results of `warehouse_picking` change).
@@ -78,7 +82,7 @@ It summarises the implementation and changes since 1.1 (2026-11-12) and the resu
   However, the following are now errors before the simulation:
   - a point of a place in the space (entrance, exit, stop or elevator) outside the walkable area (all places of the bundled spaces are inside)
   - candidates chosen by a destination's name prefix that mix places of different kinds (5.9; the bundled spaces are named so that they do not mix)
-- Furniture added to the spaces changes the walkable area slightly even for templates that do not use components: the coffee counter along the east wall of the office lobby, benches in the hospital lobby and in front of the consultation rooms,
+- Furniture added to the spaces changes the walkable area slightly even for templates that do not use components: the coffee counter and drinks machine along the east wall of the office lobby, benches in the hospital lobby and in front of the consultation rooms,
   and the packing tables and break benches of the warehouse (the floor footprint of furniture placed by the renderer is removed from the walkable area).
 - The spaces the GUI accepts from the browser are only the names in the list or spaces written as polygons (dicts) (in 1.1, a folder path on the server could also be given).
 - The output formats only gain items, and the meaning of the 1.1 items is unchanged, except that `3_dwell` in `tasks.json` counts different states (see "Changes to the output formats" above).
@@ -87,7 +91,7 @@ It summarises the implementation and changes since 1.1 (2026-11-12) and the resu
 
 ### Automatic checks (`tools/release_check.sh` and others)
 
-- Style (ruff) and automatic tests (pytest, 230 tests). GitHub CI (Python 3.10 and 3.13, installing from the wheel and running)
+- Style (ruff) and automatic tests (pytest, 232 tests). GitHub CI (Python 3.10 and 3.13, installing from the wheel and running)
 - The wheel installed into clean environments (Python 3.10 and 3.13) and run: with the same configuration and seed, the ground truth (`ground_truth.json`) is the same across Python versions
 - 1.1 configurations are read as they are (the 13 templates of 1.1 computed in the comparison below, and the 6 examples run with 1.2)
 - No secrets (detect-secrets on the working tree). No known vulnerabilities in the dependencies (pip-audit, the versions in `uv.lock`)
@@ -129,8 +133,8 @@ The three templates added in 1.2 were computed with seeds 1–16 (same tools and
 
 | Template | People (per run) | Safety valve (per run) | Pairs with centres under 0.3 m | Shaking in place | Stuck people | Largest step | Judgements |
 |---|---:|---:|---:|---:|---:|---:|---|
-| `hospital_outpatient` | 112 | 1.94 | 0.041 | 0.3 | 0 | 0.07 m | Free walking speed, group size, dyads and lateral spread 16/16 |
-| `office_lunch` | 406 | 1.25 | 0.003 | 2.5 | 0 | 0.08 m | Free walking speed, group size, dyads, standing spacing and arrivals 16/16, lateral spread 14/16, gate headway 2/2. Taking over 10 s to board 1.0% |
+| `hospital_outpatient` | 112 | 1.88 | 0.071 | 0.2 | 0 | 0.07 m | Free walking speed and group size 16/16, dyads and lateral spread 15/16 |
+| `office_lunch` | 414 | 0.94 | 0.000 | 2.3 | 0 | 0.08 m | Free walking speed, group size, dyads, lateral spread, standing spacing and arrivals 16/16, gate headway 1/1. Taking over 10 s to board 1.4% |
 | `warehouse_shift` | 21 | 1.94 | 0.006 | 2.5 | 0 | 0.06 m | Free walking speed and arrivals 16/16 |
 
 What happens at counters, seats, rooms and work points (waiting times, seats, shares of time) is in 5.9–5.12.
@@ -139,6 +143,8 @@ What happens at counters, seats, rooms and work points (waiting times, seats, sh
 
 - The outpatient clinic (seed 1), office lunchtime (`CamCafe`, 40 s) and the warehouse (seed 1, three cameras) were rendered on one GPU and checked by eye: the sitting motion, benches, consultation-room doors, people inside rooms, the counter, packing tables
   and the ground-truth boxes overlaid (5.10–5.12).
+- After the fixes ([5.14](validity.en.md#514-remaining-rendering-fixes-overlaps-at-seat-fronts-and-room-points-staff-and-a-machine-at-the-cafe-12-2026-11-18)), 30 s of `CamCafe` at lunchtime and 30 s of `CamWaiting` for the outpatients (with rendered annotations) were rendered to check the cafe staff, the direction of the drinks machine, the items on the ledge
+  and the rendered annotation boxes (`labels/`) of seated people (IoU with the simulation boxes: median 0.72 while seated, none under 0.5).
 - A check that matches rendered material against a detector and tracker, like corpus v6 for 1.1, was not done for 1.2.
 
 ## Known limitations
@@ -148,11 +154,11 @@ What happens at counters, seats, rooms and work points (waiting times, seats, sh
 - Shaking in place remains at 2–6 per 1,000 person-seconds (people walking to the waiting area, people passing through crowds). In `warehouse_shift` it rose from 1.9 to 2.7 with the fixes (people working at shelves now make way).
 - Groups: formation for four or more (two rows), the spacing of companions and the time spent waiting beyond a gate (30 s) are provisional. Dyads in `office_ev_hall` are a little narrower than the literature.
 - Components: values without literature (reception, cashier, pharmacy, time clock and packing times, arrival volumes and others) are provisional (section 6 of validity.en.md). Hospital reception is calling only (numbered tickets; a queue along the desk became a dead end, 5.9).
-  Shelves have no capacity.
+  Shelves have no capacity. In seed 12 of the outpatients, while the waiting area was crowded, a passer-by got stuck for 18 s beside people standing and waiting to be called, and companions entered the consultation room up to 18 s after their patients (this one run of 16; 5.14).
 - Rendering:
-  - Around the benches added along the south windows of the hospital lobby, waiting companions and passers-by can appear to overlap (5.10).
-  - The coffee counter has no staff and no coffee machine, so the queue can look like a queue at the reception desk. The time clock is notional and nothing is placed for it in rendering.
-  - The rendered ground-truth boxes (`labels/`) of seated people have not been checked yet (the `mot/` boxes were checked against the rendered body).
+  - During the sitting-down motion (about 1 s), the simulation box (`mot/`) only changes its height with the pelvis and does not follow the upper body bending forward. The rendered annotation (`labels/`) does
+    (the IoU between them is under 0.5 in 15% of the sitting-down frames; 5.14).
+  - The time clock is notional and nothing is placed for it in rendering.
 - Spaces: spaces written as polygons have no USD and cannot be rendered (simulation and ground truth only). The GUI map is shown only for spaces with a top view. One level only. `simple_room` renders black from inside.
 - Remaining from 1.1: the rendered "visible-part box" encloses all visible pixels, so for a person whose legs are visible between other people, a detection around the upper body may not reach IoU 0.5.
 - Remaining from 1.0: a camera's `clock_offset_s` and `drop_rate` are only recorded. `gate_events` times are when the head of the queue starts moving. `boarded` includes people who could not board.

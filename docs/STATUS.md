@@ -51,8 +51,11 @@
   済み（計算の側）: 部屋の中の点の重なり（入る人は横の空いた所へ、出る人は空くまで中で待つ。events の room の exit は出た時刻）、席の前に立つ人（free_spot・alloc_stand は席の前の点から 0.5 m、
   押し出された人は離れる）、カフェ（カウンターを壁から 0.8 m 離し、後ろに店員 2 人の流れ cafe_staff_1・2（clerk、work）、飲み物の機械、台の上のコーヒー。家具の z）、
   判定の決まった人数の流れ。1.2 の 182 回を取り直した（release_1.2 の v1.2b、summary_v1.2b.md。変わったのは外来と昼だけ）。
-  描画はまだ: GPU 3 はユーザーの vLLM（Qwen3.5-9B、88 GB）が使っていて載らないので GPU 2 を案に、確認待ち。区間は scripts/render_now.py（昼の CamCafe 772〜802 秒、外来の CamWaiting 1,751〜1,781 秒と labels）
-- 次: 描いて確かめる（機械の正面の向き・店員の見え方・座る人の labels の枠）→ リリースノートを直す → push → 出す（main の早送り・タグ v1.2.0・Releases。ユーザーの確認を取ってから）。
+  済み（描画、GPU 2・ユーザーの確認のうえ）: 昼の CamCafe 30 秒・外来の CamWaiting 30 秒と labels、機械を見る試しのカメラ 2 台で 10 コマ（render13 の review/、scripts/render_now.py・labels_check.py）。
+  店員 2 人と枠・台の上の物・機械の正面は西で合う。座っている人の labels と mot の IoU は中央 0.72・0.5 未満なし、座る動作の途中は mot が前かがみを追わない（既知の制限に）。
+  ./isaac_up.sh の Isaac Sim は labels のジョブのあと終わって起動し直さない（docs/operations.md に書いた）。
+  v1.2b で外来の 2 人連れ 15/16 は種 12 の待合の混雑（付き添いが最大 18 秒遅れ）、横の広がり 15/16 は種 10 の境目（5.14・既知の制限に）。release_check 通過（232 件）
+- 次: push（ec2a2de 以降）→ 出す（main の早送り・タグ v1.2.0・Releases）。どちらもユーザーの確認を取ってから。
 
 ## 2026-11-12（1.1 の準備、ブランチ crowd-cfsm）
 
