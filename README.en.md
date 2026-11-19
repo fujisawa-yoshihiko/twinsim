@@ -7,6 +7,18 @@ It can be called as a Python library. When video is needed, it is rendered with 
 
 `main` contains the simulator only (the MOPF detection/tracking integration and person re-identification are on the `with-mopf` branch).
 
+## Demo
+
+Build a configuration in the GUI, simulate the people (CPU), and render the busiest 5 seconds with Isaac Sim (GPU):
+
+![Demo: build a configuration in the GUI and make video](docs/img/demo_gui_en.gif)
+
+From Python code (JupyterLab): simulate → ground-truth labels → render → draw the ground-truth boxes on the video:
+
+![Demo: make video from Python code](docs/img/demo_code_en.gif)
+
+Screen recordings of twinsim 1.1.0, shown as GIFs at 2× speed (waits for simulation and rendering are fast-forwarded further; the mouse cursor was drawn into the recording).
+
 ## Installing
 
 ```bash
